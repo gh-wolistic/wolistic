@@ -10,8 +10,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+backend/lib/
+backend/lib64/
 parts/
 sdist/
 var/
@@ -33,10 +33,10 @@ backend/.env.production
 
 # Frontend env files
 frontend/.env.local
+frontend/.env.development.local
+frontend/.env.production.local
 frontend/.env.development
 frontend/.env.production
-frontend/.env.production.local
-frontend/.env.development.local
 
 # Next.js
 frontend/.next/
