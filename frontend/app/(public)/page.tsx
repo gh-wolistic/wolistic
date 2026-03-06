@@ -3,13 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
-import AuthModal from "@/components/auth-modal";
+import { OpenAuthButton } from "@/components/auth/OpenAuthButton";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function Home() {
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [health, setHealth] = useState("checking");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
@@ -80,13 +79,9 @@ export default function Home() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => setIsAuthModalOpen(true)}
-            className="rounded-lg bg-zinc-900 px-5 py-2.5 font-medium text-white hover:bg-zinc-700"
-          >
+          <OpenAuthButton className="rounded-lg bg-zinc-900 px-5 py-2.5 font-medium text-white hover:bg-zinc-700">
             Login / Sign Up
-          </button>
+          </OpenAuthButton>
 
           <Link
             href="/authorized"
@@ -98,8 +93,6 @@ export default function Home() {
           {isLoggedIn ? <p className="self-center text-sm text-emerald-700">Logged in</p> : null}
         </div>
       </main>
-
-      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </>
   );
 }
