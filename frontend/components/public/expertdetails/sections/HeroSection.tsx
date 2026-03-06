@@ -83,7 +83,7 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
                       </div>
 
                       <div className="flex flex-wrap gap-2">
-                        <StatusChip label={professional.category} tone="featured" />
+                        {professional.category && <StatusChip label={professional.category} tone="featured" />}
                         {professional.certifications.map((cert) => (
                           <Badge key={cert} variant="outline">
                             {cert}

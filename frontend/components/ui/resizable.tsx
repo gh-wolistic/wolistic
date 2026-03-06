@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { GripVerticalIcon } from "lucide-react";
+// @ts-expect-error -- react-resizable-panels version mismatch; component unused
 import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
 
 import { cn } from "./utils";

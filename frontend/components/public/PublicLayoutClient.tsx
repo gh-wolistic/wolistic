@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { PublicFooter } from "./PublicFooter";
 import { PublicHeader } from "./PublicHeader";
+import { BackToTopButton } from "./BackToTopButton";
 import { AuthModalProvider, useAuthModal } from "@/components/auth/AuthModalProvider";
 import { AuthSessionProvider, useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { resolveAuthProfileFromBackend } from "@/components/auth/resolve-auth-profile";
@@ -44,6 +45,7 @@ function PublicLayoutShell({ children }: { children: React.ReactNode }) {
       />
       <main className="flex-1">{children}</main>
       <PublicFooter />
+      <BackToTopButton />
     </div>
   );
 }

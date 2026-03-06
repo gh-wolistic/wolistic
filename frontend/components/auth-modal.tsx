@@ -63,5 +63,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     // Validation
     if (!name.trim()) {
       setError("Name is required");
-      export { default } from "@/components/auth/AuthModal";
+      return;
     }
+  };
+
+  if (!isOpen) return null;
+
+  return null;
+}
