@@ -43,7 +43,17 @@ docker compose up --build
 Service:
 
 - API: `http://localhost:8000`
-- Health: `http://localhost:8000/api/v1/health`
+- Liveness: `http://localhost:8000/api/v1/healthz`
+- Readiness: `http://localhost:8000/api/v1/readyz`
+
+## 4) Run tests
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+The tests run against FastAPI routes and override DB dependencies, so they do not require a live database.
 
 ## Notes for scalability
 

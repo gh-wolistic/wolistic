@@ -22,9 +22,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Testing
+
+Run unit tests:
+
+```bash
+npm run test
+```
+
 The homepage calls the backend health endpoint at:
 
-- `${NEXT_PUBLIC_API_BASE_URL}/api/v1/health`
+- `${NEXT_PUBLIC_API_BASE_URL}/api/v1/healthz`
 
 You can edit the page at `app/page.tsx`. The page auto-updates as you edit the file.
 

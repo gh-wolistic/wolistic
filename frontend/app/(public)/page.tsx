@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { OpenAuthButton } from "@/components/auth/OpenAuthButton";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export default function Home() {
   const [health, setHealth] = useState("checking");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated } = useAuthSession();
 
-  const healthUrl = useMemo(() => `${apiBaseUrl}/api/v1/health`, []);
+  const healthUrl = useMemo(() => `${apiBaseUrl}/api/v1/healthz`, []);
 
   useEffect(() => {
     let mounted = true;
@@ -38,26 +38,10 @@ export default function Home() {
       }
     };
 
-    const supabase = getSupabaseBrowserClient();
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setIsLoggedIn(Boolean(data.session));
-      }
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        setIsLoggedIn(Boolean(session));
-      }
-    });
-
     loadHealth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
     };
   }, [healthUrl]);
 
@@ -90,7 +74,7 @@ export default function Home() {
             Go to Authorized Page
           </Link>
 
-          {isLoggedIn ? <p className="self-center text-sm text-emerald-700">Logged in</p> : null}
+          {isAuthenticated ? <p className="self-center text-sm text-emerald-700">Logged in</p> : null}
         </div>
       </main>
     </>
