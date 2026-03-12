@@ -24,7 +24,6 @@ export type ProfessionalProfile = {
   id: string;
   username: string;
   name: string;
-  email?: string;
   specialization: string;
   category?: string;
   location?: string;

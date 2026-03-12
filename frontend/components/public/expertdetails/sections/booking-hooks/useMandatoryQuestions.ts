@@ -15,7 +15,6 @@ type SubmitArgs = {
 type UseMandatoryQuestionsArgs = {
   showBookingFlow: boolean;
   professionalUsername: string;
-  userId?: string;
   onboardingComplete?: boolean;
   token?: string;
   onOnboardingMarked: () => void;
@@ -24,7 +23,6 @@ type UseMandatoryQuestionsArgs = {
 export function useMandatoryQuestions({
   showBookingFlow,
   professionalUsername,
-  userId,
   onboardingComplete,
   token,
   onOnboardingMarked,
@@ -55,7 +53,7 @@ export function useMandatoryQuestions({
       setQuestionError(null);
 
       try {
-        const payload = await getBookingQuestions(professionalUsername, userId);
+        const payload = await getBookingQuestions(professionalUsername, token);
         if (cancelled) {
           return;
         }
@@ -87,13 +85,18 @@ export function useMandatoryQuestions({
     return () => {
       cancelled = true;
     };
-  }, [professionalUsername, showBookingFlow, userId]);
+  }, [professionalUsername, showBookingFlow, token]);
 
   const needsMandatoryQuestions =
     mandatoryQuestions.length > 0 && !hasSubmittedMandatoryQuestions;
 
   const persistQuestionAnswers = async ({ professionalUsername: username, userId: uid }: SubmitArgs) => {
     setQuestionError(null);
+
+    if (!token) {
+      setQuestionError("Please sign in before continuing.");
+      return { ok: false as const, reason: "missing_auth" as const };
+    }
 
     const missingMandatoryAnswer = mandatoryQuestions
       .filter((question) => question.is_required)
@@ -112,7 +115,7 @@ export function useMandatoryQuestions({
     try {
       await submitBookingAnswers({
         professionalUsername: username,
-        userId: uid,
+        token,
         answers: mandatoryQuestions.map((question) => ({
           question_id: question.id,
           answer: (questionAnswers[question.id] ?? "").trim(),

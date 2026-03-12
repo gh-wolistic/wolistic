@@ -6,10 +6,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.auth import AuthenticatedUser, get_current_user, get_optional_current_user
 from app.core.database import get_db_session
 from app.models.booking import (
     Booking,
@@ -52,10 +53,14 @@ def _to_utc(dt: datetime | None) -> datetime | None:
     return dt.astimezone(timezone.utc)
 
 
+def _generate_booking_reference() -> str:
+    return f"bk_{uuid.uuid4().hex}"
+
+
 @router.get("/questions/{professional_username}", response_model=BookingQuestionsPageOut)
 async def get_booking_questions(
     professional_username: str,
-    user_id: uuid.UUID | None = Query(default=None),
+    current_user: AuthenticatedUser | None = Depends(get_optional_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> BookingQuestionsPageOut:
     professional_id_result = await db.execute(
@@ -83,11 +88,11 @@ async def get_booking_questions(
     required_question_ids = _normalize_required_question_ids(templates)
     already_answered = False
 
-    if user_id is not None and required_question_ids:
+    if current_user is not None and required_question_ids:
         answer_count_result = await db.execute(
             select(func.count(BookingQuestionResponse.id)).where(
                 BookingQuestionResponse.professional_id == professional_id,
-                BookingQuestionResponse.client_user_id == user_id,
+                BookingQuestionResponse.client_user_id == current_user.user_id,
                 BookingQuestionResponse.template_question_id.in_(required_question_ids),
             )
         )
@@ -111,6 +116,7 @@ async def get_booking_questions(
 async def submit_booking_answers(
     professional_username: str,
     payload: SubmitBookingAnswersIn,
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> SubmitBookingAnswersOut:
     professional_id_result = await db.execute(
@@ -153,7 +159,7 @@ async def submit_booking_answers(
     existing_result = await db.execute(
         select(BookingQuestionResponse).where(
             BookingQuestionResponse.professional_id == professional_id,
-            BookingQuestionResponse.client_user_id == payload.user_id,
+            BookingQuestionResponse.client_user_id == current_user.user_id,
             BookingQuestionResponse.template_question_id.in_(allowed_question_ids),
         )
     )
@@ -174,7 +180,7 @@ async def submit_booking_answers(
         db.add(
             BookingQuestionResponse(
                 professional_id=professional_id,
-                client_user_id=payload.user_id,
+                client_user_id=current_user.user_id,
                 template_question_id=question_id,
                 answer=answer_text,
             )
@@ -188,6 +194,7 @@ async def submit_booking_answers(
 @router.post("/payments/order", response_model=CreatePaymentOrderOut)
 async def create_payment_order(
     payload: CreatePaymentOrderIn,
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> CreatePaymentOrderOut:
     professional_result = await db.execute(
@@ -201,28 +208,18 @@ async def create_payment_order(
 
     professional_id, _ = professional_row
 
-    booking_result = await db.execute(
-        select(Booking).where(Booking.booking_reference == payload.booking_reference)
+    booking_reference = _generate_booking_reference()
+    booking = Booking(
+        booking_reference=booking_reference,
+        professional_id=professional_id,
+        client_user_id=current_user.user_id,
+        service_name=payload.service_name,
+        status="pending",
+        scheduled_for=payload.booking_at,
+        is_immediate=payload.is_immediate,
     )
-    booking = booking_result.scalar_one_or_none()
-
-    if booking is None:
-        booking = Booking(
-            booking_reference=payload.booking_reference,
-            professional_id=professional_id,
-            client_user_id=payload.user_id,
-            service_name=payload.service_name,
-            status="pending",
-            scheduled_for=payload.booking_at,
-            is_immediate=payload.is_immediate,
-        )
-        db.add(booking)
-        await db.flush()
-    else:
-        booking.client_user_id = payload.user_id or booking.client_user_id
-        booking.service_name = payload.service_name
-        booking.scheduled_for = payload.booking_at or booking.scheduled_for
-        booking.is_immediate = payload.is_immediate
+    db.add(booking)
+    await db.flush()
 
     if payload.amount <= 0:
         # Free service — confirm the booking immediately without payment gateway
@@ -241,7 +238,7 @@ async def create_payment_order(
             mode="free",
             key_id="",
             order_id=f"free_{booking.booking_reference}",
-            booking_reference=payload.booking_reference,
+            booking_reference=booking.booking_reference,
             amount_subunits=0,
             currency=payload.currency,
         )
@@ -263,7 +260,7 @@ async def create_payment_order(
         mode="mock",
         key_id="rzp_test_mock",
         order_id=order_id,
-        booking_reference=payload.booking_reference,
+        booking_reference=booking.booking_reference,
         amount_subunits=int(round(payload.amount * 100)),
         currency=payload.currency,
     )
@@ -272,39 +269,23 @@ async def create_payment_order(
 @router.post("/payments/verify", response_model=VerifyPaymentOut)
 async def verify_payment(
     payload: VerifyPaymentIn,
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> VerifyPaymentOut:
     booking_result = await db.execute(
-        select(Booking).where(Booking.booking_reference == payload.booking_reference)
+        select(Booking).where(
+            Booking.booking_reference == payload.booking_reference,
+            Booking.client_user_id == current_user.user_id,
+        )
     )
     booking = booking_result.scalar_one_or_none()
 
     if booking is None:
-        professional_result = await db.execute(
-            select(Professional.user_id).where(
-                Professional.username == payload.professional_username
-            )
-        )
-        professional_id = professional_result.scalar_one_or_none()
-        if professional_id is None:
-            raise HTTPException(status_code=404, detail="Professional not found")
+        raise HTTPException(status_code=404, detail="Booking not found")
 
-        booking = Booking(
-            booking_reference=payload.booking_reference,
-            professional_id=professional_id,
-            client_user_id=payload.user_id,
-            service_name=payload.service_name,
-            status="pending",
-            scheduled_for=payload.booking_at,
-            is_immediate=payload.is_immediate,
-        )
-        db.add(booking)
-        await db.flush()
-    else:
-        booking.client_user_id = payload.user_id or booking.client_user_id
-        booking.service_name = payload.service_name
-        booking.scheduled_for = payload.booking_at or booking.scheduled_for
-        booking.is_immediate = payload.is_immediate
+    booking.service_name = payload.service_name
+    booking.scheduled_for = payload.booking_at or booking.scheduled_for
+    booking.is_immediate = payload.is_immediate
 
     resolved_status = payload.mock_status if payload.mock_status in {"success", "failure", "pending"} else "success"
 
@@ -318,23 +299,16 @@ async def verify_payment(
 
     payment_result = await db.execute(
         select(BookingPayment).where(
-            BookingPayment.provider_order_id == payload.razorpay_order_id
+            BookingPayment.provider_order_id == payload.razorpay_order_id,
+            BookingPayment.booking_id == booking.id,
         )
     )
     payment = payment_result.scalar_one_or_none()
 
     if payment is None:
-        payment = BookingPayment(
-            booking_id=booking.id,
-            provider="razorpay",
-            provider_order_id=payload.razorpay_order_id,
-            amount=Decimal("0"),
-            currency="INR",
-            status=resolved_status,
-        )
-        db.add(payment)
-    else:
-        payment.status = resolved_status
+        raise HTTPException(status_code=404, detail="Payment order not found")
+
+    payment.status = resolved_status
 
     await db.commit()
 
@@ -345,15 +319,15 @@ async def verify_payment(
     )
 
 
-@router.get("/history/{user_id}", response_model=BookingHistoryOut)
+@router.get("/history/me", response_model=BookingHistoryOut)
 async def get_booking_history(
-    user_id: uuid.UUID,
+    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> BookingHistoryOut:
     bookings_result = await db.execute(
         select(Booking, Professional.username)
         .join(Professional, Professional.user_id == Booking.professional_id)
-        .where(Booking.client_user_id == user_id)
+        .where(Booking.client_user_id == current_user.user_id)
         .order_by(Booking.created_at.desc())
         .limit(100)
     )
@@ -363,6 +337,7 @@ async def get_booking_history(
         return BookingHistoryOut(
             latest_booking=None,
             next_booking=None,
+            immediate_bookings=[],
             upcoming_bookings=[],
             past_bookings=[],
         )
@@ -395,17 +370,20 @@ async def get_booking_history(
     ]
 
     now = datetime.now(timezone.utc)
+    immediate = [item for item in history_items if item.is_immediate]
+    immediate.sort(key=lambda item: item.created_at, reverse=True)
+
     upcoming = [
         item
         for item in history_items
-        if _to_utc(item.scheduled_for) is not None and _to_utc(item.scheduled_for) >= now
+        if not item.is_immediate and _to_utc(item.scheduled_for) is not None and _to_utc(item.scheduled_for) >= now
     ]
     upcoming.sort(key=lambda item: _to_utc(item.scheduled_for) or now)
 
     past = [
         item
         for item in history_items
-        if _to_utc(item.scheduled_for) is not None and _to_utc(item.scheduled_for) < now
+        if not item.is_immediate and _to_utc(item.scheduled_for) is not None and _to_utc(item.scheduled_for) < now
     ]
     past.sort(key=lambda item: _to_utc(item.scheduled_for) or now, reverse=True)
 
@@ -415,6 +393,7 @@ async def get_booking_history(
     return BookingHistoryOut(
         latest_booking=latest_booking,
         next_booking=next_booking,
+        immediate_bookings=immediate,
         upcoming_bookings=upcoming,
         past_bookings=past,
     )

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-import uuid
 
 from pydantic import BaseModel, Field
 
@@ -24,7 +23,6 @@ class BookingQuestionAnswerIn(BaseModel):
 
 
 class SubmitBookingAnswersIn(BaseModel):
-    user_id: uuid.UUID
     answers: list[BookingQuestionAnswerIn]
 
 
@@ -36,12 +34,10 @@ class SubmitBookingAnswersOut(BaseModel):
 class CreatePaymentOrderIn(BaseModel):
     amount: float = Field(ge=0)
     currency: str = Field(default="INR", min_length=3, max_length=8)
-    booking_reference: str = Field(min_length=4, max_length=64)
     professional_username: str = Field(min_length=2, max_length=100)
     service_name: str = Field(min_length=1, max_length=255)
     customer_name: str | None = Field(default=None, max_length=255)
     customer_email: str | None = Field(default=None, max_length=255)
-    user_id: uuid.UUID | None = None
     booking_at: datetime | None = None
     is_immediate: bool = False
 
@@ -64,7 +60,6 @@ class VerifyPaymentIn(BaseModel):
     professional_username: str = Field(min_length=2, max_length=100)
     service_name: str = Field(min_length=1, max_length=255)
     mock_status: str | None = None
-    user_id: uuid.UUID | None = None
     booking_at: datetime | None = None
     is_immediate: bool = False
 
@@ -89,5 +84,6 @@ class BookingHistoryItemOut(BaseModel):
 class BookingHistoryOut(BaseModel):
     latest_booking: BookingHistoryItemOut | None = None
     next_booking: BookingHistoryItemOut | None = None
+    immediate_bookings: list[BookingHistoryItemOut] = []
     upcoming_bookings: list[BookingHistoryItemOut] = []
     past_bookings: list[BookingHistoryItemOut] = []

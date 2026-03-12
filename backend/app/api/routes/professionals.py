@@ -70,7 +70,6 @@ def _flatten_professional(prof: Professional) -> dict:
         "id": prof.user_id,
         "username": prof.username,
         "name": prof.user.full_name or prof.username,
-        "email": prof.user.email,
         "specialization": prof.specialization,
         "category": prof.subcategories[0].name if prof.subcategories else prof.specialization,
         "location": prof.location,

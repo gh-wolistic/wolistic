@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 import uuid
 from datetime import datetime
 
@@ -92,7 +93,7 @@ class BookingPayment(Base):
     booking_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("bookings.id"), nullable=False)
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     provider_order_id: Mapped[str] = mapped_column(String(128), unique=True, nullable=False)
-    amount: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     currency: Mapped[str] = mapped_column(String(8), nullable=False, server_default="INR")
     status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="created")
     created_at: Mapped[datetime] = mapped_column(

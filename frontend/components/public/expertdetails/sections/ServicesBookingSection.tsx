@@ -112,7 +112,6 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   } = useMandatoryQuestions({
     showBookingFlow,
     professionalUsername: professional.username,
-    userId: effectiveUser?.id,
     onboardingComplete: effectiveUser?.onboardingComplete,
     token: effectiveToken ?? undefined,
     onOnboardingMarked: () => setOnboardingComplete(true),
@@ -194,7 +193,6 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     professionalUsername: professional.username,
     professionalName: professional.name,
     serviceName: selectedService.name,
-    userId: effectiveUser?.id,
     customerName: effectiveUser?.name || authForm.name || undefined,
     customerEmail: effectiveUser?.email || authForm.email || undefined,
     bookingAt: selectedSchedule.bookingAtIso || undefined,

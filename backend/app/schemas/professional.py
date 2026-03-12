@@ -44,7 +44,6 @@ class ProfessionalProfileOut(BaseModel):
     id: uuid.UUID
     username: str
     name: str
-    email: str | None = None
     specialization: str
     category: str | None = None
     location: str | None = None

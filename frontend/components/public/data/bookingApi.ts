@@ -30,23 +30,21 @@ export type BookingHistoryItem = {
 export type BookingHistoryResult = {
   latest_booking: BookingHistoryItem | null;
   next_booking: BookingHistoryItem | null;
+  immediate_bookings: BookingHistoryItem[];
   upcoming_bookings: BookingHistoryItem[];
   past_bookings: BookingHistoryItem[];
 };
 
 export async function getBookingQuestions(
   professionalUsername: ProfessionalProfile["username"],
-  userId?: string,
+  token?: string,
 ): Promise<BookingQuestionsResult> {
-  const params = new URLSearchParams();
-  if (userId) {
-    params.set("user_id", userId);
-  }
-
-  const suffix = params.toString() ? `?${params.toString()}` : "";
   const response = await fetch(
-    `${API_BASE}/booking/questions/${encodeURIComponent(professionalUsername)}${suffix}`,
-    { cache: "no-store" },
+    `${API_BASE}/booking/questions/${encodeURIComponent(professionalUsername)}`,
+    {
+      cache: "no-store",
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    },
   );
 
   if (!response.ok) {
@@ -58,7 +56,7 @@ export async function getBookingQuestions(
 
 export async function submitBookingAnswers(payload: {
   professionalUsername: ProfessionalProfile["username"];
-  userId: string;
+  token: string;
   answers: Array<{ question_id: number; answer: string }>;
 }): Promise<{ saved: boolean; already_answered: boolean }> {
   const response = await fetch(
@@ -67,9 +65,9 @@ export async function submitBookingAnswers(payload: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Authorization: `Bearer ${payload.token}`,
       },
       body: JSON.stringify({
-        user_id: payload.userId,
         answers: payload.answers,
       }),
     },
@@ -82,11 +80,13 @@ export async function submitBookingAnswers(payload: {
   return (await response.json()) as { saved: boolean; already_answered: boolean };
 }
 
-export async function getBookingHistory(userId: string): Promise<BookingHistoryResult> {
-  const response = await fetch(
-    `${API_BASE}/booking/history/${encodeURIComponent(userId)}`,
-    { cache: "no-store" },
-  );
+export async function getBookingHistory(token: string): Promise<BookingHistoryResult> {
+  const response = await fetch(`${API_BASE}/booking/history/me`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   if (!response.ok) {
     throw new Error(`Unable to load booking history (${response.status})`);

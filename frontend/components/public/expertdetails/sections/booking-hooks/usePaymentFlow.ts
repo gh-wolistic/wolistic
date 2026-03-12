@@ -44,7 +44,6 @@ type UsePaymentFlowArgs = {
   professionalUsername: string;
   professionalName: string;
   serviceName: string;
-  userId?: string;
   customerName?: string;
   customerEmail?: string;
   bookingAt?: string;
@@ -58,7 +57,6 @@ export function usePaymentFlow({
   professionalUsername,
   professionalName,
   serviceName,
-  userId,
   customerName,
   customerEmail,
   bookingAt,
@@ -108,15 +106,12 @@ export function usePaymentFlow({
     setPaymentSubmitting(true);
 
     try {
-      const bookingReference = `bk_${professionalUsername}_${Date.now()}`;
       const order = await createPaymentOrderWithToken(
         {
           amount,
           currency: "INR",
-          booking_reference: bookingReference,
           professional_username: professionalUsername,
           service_name: serviceName,
-          user_id: userId,
           customer_name: customerName,
           customer_email: customerEmail,
           booking_at: bookingAt,
@@ -141,7 +136,6 @@ export function usePaymentFlow({
             professional_username: professionalUsername,
             service_name: serviceName,
             mock_status: paymentForm.mockOutcome,
-            user_id: userId,
             booking_at: bookingAt,
             is_immediate: Boolean(isImmediate),
           },
@@ -188,7 +182,6 @@ export function usePaymentFlow({
                 next_route: "/authorized",
                 professional_username: professionalUsername,
                 service_name: serviceName,
-                user_id: userId,
                 booking_at: bookingAt,
                 is_immediate: Boolean(isImmediate),
               },

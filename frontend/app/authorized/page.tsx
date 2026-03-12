@@ -13,6 +13,7 @@ import {
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type AuthState = {
+  accessToken: string | null;
   email: string | null;
   userId: string;
 };
@@ -20,6 +21,7 @@ type AuthState = {
 const EMPTY_HISTORY: BookingHistoryResult = {
   latest_booking: null,
   next_booking: null,
+  immediate_bookings: [],
   upcoming_bookings: [],
   past_bookings: [],
 };
@@ -107,6 +109,7 @@ export default function AuthorizedPage() {
       }
 
       setAuthState({
+        accessToken: session.access_token ?? null,
         email: session.user.email ?? null,
         userId: session.user.id,
       });
@@ -124,6 +127,7 @@ export default function AuthorizedPage() {
         setAuthState(null);
       } else {
         setAuthState({
+          accessToken: session.access_token ?? null,
           email: session.user.email ?? null,
           userId: session.user.id,
         });
@@ -137,7 +141,7 @@ export default function AuthorizedPage() {
   }, []);
 
   useEffect(() => {
-    if (!authState?.userId) {
+    if (!authState?.accessToken) {
       setHistory(EMPTY_HISTORY);
       return;
     }
@@ -149,7 +153,7 @@ export default function AuthorizedPage() {
       setHistoryError(null);
 
       try {
-        const payload = await getBookingHistory(authState.userId);
+        const payload = await getBookingHistory(authState.accessToken);
         if (!cancelled) {
           setHistory(payload);
         }
@@ -175,12 +179,13 @@ export default function AuthorizedPage() {
       cancelled = true;
       window.clearTimeout(refreshTimer);
     };
-  }, [authState?.userId]);
+  }, [authState?.accessToken]);
 
   const hasAnyBookings = useMemo(() => {
     return Boolean(
       history.latest_booking ||
         history.next_booking ||
+        history.immediate_bookings.length > 0 ||
         history.upcoming_bookings.length > 0 ||
         history.past_bookings.length > 0,
     );
@@ -258,6 +263,30 @@ export default function AuthorizedPage() {
           <p className="mt-3 text-sm text-zinc-800">Service: {history.next_booking.service_name}</p>
           <p className="mt-1 text-sm text-zinc-800">Slot: {formatScheduleLabel(history.next_booking)}</p>
           <p className="mt-1 text-sm text-zinc-700">Booked On: {formatCreatedLabel(history.next_booking)}</p>
+        </section>
+      )}
+
+      {history.immediate_bookings.length > 0 && (
+        <section className="rounded-xl border border-violet-200 bg-violet-50 p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm uppercase tracking-wide text-violet-700">Immediate Bookings</p>
+            <Badge className="bg-violet-600 text-white">{history.immediate_bookings.length}</Badge>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            {history.immediate_bookings.map((booking) => (
+              <div key={booking.booking_reference} className="rounded-lg border border-violet-200 bg-white p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-zinc-900">{booking.service_name}</p>
+                  {renderPaymentBadge(booking.payment_status)}
+                </div>
+
+                <p className="mt-1 text-sm text-zinc-700">Slot: {formatScheduleLabel(booking)}</p>
+                <p className="mt-1 text-sm text-zinc-700">Booked On: {formatCreatedLabel(booking)}</p>
+                <p className="mt-1 text-xs text-zinc-500">Reference: {booking.booking_reference}</p>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
