@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import time
+from datetime import datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
@@ -13,6 +13,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db_session
 from app.models.professional import Professional, ProfessionalReview
 from app.schemas.professional import (
+    CertificationOut,
     ProfessionalProfileOut,
     ProfessionalUsernameOut,
     ReviewOut,
@@ -60,6 +61,11 @@ def _derive_availability_string(slots: list) -> str | None:
 def _flatten_professional(prof: Professional) -> dict:
     """Convert ORM model with eagerly-loaded relationships to a flat dict."""
     yrs = prof.experience_years
+    last_seen = prof.last_active_at
+    is_online = bool(
+        last_seen
+        and last_seen >= (datetime.now(timezone.utc) - timedelta(minutes=5))
+    )
     return {
         "id": prof.user_id,
         "username": prof.username,
@@ -77,15 +83,22 @@ def _flatten_professional(prof: Professional) -> dict:
         "short_bio": prof.short_bio,
         "about": prof.about,
         "membership_tier": prof.membership_tier,
-        "is_online": prof.is_online,
+        "is_online": is_online,
         # Flattened children
         "approach": " ".join(
             a.description or a.title for a in prof.approaches
         ) if prof.approaches else None,
         "availability": _derive_availability_string(prof.availability_slots),
-        "certifications": [c.name for c in prof.certifications],
+        "certifications": [
+            CertificationOut(
+                name=c.name,
+                issuer=c.issuer,
+                issued_year=c.issued_year,
+            )
+            for c in prof.certifications
+        ],
         "specializations": [e.title for e in prof.expertise_areas],
-        "education": [],  # table does not exist yet
+        "education": [],
         "languages": [lang.language for lang in prof.languages],
         "session_types": [s.session_type for s in prof.session_types],
         "subcategories": [s.name for s in prof.subcategories],

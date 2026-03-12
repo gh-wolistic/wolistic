@@ -16,6 +16,11 @@ type ExpertHeroSectionProps = {
 export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHeroSectionProps) {
   const membershipLabel = inferMembershipLabel(professional);
   const isOnline = isProfessionalOnline(professional);
+  const certificationLabels = professional.certifications
+    .map((certification) =>
+      typeof certification === "string" ? certification : certification.name,
+    )
+    .filter((label) => label.trim().length > 0);
 
   return (
       <section className="relative">
@@ -84,9 +89,9 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
 
                       <div className="flex flex-wrap gap-2">
                         {professional.category && <StatusChip label={professional.category} tone="featured" />}
-                        {professional.certifications.map((cert) => (
-                          <Badge key={cert} variant="outline">
-                            {cert}
+                        {certificationLabels.map((certificationLabel, index) => (
+                          <Badge key={`${certificationLabel}-${index}`} variant="outline">
+                            {certificationLabel}
                           </Badge>
                         ))}
                       </div>

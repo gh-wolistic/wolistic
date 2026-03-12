@@ -12,6 +12,14 @@ export type ProfessionalService = {
   offer_value?: number;
 };
 
+export type ProfessionalCertification = {
+  name: string;
+  issuer?: string;
+  issuedYear?: number;
+};
+
+export type ProfessionalCertificationInput = string | ProfessionalCertification;
+
 export type ProfessionalProfile = {
   id: string;
   username: string;
@@ -33,7 +41,7 @@ export type ProfessionalProfile = {
 
   approach?: string;
   availability?: string;
-  certifications: string[];
+  certifications: ProfessionalCertificationInput[];
   specializations: string[];
   education: string[];
   languages: string[];

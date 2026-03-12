@@ -62,6 +62,11 @@ class Professional(Base):
     certifications: Mapped[list["ProfessionalCertification"]] = relationship(
         back_populates="professional", lazy="selectin"
     )
+    # Some environments do not yet have professional_education; keep this noload
+    # so profile fetches don't fail when the table is absent.
+    education_items: Mapped[list["ProfessionalEducation"]] = relationship(
+        back_populates="professional", lazy="noload"
+    )
     expertise_areas: Mapped[list["ProfessionalExpertiseArea"]] = relationship(
         back_populates="professional", lazy="selectin"
     )
@@ -129,6 +134,18 @@ class ProfessionalCertification(Base):
     issued_year: Mapped[int | None] = mapped_column(Integer)
 
     professional: Mapped["Professional"] = relationship(back_populates="certifications")
+
+
+class ProfessionalEducation(Base):
+    __tablename__ = "professional_education"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.user_id"), nullable=False
+    )
+    education: Mapped[str] = mapped_column(Text, nullable=False)
+
+    professional: Mapped["Professional"] = relationship(back_populates="education_items")
 
 
 class ProfessionalExpertiseArea(Base):

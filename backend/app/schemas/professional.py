@@ -28,6 +28,14 @@ class ReviewOut(BaseModel):
     created_at: str
 
 
+class CertificationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    issuer: str | None = None
+    issued_year: int | None = None
+
+
 class ProfessionalProfileOut(BaseModel):
     """Full professional profile returned by GET /professionals/{username}."""
 
@@ -54,7 +62,7 @@ class ProfessionalProfileOut(BaseModel):
     # Flattened child data
     approach: str | None = None
     availability: str | None = None
-    certifications: list[str] = []
+    certifications: list[CertificationOut] = []
     specializations: list[str] = []
     education: list[str] = []
     languages: list[str] = []

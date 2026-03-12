@@ -4,6 +4,8 @@
  */
 
 import type {
+  ProfessionalCertification,
+  ProfessionalCertificationInput,
   ProfessionalProfile,
   ProfessionalReview,
   ReviewPage,
@@ -18,6 +20,22 @@ const API_BASE =
 // ---------------------------------------------------------------------------
 
 function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
+  const certifications = ((raw.certifications as unknown[]) ?? []).map(
+    (cert): ProfessionalCertificationInput => {
+      if (typeof cert === "string") {
+        return cert;
+      }
+
+      const certification = cert as Record<string, unknown>;
+
+      return {
+        name: (certification.name as string) ?? "",
+        issuer: (certification.issuer as string | null) ?? undefined,
+        issuedYear: (certification.issued_year as number | null) ?? undefined,
+      } satisfies ProfessionalCertification;
+    },
+  );
+
   return {
     id: raw.id as string,
     username: raw.username as string,
@@ -38,7 +56,7 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
     isOnline: raw.is_online as boolean,
     approach: (raw.approach as string) ?? undefined,
     availability: (raw.availability as string) ?? undefined,
-    certifications: (raw.certifications as string[]) ?? [],
+    certifications,
     specializations: (raw.specializations as string[]) ?? [],
     education: (raw.education as string[]) ?? [],
     languages: (raw.languages as string[]) ?? [],

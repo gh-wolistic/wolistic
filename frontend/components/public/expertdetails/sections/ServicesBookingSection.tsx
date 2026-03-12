@@ -7,78 +7,28 @@ import { Clock, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { isProfessionalOnline } from "@/lib/professionalSignals";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { useSessionStore } from "@/store/session";
 import type { DashboardRole } from "@/types/dashboard";
 import type { ProfessionalProfile } from "@/types/professional";
-import { login, selectRole, signup, updateOnboarding } from "@/components/public/data/authApi";
-import {
-  createPaymentOrderWithToken,
-  verifyPaymentWithToken,
-} from "@/components/public/data/paymentsApi";
+import { login, selectRole, signup } from "@/components/public/data/authApi";
 import { ScheduleStep } from "./booking-steps/ScheduleStep";
 import { QuestionsStep } from "./booking-steps/QuestionsStep";
 import { AuthStep } from "./booking-steps/AuthStep";
 import { PaymentStep } from "./booking-steps/PaymentStep";
+import { useBookingSchedule } from "./booking-hooks/useBookingSchedule";
+import { useMandatoryQuestions } from "./booking-hooks/useMandatoryQuestions";
+import { usePaymentFlow } from "./booking-hooks/usePaymentFlow";
 
 type ServicesBookingSectionProps = {
   professional: ProfessionalProfile;
   bookingStartSignal: number;
 };
 
-const WEEKDAY_MAP: Record<string, number> = {
-  sunday: 0,
-  monday: 1,
-  tuesday: 2,
-  wednesday: 3,
-  thursday: 4,
-  friday: 5,
-  saturday: 6,
-};
-
-const TIMING_WINDOWS = {
-  morning: { start: 6, end: 12 },
-  afternoon: { start: 12, end: 17 },
-  evening: { start: 17, end: 21 },
-} as const;
-
 type BookingStep = "schedule" | "questions" | "auth" | "payment";
 type AuthMode = "signup" | "login";
 
 type PaymentStatus = "success" | "failure" | "pending";
-
-type RazorpayPaymentResponse = {
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
-  razorpay_signature: string;
-};
-
-type RazorpayCheckoutOptions = {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id: string;
-  prefill?: {
-    name?: string;
-    email?: string;
-    contact?: string;
-  };
-  notes?: Record<string, string>;
-  handler: (response: RazorpayPaymentResponse) => void | Promise<void>;
-  modal?: {
-    ondismiss?: () => void;
-  };
-};
-
-declare global {
-  interface Window {
-    Razorpay?: new (options: RazorpayCheckoutOptions) => {
-      open: () => void;
-    };
-  }
-}
 
 function mapUserTypeToDashboardRole(type: "professional" | "user" | "brand" | "influencer"): DashboardRole {
   switch (type) {
@@ -97,9 +47,20 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const router = useRouter();
   const user = useSessionStore((state) => state.user);
   const token = useSessionStore((state) => state.token);
+  const { user: authSessionUser, accessToken: authSessionToken } = useAuthSession();
   const setAuthSession = useSessionStore((state) => state.setAuthSession);
   const setRole = useSessionStore((state) => state.setRole);
   const setOnboardingComplete = useSessionStore((state) => state.setOnboardingComplete);
+
+  const effectiveUser = user ?? (authSessionUser
+    ? {
+        id: authSessionUser.id,
+        email: authSessionUser.email,
+        name: authSessionUser.name,
+        type: authSessionUser.userType,
+      }
+    : null);
+  const effectiveToken = token ?? authSessionToken;
 
   const servicesToDisplay = useMemo(() => professional.services, [professional.services]);
 
@@ -113,144 +74,136 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const [showBookingFlow, setShowBookingFlow] = useState(false);
   const [bookingStep, setBookingStep] = useState<BookingStep>("schedule");
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(initialConsultationIndex);
-  const [preferredTiming, setPreferredTiming] = useState<"morning" | "afternoon" | "evening" | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
-  const [isImmediateBooking, setIsImmediateBooking] = useState(false);
-  const [scheduleError, setScheduleError] = useState<string | null>(null);
-
-  const [questionForm, setQuestionForm] = useState({
-    currentWeight: "",
-    height: "",
-    age: "",
-    physicalConditions: "",
-    medicalConditions: "",
-    wellnessGoal: "",
-    expertQuestionOne: "",
-    expertQuestionTwo: "",
-  });
-  const [questionError, setQuestionError] = useState<string | null>(null);
 
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
   const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
-
-  const [paymentForm, setPaymentForm] = useState<{
-    gstin: string;
-    mockOutcome: PaymentStatus;
-  }>({
-    gstin: "",
-    mockOutcome: "success",
-  });
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paymentSubmitting, setPaymentSubmitting] = useState(false);
   const bookingFlowRef = useRef<HTMLDivElement | null>(null);
+
+  const {
+    preferredTiming,
+    selectedDate,
+    selectedTimeSlot,
+    isImmediateBooking,
+    scheduleError,
+    availableTimeSlots,
+    setPreferredTiming,
+    setSelectedDate,
+    setSelectedTimeSlot,
+    setIsImmediateBooking,
+    setScheduleError,
+    isUnavailableDate,
+    availableDayModifier,
+    handleImmediateAvailability,
+    resetSchedule,
+  } = useBookingSchedule(professional.availability ?? "");
+
+  const {
+    questionForm,
+    mandatoryQuestions,
+    questionAnswers,
+    questionsLoading,
+    needsMandatoryQuestions,
+    questionError,
+    setQuestionForm,
+    setQuestionAnswers,
+    persistQuestionAnswers,
+  } = useMandatoryQuestions({
+    showBookingFlow,
+    professionalUsername: professional.username,
+    userId: effectiveUser?.id,
+    onboardingComplete: effectiveUser?.onboardingComplete,
+    token: effectiveToken ?? undefined,
+    onOnboardingMarked: () => setOnboardingComplete(true),
+  });
 
   const selectedService = servicesToDisplay[selectedServiceIndex] ?? servicesToDisplay[0];
   const isInitialConsultationSelected =
     selectedService?.name?.trim().toLowerCase() === "initial consultation";
-  const isOnline = isProfessionalOnline(professional);
-  const needsMandatoryQuestions = !user || !user.onboardingComplete;
-
-  const availability = useMemo(() => {
-    const normalized = (professional.availability ?? "").toLowerCase();
-
-    const matchedRange = normalized.match(
-      /(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\s*-\s*(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/,
-    );
-
-    const defaultWeekdays = new Set<number>([1, 2, 3, 4, 5]);
-    let weekdays = defaultWeekdays;
-
-    if (matchedRange) {
-      const startDay = WEEKDAY_MAP[matchedRange[1]];
-      const endDay = WEEKDAY_MAP[matchedRange[2]];
-      const derived = new Set<number>();
-
-      if (startDay <= endDay) {
-        for (let day = startDay; day <= endDay; day += 1) {
-          derived.add(day);
-        }
-      } else {
-        for (let day = startDay; day <= 6; day += 1) {
-          derived.add(day);
-        }
-        for (let day = 0; day <= endDay; day += 1) {
-          derived.add(day);
-        }
-      }
-
-      if (derived.size > 0) {
-        weekdays = derived;
-      }
-    }
-
-    const matchedTime = normalized.match(
-      /(\d{1,2})(?::(\d{2}))?\s*(am|pm)\s*-\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)/,
-    );
-
-    const to24Hour = (hourRaw: string, meridiem: string) => {
-      const hour = Number(hourRaw);
-      if (meridiem === "am") {
-        return hour === 12 ? 0 : hour;
-      }
-      return hour === 12 ? 12 : hour + 12;
-    };
-
-    let startHour = 9;
-    let endHour = 19;
-
-    if (matchedTime) {
-      startHour = to24Hour(matchedTime[1], matchedTime[3]);
-      endHour = to24Hour(matchedTime[4], matchedTime[6]);
-      if (endHour <= startHour) {
-        endHour = startHour + 1;
-      }
-    }
-
-    return {
-      weekdays,
-      startHour,
-      endHour,
-    };
-  }, [professional.availability]);
-
-  const availableTimeSlots = useMemo(() => {
-    if (!preferredTiming) {
-      return [] as string[];
-    }
-
-    const preferenceWindow = TIMING_WINDOWS[preferredTiming];
-    const start = Math.max(availability.startHour, preferenceWindow.start);
-    const end = Math.min(availability.endHour, preferenceWindow.end);
-
-    if (end <= start) {
-      return [] as string[];
-    }
-
-    const formatHour = (hour24: number) => {
-      const suffix = hour24 >= 12 ? "PM" : "AM";
-      const value = hour24 % 12 || 12;
-      return `${value}:00 ${suffix}`;
-    };
-
-    const slots: string[] = [];
-    for (let hour = start; hour < end; hour += 1) {
-      slots.push(formatHour(hour));
-    }
-    return slots;
-  }, [availability.endHour, availability.startHour, preferredTiming]);
-
-  const today = useMemo(() => {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }, []);
+  const isOnline = professional.isOnline;
 
   const subtotal = selectedService?.price ?? 0;
   const gstAmount = Number((subtotal * 0.18).toFixed(2));
   const platformFee = subtotal > 0 ? 49 : 0;
   const grandTotal = subtotal + gstAmount + platformFee;
+
+  const selectedSchedule = useMemo(() => {
+    if (isImmediateBooking || selectedTimeSlot === "Immediate (within 30 mins)") {
+      const nowPlus30 = new Date(Date.now() + 30 * 60 * 1000);
+      return {
+        date: "Today",
+        slot: "Immediate (within 30 mins)",
+        summary: "Immediate (within 30 mins)",
+        bookingAtIso: nowPlus30.toISOString(),
+      };
+    }
+
+    if (!selectedDate || !selectedTimeSlot) {
+      return {
+        date: "",
+        slot: "",
+        summary: "",
+        bookingAtIso: "",
+      };
+    }
+
+    const timeMatch = selectedTimeSlot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    let bookingAtIso = "";
+    if (timeMatch) {
+      const hour12 = Number(timeMatch[1]);
+      const minute = Number(timeMatch[2]);
+      const meridiem = timeMatch[3].toUpperCase();
+      const hour24 = meridiem === "AM" ? (hour12 % 12) : (hour12 % 12) + 12;
+      const scheduled = new Date(selectedDate);
+      scheduled.setHours(hour24, minute, 0, 0);
+      bookingAtIso = scheduled.toISOString();
+    }
+
+    const formattedDate = selectedDate.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+
+    return {
+      date: formattedDate,
+      slot: selectedTimeSlot,
+      summary: `${formattedDate}, ${selectedTimeSlot}`,
+      bookingAtIso,
+    };
+  }, [isImmediateBooking, selectedDate, selectedTimeSlot]);
+
+  const redirectToPaymentStatus = (status: PaymentStatus, nextRoute = "/authorized") => {
+    const safeNextRoute = nextRoute.startsWith("/") ? nextRoute : "/authorized";
+    const params = new URLSearchParams({
+      status,
+      next: safeNextRoute,
+      username: professional.username,
+      service: selectedService.name,
+      booking_date: selectedSchedule.date,
+      booking_slot: selectedSchedule.slot,
+      booking_summary: selectedSchedule.summary,
+      booking_at: selectedSchedule.bookingAtIso,
+    });
+    router.push(`/payment-status?${params.toString()}`);
+  };
+
+  const { paymentForm, paymentError, paymentSubmitting, setPaymentForm, submitPayment } = usePaymentFlow({
+    amount: grandTotal,
+    professionalUsername: professional.username,
+    professionalName: professional.name,
+    serviceName: selectedService.name,
+    userId: effectiveUser?.id,
+    customerName: effectiveUser?.name || authForm.name || undefined,
+    customerEmail: effectiveUser?.email || authForm.email || undefined,
+    bookingAt: selectedSchedule.bookingAtIso || undefined,
+    isImmediate: isImmediateBooking,
+    token: effectiveToken ?? undefined,
+    onStatusResolved: (status, nextRoute) => {
+      redirectToPaymentStatus(status, nextRoute);
+    },
+  });
 
   const scrollToBookingFlow = () => {
     window.setTimeout(() => {
@@ -266,11 +219,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
 
     if (!isAlreadyOpenForSameService) {
       setBookingStep("schedule");
-      setPreferredTiming(null);
-      setSelectedDate(undefined);
-      setSelectedTimeSlot(null);
-      setIsImmediateBooking(false);
-      setScheduleError(null);
+      resetSchedule();
     }
 
     scrollToBookingFlow();
@@ -285,36 +234,16 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
       setSelectedServiceIndex(initialConsultationIndex);
       setShowBookingFlow(false);
       setBookingStep("schedule");
-      setPreferredTiming(null);
-      setSelectedDate(undefined);
-      setSelectedTimeSlot(null);
-      setIsImmediateBooking(false);
-      setScheduleError(null);
+      resetSchedule();
     }
-  }, [bookingStartSignal, initialConsultationIndex]);
-
-  const isUnavailableDate = (date: Date) => {
-    const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    if (normalized < today) {
-      return true;
-    }
-    return !availability.weekdays.has(date.getDay());
-  };
-
-  const availableDayModifier = (date: Date) => {
-    const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    return normalized >= today && availability.weekdays.has(date.getDay());
-  };
-
-  const handleImmediateAvailability = () => {
-    setPreferredTiming(null);
-    setSelectedDate(today);
-    setSelectedTimeSlot("Immediate (within 30 mins)");
-    setIsImmediateBooking(true);
-    setScheduleError(null);
-  };
+  }, [bookingStartSignal, initialConsultationIndex, resetSchedule]);
 
   const handleScheduleContinue = () => {
+    if (questionsLoading) {
+      setScheduleError("Loading mandatory questions. Please wait a moment.");
+      return;
+    }
+
     if (isImmediateBooking && selectedTimeSlot === "Immediate (within 30 mins)") {
       setScheduleError(null);
       if (needsMandatoryQuestions) {
@@ -342,38 +271,18 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
 
   const handleQuestionsSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setQuestionError(null);
 
-    if (
-      !questionForm.currentWeight ||
-      !questionForm.height ||
-      !questionForm.age ||
-      !questionForm.expertQuestionOne ||
-      !questionForm.expertQuestionTwo
-    ) {
-      setQuestionError("Please complete all mandatory questions before continuing.");
-      return;
-    }
-
-    if (user?.id) {
-      localStorage.setItem(
-        `wolistic_booking_onboarding_${user.id}`,
-        JSON.stringify({ ...questionForm, submittedAt: new Date().toISOString() }),
-      );
-    }
-
-    if (!user) {
+    if (!effectiveUser) {
       setBookingStep("auth");
       return;
     }
 
-    if (!user.onboardingComplete) {
-      try {
-        await updateOnboarding({ onboarding_complete: true });
-        setOnboardingComplete(true);
-      } catch {
-        // Keep flow non-blocking for now.
-      }
+    const result = await persistQuestionAnswers({
+      professionalUsername: professional.username,
+      userId: effectiveUser.id,
+    });
+    if (!result.ok) {
+      return;
     }
 
     setBookingStep("payment");
@@ -422,13 +331,6 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
       });
       setRole(mapUserTypeToDashboardRole(resolvedUser.user_type));
 
-      try {
-        await updateOnboarding({ onboarding_complete: true }, authResult.access_token);
-        setOnboardingComplete(true);
-      } catch {
-        // Keep flow non-blocking for now.
-      }
-
       setBookingStep("payment");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to authenticate. Please try again.";
@@ -438,152 +340,9 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     }
   };
 
-  const redirectToPaymentStatus = (status: PaymentStatus, nextRoute = "/dashboard") => {
-    const params = new URLSearchParams({
-      status,
-      next: nextRoute,
-      username: professional.username,
-      service: selectedService.name,
-    });
-    router.push(`/payment-status?${params.toString()}`);
-  };
-
-  const loadRazorpayScript = async () => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-
-    if (window.Razorpay) {
-      return true;
-    }
-
-    return new Promise<boolean>((resolve) => {
-      const existingScript = document.getElementById("razorpay-checkout-script") as HTMLScriptElement | null;
-      if (existingScript) {
-        existingScript.addEventListener("load", () => resolve(true));
-        existingScript.addEventListener("error", () => resolve(false));
-        return;
-      }
-
-      const script = document.createElement("script");
-      script.id = "razorpay-checkout-script";
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
   const handlePaymentSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setPaymentError(null);
-    setPaymentSubmitting(true);
-
-    if (grandTotal <= 0) {
-      redirectToPaymentStatus("success");
-      return;
-    }
-
-    try {
-      const bookingReference = `bk_${professional.username}_${Date.now()}`;
-      const order = await createPaymentOrderWithToken(
-        {
-        amount: grandTotal,
-        currency: "INR",
-        booking_reference: bookingReference,
-        professional_username: professional.username,
-        service_name: selectedService.name,
-        customer_name: user?.name || authForm.name || undefined,
-        customer_email: user?.email || authForm.email || undefined,
-        },
-        token ?? undefined,
-      );
-
-      if (order.mode === "mock") {
-        const verifyResult = await verifyPaymentWithToken(
-          {
-            razorpay_order_id: order.orderId,
-            razorpay_payment_id: `pay_demo_${Date.now()}`,
-            razorpay_signature: "mock_signature",
-            booking_reference: order.bookingReference,
-            next_route: "/dashboard",
-            professional_username: professional.username,
-            service_name: selectedService.name,
-            mock_status: paymentForm.mockOutcome,
-          },
-          token ?? undefined,
-        );
-
-        const mockStatus: PaymentStatus =
-          verifyResult.status === "success" || verifyResult.status === "failure" || verifyResult.status === "pending"
-            ? verifyResult.status
-            : "pending";
-
-        redirectToPaymentStatus(mockStatus, verifyResult.nextRoute);
-        return;
-      }
-
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded || !window.Razorpay) {
-        throw new Error("Unable to load Razorpay checkout script.");
-      }
-
-      const razorpay = new window.Razorpay({
-        key: order.keyId,
-        amount: order.amountSubunits,
-        currency: order.currency,
-        name: "Wolistic Wellness",
-        description: `${selectedService.name} with ${professional.name}`,
-        order_id: order.orderId,
-        prefill: {
-          name: user?.name || authForm.name || undefined,
-          email: user?.email || authForm.email || undefined,
-        },
-        notes: {
-          bookingReference: order.bookingReference,
-          professionalUsername: professional.username,
-        },
-        handler: async (response) => {
-          try {
-            const verifyResult = await verifyPaymentWithToken(
-              {
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                booking_reference: order.bookingReference,
-                next_route: "/dashboard",
-                professional_username: professional.username,
-                service_name: selectedService.name,
-              },
-              token ?? undefined,
-            );
-
-            const verifiedStatus: PaymentStatus =
-              verifyResult.status === "success" || verifyResult.status === "failure" || verifyResult.status === "pending"
-                ? verifyResult.status
-                : "pending";
-
-            redirectToPaymentStatus(verifiedStatus, verifyResult.nextRoute);
-          } catch {
-            redirectToPaymentStatus("pending");
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setPaymentSubmitting(false);
-            setPaymentError("Checkout was closed before payment completion.");
-          },
-        },
-      });
-
-      razorpay.open();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to start payment. Please try again.";
-      setPaymentSubmitting(false);
-      setPaymentError(message);
-      redirectToPaymentStatus("failure");
-    }
+    await submitPayment();
   };
 
   return (
@@ -742,10 +501,16 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
             {bookingStep === "questions" && (
               <QuestionsStep
                 questionForm={questionForm}
+                mandatoryQuestions={mandatoryQuestions}
+                questionAnswers={questionAnswers}
                 questionError={questionError}
-                continueLabel={user ? "Payment" : "Signup"}
+                questionsLoading={questionsLoading}
+                continueLabel={effectiveUser ? "Payment" : "Signup"}
                 onSubmit={handleQuestionsSubmit}
                 onChange={(field, value) => setQuestionForm((previous) => ({ ...previous, [field]: value }))}
+                onQuestionAnswerChange={(questionId, value) =>
+                  setQuestionAnswers((previous) => ({ ...previous, [questionId]: value }))
+                }
               />
             )}
 

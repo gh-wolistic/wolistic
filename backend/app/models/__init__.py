@@ -1,3 +1,9 @@
+from app.models.booking import (
+    Booking,
+    BookingPayment,
+    BookingQuestionResponse,
+    BookingQuestionTemplate,
+)
 from app.models.professional import (
     Professional,
     ProfessionalApproach,
@@ -14,6 +20,10 @@ from app.models.professional import (
 from app.models.user import User
 
 __all__ = [
+    "Booking",
+    "BookingQuestionTemplate",
+    "BookingQuestionResponse",
+    "BookingPayment",
     "Professional",
     "ProfessionalApproach",
     "ProfessionalAvailability",

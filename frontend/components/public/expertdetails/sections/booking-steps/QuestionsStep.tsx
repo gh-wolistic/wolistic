@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { BookingQuestion } from "@/components/public/data/bookingApi";
 
 type QuestionForm = {
   currentWeight: string;
@@ -12,19 +13,31 @@ type QuestionForm = {
   physicalConditions: string;
   medicalConditions: string;
   wellnessGoal: string;
-  expertQuestionOne: string;
-  expertQuestionTwo: string;
 };
 
 type QuestionsStepProps = {
   questionForm: QuestionForm;
+  mandatoryQuestions: BookingQuestion[];
+  questionAnswers: Record<number, string>;
   questionError: string | null;
+  questionsLoading: boolean;
   continueLabel: string;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onChange: (field: keyof QuestionForm, value: string) => void;
+  onQuestionAnswerChange: (questionId: number, value: string) => void;
 };
 
-export function QuestionsStep({ questionForm, questionError, continueLabel, onSubmit, onChange }: QuestionsStepProps) {
+export function QuestionsStep({
+  questionForm,
+  mandatoryQuestions,
+  questionAnswers,
+  questionError,
+  questionsLoading,
+  continueLabel,
+  onSubmit,
+  onChange,
+  onQuestionAnswerChange,
+}: QuestionsStepProps) {
   return (
     <form className="mt-5 space-y-4 rounded-xl border border-emerald-300 bg-background p-5 shadow-md dark:border-emerald-500/30" onSubmit={onSubmit}>
       <div className="border-b border-emerald-100 pb-3 dark:border-emerald-500/25">
@@ -33,6 +46,32 @@ export function QuestionsStep({ questionForm, questionError, continueLabel, onSu
           Complete these required details before moving to payment.
         </p>
       </div>
+
+      {questionsLoading ? (
+        <p className="text-sm text-muted-foreground">Loading required questions...</p>
+      ) : (
+        <div className="space-y-3">
+          {mandatoryQuestions.map((question, index) => (
+            <div key={question.id} className="space-y-1.5">
+              <Label htmlFor={`expert-question-${question.id}`}>
+                Expert Question {index + 1}: {question.prompt}
+              </Label>
+              <Textarea
+                id={`expert-question-${question.id}`}
+                className="border border-border"
+                value={questionAnswers[question.id] ?? ""}
+                onChange={(event) => onQuestionAnswerChange(question.id, event.target.value)}
+                required={question.is_required}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="border-b border-emerald-100 pb-3 pt-2 dark:border-emerald-500/25">
+        <h4>Optional Health Details</h4>
+      </div>
+
       <div className="grid sm:grid-cols-3 gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="current-weight">Current Weight (kg)</Label>
@@ -42,7 +81,6 @@ export function QuestionsStep({ questionForm, questionError, continueLabel, onSu
             className="border border-border"
             value={questionForm.currentWeight}
             onChange={(event) => onChange("currentWeight", event.target.value)}
-            required
           />
         </div>
         <div className="space-y-1.5">
@@ -53,7 +91,6 @@ export function QuestionsStep({ questionForm, questionError, continueLabel, onSu
             className="border border-border"
             value={questionForm.height}
             onChange={(event) => onChange("height", event.target.value)}
-            required
           />
         </div>
         <div className="space-y-1.5">
@@ -64,7 +101,6 @@ export function QuestionsStep({ questionForm, questionError, continueLabel, onSu
             className="border border-border"
             value={questionForm.age}
             onChange={(event) => onChange("age", event.target.value)}
-            required
           />
         </div>
       </div>
@@ -99,32 +135,6 @@ export function QuestionsStep({ questionForm, questionError, continueLabel, onSu
           value={questionForm.wellnessGoal}
           onChange={(event) => onChange("wellnessGoal", event.target.value)}
           placeholder="What do you want to achieve from this consultation?"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="expert-question-1">
-          Expert Question 1: What outcome do you expect in the next 4-6 weeks?
-        </Label>
-        <Textarea
-          id="expert-question-1"
-          className="border border-border"
-          value={questionForm.expertQuestionOne}
-          onChange={(event) => onChange("expertQuestionOne", event.target.value)}
-          required
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label htmlFor="expert-question-2">
-          Expert Question 2: Any routine, food, or schedule constraints we should consider?
-        </Label>
-        <Textarea
-          id="expert-question-2"
-          className="border border-border"
-          value={questionForm.expertQuestionTwo}
-          onChange={(event) => onChange("expertQuestionTwo", event.target.value)}
-          required
         />
       </div>
 
