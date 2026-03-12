@@ -1,93 +1,102 @@
 # Architecture Overview
 
 ## Stack
-- **Frontend**: Next.js 16 (React 19, TypeScript, Tailwind CSS 4)
-- **Backend**: FastAPI (Python 3.12, async SQLAlchemy, Alembic)
-- **Database**: Supabase Postgres (UUID-based schema)
-- **Infrastructure**: Docker, Docker Compose
-- **Connection Pooling**: Supabase PgBouncer (transaction mode, port 6543)
+- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, Radix UI
+- **Backend**: FastAPI, async SQLAlchemy 2, Alembic
+- **Database**: Supabase Postgres with UUID-based user and professional ownership
+- **Auth**: Supabase Auth in frontend, FastAPI bearer-token verification for protected API routes
+- **Infrastructure**: Docker, Docker Compose, Supabase PgBouncer transaction pooler
 
-## Directory Structure
+## Current Structure
 ```
 wolistic.com/
-├── frontend/           # Next.js app
+├── frontend/
 │   ├── app/
-│   │   ├── page.tsx   # Homepage with backend health check
-│   │   ├── layout.tsx
-│   │   └── globals.css
-│   └── package.json
-├── backend/            # FastAPI service
+│   │   ├── (public)/                 # Public marketing, profile, payment, results routes
+│   │   ├── authorized/               # Authenticated booking history page
+│   │   └── layout.tsx                # Root layout and metadata
+│   ├── components/
+│   │   ├── auth/                     # Session provider, auth modal, backend profile resolver
+│   │   ├── public/                   # Public shell, results UI, expert details flow
+│   │   └── ui/                       # Shared UI primitives
+│   ├── lib/
+│   ├── store/
+│   └── types/
+├── backend/
 │   ├── app/
-│   │   ├── main.py                    # FastAPI app entry
 │   │   ├── api/
-│   │   │   ├── router.py             # API v1 router aggregation
+│   │   │   ├── router.py             # API v1 aggregation
 │   │   │   └── routes/
-│   │   │       └── health.py         # Health check endpoint
+│   │   │       ├── auth.py           # Authenticated profile endpoint
+│   │   │       ├── booking.py        # Booking questions, payment, history
+│   │   │       ├── health.py         # Liveness/readiness endpoints
+│   │   │       └── professionals.py  # Public professional profile endpoints
 │   │   ├── core/
+│   │   │   ├── auth.py               # Supabase JWT verification helpers
 │   │   │   ├── config.py             # Pydantic settings
-│   │   │   └── database.py           # Async DB engine
-│   │   └── models/
-│   │       ├── base.py               # SQLAlchemy Base
-│   │       └── user.py               # User model (UUID PK)
+│   │   │   └── database.py           # Async engine/session setup
+│   │   ├── models/
+│   │   └── schemas/
 │   ├── alembic/
-│   │   ├── env.py                    # Async Alembic config
-│   │   └── versions/
-│   │       └── 20260305_0001_...py   # Initial users table
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   ├── requirements.txt
-│   └── .env
-└── docs/               # Project documentation
+│   └── tests/
+└── docs/
 ```
 
-## Key Design Decisions
+## Backend API Surface
 
-### Database
-- **UUID primary keys** for users table (scalable, no sequential exposure)
-- **Alembic async mode** for migrations (uses asyncpg directly)
-- **Statement cache disabled** (`statement_cache_size=0`) for PgBouncer compatibility
-- **Transaction pooler** for connection efficiency with Supabase
+### Public or optionally-authenticated routes
+- `GET /api/v1/healthz`
+- `GET /api/v1/readyz`
+- `GET /api/v1/health` (legacy/deprecated)
+- `GET /api/v1/professionals/by-id/{professional_id}`
+- `GET /api/v1/professionals/{professional_id}/reviews`
+- `GET /api/v1/professionals/{username}`
+- `GET /api/v1/booking/questions/{professional_username}`
+	Optional auth is used here only to determine whether required questions were already answered.
 
-### FastAPI
-- **Versioned API** routing (`/api/v1`)
-- **CORS configured** for Next.js frontend + Supabase URL
-- **Async-first** architecture (AsyncSession, async endpoints)
-- **Pydantic Settings** with env validation
-- **Health check** with DB ping (`SELECT 1`)
+### Authenticated routes
+- `GET /api/v1/auth/me`
+- `POST /api/v1/booking/questions/{professional_username}/responses`
+- `POST /api/v1/booking/payments/order`
+- `POST /api/v1/booking/payments/verify`
+- `GET /api/v1/booking/history/me`
 
-### Docker
-- **Multi-stage ready** (currently single-stage with Python 3.12-slim)
-- **Service name**: `backend`
-- **Port**: 8000
-- **Healthcheck**: HTTP probe to `/api/v1/health`
+## Auth Boundary
+- Frontend signs users in with Supabase and keeps the access token client-side.
+- FastAPI verifies Supabase bearer tokens in `backend/app/core/auth.py`.
+- Protected backend endpoints derive `current_user.user_id` server-side and do not trust client-supplied user identifiers.
+- The frontend auth session is enriched through `GET /api/v1/auth/me` so UI state can use backend-owned identity fields.
 
-### Frontend
-- **Server components** by default (Next.js App Router)
-- **Backend health check** on homepage (demonstrates API integration)
-- **Environment variables**: `NEXT_PUBLIC_API_BASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`
+## Booking Flow Architecture
+- Question lookup is read-only and can be called before login, but returns richer state when a bearer token is present.
+- Answer submission, order creation, payment verification, and history retrieval all require authenticated backend identity.
+- `create_payment_order` now generates `booking_reference` server-side to prevent client replay/overwrite attacks.
+- Booking history now returns `latest_booking`, `next_booking`, `immediate_bookings`, `upcoming_bookings`, and `past_bookings`.
+- `BookingPayment.amount` is modeled as `Decimal` in Python to match `NUMERIC(10, 2)` in Postgres.
 
-## Data Flow
-1. Frontend (Next.js) → Backend (FastAPI) via HTTP/REST
-2. Backend → Supabase Postgres via asyncpg + SQLAlchemy
-3. Migrations run via Alembic (async mode)
-4. CORS allows frontend + Supabase cross-origin requests
+## Frontend Architecture
+- Public routes are wrapped by `PublicLayoutClient`, which composes `AuthSessionProvider` and `AuthModalProvider`.
+- `AuthSessionProvider` can enrich the Supabase session with backend profile data from `/api/v1/auth/me`.
+- Expert profile pages render a client booking flow with schedule, required questions, auth, and payment steps.
+- A public `/results` route exists as a modular UI shell for future multi-scope search (`professionals`, `products`, `influencers`, and planned scopes).
 
-## Scalability Considerations
-- Connection pooling via Supabase PgBouncer (transaction mode)
-- Async I/O throughout stack
-- Stateless FastAPI (12-factor app ready)
-- Environment-driven config (no hardcoded secrets)
-- Migration-based schema management (no manual DB changes)
+## Data Model Notes
+- `users.id` is the global UUID identity anchor.
+- `professionals.user_id` reuses the user UUID as its primary key.
+- Booking tables include questions, responses, bookings, and booking payments.
+- Professional detail content is normalized across child tables such as services, certifications, languages, availability, reviews, and gallery items.
 
-## Future Architecture Additions
-- Background job queue (Celery/Arq + Redis)
-- Caching layer (Redis)
-- Auth middleware (Supabase JWT verification)
-- Observability (structured logging, tracing, metrics)
-- API rate limiting
-- Separate read replicas for analytics/AI workloads
+## Operational Notes
+- PgBouncer compatibility is preserved with `statement_cache_size=0`.
+- CORS is currently permissive enough for development and should still be tightened for production.
+- The backend remains stateless and environment-driven.
+- Current tests cover health routes, auth identity lookup, booking auth boundaries, and selected booking-flow behavior.
+
+## Near-Term Gaps
+- Real Razorpay signature verification is still pending.
+- `authApi.ts` remains a frontend stub for several auth-adjacent operations.
+- The professionals list/search endpoint does not yet exist.
+- Some docs and code still reflect an intermediate state around session ownership and role modeling.
 
 ## Ownership Matrix
-See `docs/AI_DONT_DELETE_OWNERSHIP_MATRIX.md` for the recommended split between:
-- Frontend -> Supabase (auth + safe public reads)
-- Frontend -> FastAPI (AI logic + privileged operations)
+See `AI_DONT_DELETE_OWNERSHIP_MATRIX.md` for the preferred split between direct Supabase usage and FastAPI-owned privileged logic.

@@ -56,9 +56,15 @@ docker compose run --rm backend python
 docker compose run --rm backend python -c "from app.core.config import get_settings; print(get_settings().DATABASE_URL)"
 
 # Check health endpoint
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/v1/healthz
 # or
-Invoke-WebRequest http://localhost:8000/api/v1/health
+Invoke-WebRequest http://localhost:8000/api/v1/healthz
+
+# Check readiness endpoint
+curl http://localhost:8000/api/v1/readyz
+
+# Run backend tests locally
+C:/Python313/python.exe -m pytest
 ```
 
 ### Container Management
@@ -155,7 +161,10 @@ npm run dev
 ### Check System Status
 ```powershell
 # Backend health
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/v1/healthz
+
+# Backend readiness
+curl http://localhost:8000/api/v1/readyz
 
 # Frontend
 # Open browser: http://localhost:3000
@@ -214,6 +223,7 @@ taskkill /PID <PID> /F
 | Run migration | `docker compose run --rm backend alembic upgrade head` |
 | View logs | `docker compose logs -f backend` |
 | Backend shell | `docker compose run --rm backend /bin/bash` |
+| Run backend tests | `C:/Python313/python.exe -m pytest` |
 | Start frontend | `npm run dev` |
-| Health check | `curl http://localhost:8000/api/v1/health` |
+| Health check | `curl http://localhost:8000/api/v1/healthz` |
 | Clean restart | `docker compose down -v && docker compose up -d --build` |

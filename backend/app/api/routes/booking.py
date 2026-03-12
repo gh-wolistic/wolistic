@@ -3,22 +3,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from decimal import Decimal
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthenticatedUser, get_current_user, get_optional_current_user
 from app.core.database import get_db_session
-from app.models.booking import (
-    Booking,
-    BookingPayment,
-    BookingQuestionResponse,
-    BookingQuestionTemplate,
-)
+from app.models.booking import Booking, BookingPayment, BookingQuestionResponse, BookingQuestionTemplate
 from app.models.professional import Professional
+from app.core.config import get_settings
 from app.schemas.booking import (
     BookingHistoryItemOut,
     BookingHistoryOut,
@@ -31,6 +26,9 @@ from app.schemas.booking import (
     VerifyPaymentIn,
     VerifyPaymentOut,
 )
+from app.services.payments.service import create_payment_order as create_payment_order_service
+from app.services.payments.service import process_payment_webhook as process_payment_webhook_service
+from app.services.payments.service import verify_payment as verify_payment_service
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
@@ -197,72 +195,13 @@ async def create_payment_order(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> CreatePaymentOrderOut:
-    professional_result = await db.execute(
-        select(Professional.user_id, Professional.username).where(
-            Professional.username == payload.professional_username
-        )
-    )
-    professional_row = professional_result.one_or_none()
-    if professional_row is None:
-        raise HTTPException(status_code=404, detail="Professional not found")
-
-    professional_id, _ = professional_row
-
     booking_reference = _generate_booking_reference()
-    booking = Booking(
+    return await create_payment_order_service(
+        payload=payload,
         booking_reference=booking_reference,
-        professional_id=professional_id,
-        client_user_id=current_user.user_id,
-        service_name=payload.service_name,
-        status="pending",
-        scheduled_for=payload.booking_at,
-        is_immediate=payload.is_immediate,
-    )
-    db.add(booking)
-    await db.flush()
-
-    if payload.amount <= 0:
-        # Free service — confirm the booking immediately without payment gateway
-        booking.status = "confirmed"
-        free_payment = BookingPayment(
-            booking_id=booking.id,
-            provider="free",
-            provider_order_id=f"free_{booking.booking_reference}",
-            amount=Decimal("0"),
-            currency=payload.currency,
-            status="success",
-        )
-        db.add(free_payment)
-        await db.commit()
-        return CreatePaymentOrderOut(
-            mode="free",
-            key_id="",
-            order_id=f"free_{booking.booking_reference}",
-            booking_reference=booking.booking_reference,
-            amount_subunits=0,
-            currency=payload.currency,
-        )
-
-    order_id = f"order_mock_{int(datetime.now(timezone.utc).timestamp() * 1000)}"
-
-    payment = BookingPayment(
-        booking_id=booking.id,
-        provider="razorpay",
-        provider_order_id=order_id,
-        amount=Decimal(str(payload.amount)),
-        currency=payload.currency,
-        status="created",
-    )
-    db.add(payment)
-    await db.commit()
-
-    return CreatePaymentOrderOut(
-        mode="mock",
-        key_id="rzp_test_mock",
-        order_id=order_id,
-        booking_reference=booking.booking_reference,
-        amount_subunits=int(round(payload.amount * 100)),
-        currency=payload.currency,
+        current_user_id=current_user.user_id,
+        db=db,
+        settings=get_settings(),
     )
 
 
@@ -272,50 +211,28 @@ async def verify_payment(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> VerifyPaymentOut:
-    booking_result = await db.execute(
-        select(Booking).where(
-            Booking.booking_reference == payload.booking_reference,
-            Booking.client_user_id == current_user.user_id,
-        )
-    )
-    booking = booking_result.scalar_one_or_none()
-
-    if booking is None:
-        raise HTTPException(status_code=404, detail="Booking not found")
-
-    booking.service_name = payload.service_name
-    booking.scheduled_for = payload.booking_at or booking.scheduled_for
-    booking.is_immediate = payload.is_immediate
-
-    resolved_status = payload.mock_status if payload.mock_status in {"success", "failure", "pending"} else "success"
-
-    booking.status = (
-        "confirmed"
-        if resolved_status == "success"
-        else "failed"
-        if resolved_status == "failure"
-        else "pending"
+    return await verify_payment_service(
+        payload=payload,
+        current_user_id=current_user.user_id,
+        db=db,
+        settings=get_settings(),
     )
 
-    payment_result = await db.execute(
-        select(BookingPayment).where(
-            BookingPayment.provider_order_id == payload.razorpay_order_id,
-            BookingPayment.booking_id == booking.id,
-        )
-    )
-    payment = payment_result.scalar_one_or_none()
 
-    if payment is None:
-        raise HTTPException(status_code=404, detail="Payment order not found")
+@router.post("/payments/webhooks/razorpay", status_code=status.HTTP_202_ACCEPTED)
+async def process_razorpay_webhook(
+    request: Request,
+    razorpay_signature: str | None = Header(default=None, alias="X-Razorpay-Signature"),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict[str, object]:
+    if not razorpay_signature:
+        raise HTTPException(status_code=400, detail="Missing Razorpay webhook signature")
 
-    payment.status = resolved_status
-
-    await db.commit()
-
-    return VerifyPaymentOut(
-        status=resolved_status,
-        nextRoute=_is_safe_route(payload.next_route),
-        booking_reference=payload.booking_reference,
+    return await process_payment_webhook_service(
+        payload=await request.body(),
+        signature=razorpay_signature,
+        db=db,
+        settings=get_settings(),
     )
 
 

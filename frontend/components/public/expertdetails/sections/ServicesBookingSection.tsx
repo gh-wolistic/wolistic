@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { PaymentStep } from "@/components/payment/PaymentStep";
+import { usePaymentFlow } from "@/components/payment/hooks/usePaymentFlow";
+import type { PaymentStatus } from "@/components/payment/types";
 import { useSessionStore } from "@/store/session";
 import type { DashboardRole } from "@/types/dashboard";
 import type { ProfessionalProfile } from "@/types/professional";
@@ -15,10 +18,8 @@ import { login, selectRole, signup } from "@/components/public/data/authApi";
 import { ScheduleStep } from "./booking-steps/ScheduleStep";
 import { QuestionsStep } from "./booking-steps/QuestionsStep";
 import { AuthStep } from "./booking-steps/AuthStep";
-import { PaymentStep } from "./booking-steps/PaymentStep";
 import { useBookingSchedule } from "./booking-hooks/useBookingSchedule";
 import { useMandatoryQuestions } from "./booking-hooks/useMandatoryQuestions";
-import { usePaymentFlow } from "./booking-hooks/usePaymentFlow";
 
 type ServicesBookingSectionProps = {
   professional: ProfessionalProfile;
@@ -27,8 +28,6 @@ type ServicesBookingSectionProps = {
 
 type BookingStep = "schedule" | "questions" | "auth" | "payment";
 type AuthMode = "signup" | "login";
-
-type PaymentStatus = "success" | "failure" | "pending";
 
 function mapUserTypeToDashboardRole(type: "professional" | "user" | "brand" | "influencer"): DashboardRole {
   switch (type) {
@@ -536,7 +535,6 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                 paymentSubmitting={paymentSubmitting}
                 onSubmit={handlePaymentSubmit}
                 onChangeGstin={(value) => setPaymentForm((previous) => ({ ...previous, gstin: value }))}
-                onChangeMockOutcome={(value) => setPaymentForm((previous) => ({ ...previous, mockOutcome: value }))}
               />
             )}
           </Card>

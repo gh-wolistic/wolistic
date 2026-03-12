@@ -6,10 +6,10 @@
 - [ ] Create `frontend/.env.local` copy and add to `.gitignore`
 - [ ] Rotate Supabase anon key and DB password (exposed in chat logs)
 - [ ] Add `.gitignore` for both frontend and backend
-- [ ] Add basic `pytest` setup for backend
+- [x] Add basic `pytest` setup for backend
 
 ## MVP Phase
-- [ ] Add Supabase JWT authentication middleware
+- [x] Add Supabase JWT authentication middleware
 - [ ] Add user CRUD endpoints (`POST /api/v1/users`, `GET /api/v1/users/me`)
 - [ ] Add request ID middleware and structured logging
 - [ ] Add frontend auth UI (Supabase Auth UI or custom)

@@ -24,6 +24,14 @@ Update at minimum:
 - `SUPABASE_ANON_KEY`
 - `BACKEND_CORS_ORIGINS` for all frontend domains
 
+Payment configuration:
+
+- `PAYMENT_PROVIDER=mock` for local mock flow or `PAYMENT_PROVIDER=razorpay` for real Razorpay test/live mode
+- `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` must be set in `backend/.env` for real order creation and signature verification
+- `RAZORPAY_WEBHOOK_SECRET` is required when enabling the Razorpay webhook endpoint
+
+Keep real Razorpay secrets only in `backend/.env`. Do not place them in tracked files or frontend env files.
+
 ## 2) Run database migration
 
 ```bash
@@ -45,6 +53,7 @@ Service:
 - API: `http://localhost:8000`
 - Liveness: `http://localhost:8000/api/v1/healthz`
 - Readiness: `http://localhost:8000/api/v1/readyz`
+- Razorpay webhook: `POST /api/v1/booking/payments/webhooks/razorpay`
 
 ## 4) Run tests
 

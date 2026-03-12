@@ -59,7 +59,6 @@ class VerifyPaymentIn(BaseModel):
     next_route: str | None = "/authorized"
     professional_username: str = Field(min_length=2, max_length=100)
     service_name: str = Field(min_length=1, max_length=255)
-    mock_status: str | None = None
     booking_at: datetime | None = None
     is_immediate: bool = False
 

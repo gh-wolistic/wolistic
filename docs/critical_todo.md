@@ -1,25 +1,26 @@
 # Critical Todo List — wolistic.com Code Review
 _Generated: March 12, 2026_
+_Reviewed: March 13, 2026_
 
 ---
 
 ## 🔴 CRITICAL — Security
 
-- [ ] **Add JWT authentication to backend** — Create a FastAPI dependency that verifies the Supabase JWT (via JWKS or `SUPABASE_ANON_KEY`). Inject the verified `user_id` server-side. Remove all client-supplied `user_id` fields from request bodies and URL paths. Affected endpoints: `/booking/history/{user_id}`, `/booking/questions/{username}/responses`, `/booking/payments/order`, `/booking/payments/verify`.
+- [x] **Add JWT authentication to backend** — FastAPI now verifies Supabase bearer tokens in `backend/app/core/auth.py` and server-side user identity is used by booking endpoints instead of client-supplied `user_id` values.
 
 - [ ] **Fix payment verification — IDOR + client-controlled outcome** — Implement HMAC-SHA256 Razorpay signature verification using the Razorpay key secret. Remove the `mock_status` field from `VerifyPaymentIn` entirely in production. Currently the client decides whether their own payment succeeded.
 
-- [ ] **Remove email from public API and JSON-LD** — Remove `email` from `ProfessionalProfileOut` (`backend/app/schemas/professional.py`) and from the JSON-LD `Person` structured data in `frontend/app/(public)/[username]/page.tsx`. This is currently leaking PII to all visitors and search engine crawlers.
+- [x] **Remove email from public API and JSON-LD** — `email` has been removed from the public professional API contract and public frontend profile type; the public profile page no longer exposes it.
 
-- [ ] **Implement `GET /api/v1/auth/me` endpoint** — `frontend/components/auth/resolve-auth-profile.ts` calls this route on every login. The route does not exist. Every authenticated session silently fails profile enrichment.
+- [x] **Implement `GET /api/v1/auth/me` endpoint** — The backend now exposes `/api/v1/auth/me` and the existing frontend resolver can enrich auth session state from backend-owned profile fields.
 
-- [ ] **Fix `booking_reference` replay attack** — The client generates the booking reference. Add server-side generation of the booking reference (UUID or CUID) in `create_payment_order`. Do not accept client-supplied booking references.
+- [x] **Fix `booking_reference` replay attack** — `create_payment_order` now generates `booking_reference` server-side and no longer accepts a client-provided booking reference.
 
 ---
 
 ## 🟠 HIGH — Bugs & Data Integrity
 
-- [ ] **Fix immediate bookings missing from history** — `get_booking_history` splits into `upcoming` (scheduled_for >= now) and `past` (scheduled_for < now). Immediate bookings have `scheduled_for = None` and never appear in either bucket. Add a separate `immediate_bookings` list or include them in `latest_booking` prominently.
+- [x] **Fix immediate bookings missing from history** — Booking history now returns a dedicated `immediate_bookings` collection and the authorized page renders it.
 
 - [ ] **Remove dual session state** — `frontend/store/session.ts` (Zustand) and `frontend/components/auth/AuthSessionProvider.tsx` (React context) both independently track auth state and can fall out of sync. Pick one source of truth and remove the other.
 
@@ -29,7 +30,7 @@ _Generated: March 12, 2026_
 
 - [ ] **`education` always returns `[]`** — `_flatten_professional` never populates the education list despite the `professional_education` table existing. The `lazy="noload"` setting on the relationship needs to be changed and the mapper updated.
 
-- [ ] **`authorized/page.tsx` bypasses the data layer** — It calls `fetch(process.env.NEXT_PUBLIC_API_URL + ...)` directly. Use the existing `getBookingHistory()` function from `frontend/components/public/data/bookingApi.ts` for consistency.
+- [x] **`authorized/page.tsx` bypasses the data layer** — The authorized page now loads booking history through `frontend/components/public/data/bookingApi.ts`.
 
 ---
 
@@ -37,7 +38,7 @@ _Generated: March 12, 2026_
 
 - [ ] **Add `GET /professionals` list endpoint** — No browse/search/paginate endpoint exists. The homepage cannot show a directory of professionals. Add pagination, search by name/specialization, and filter by category.
 
-- [ ] **Add JWT-protected booking endpoints index** — After adding auth middleware, audit which booking endpoints need auth vs. which can remain public.
+- [x] **Add JWT-protected booking endpoints index** — The architecture docs now list the current booking endpoint access model: optional auth for question lookup, required auth for answer submission, payment creation/verification, and history retrieval.
 
 - [ ] **Add database indexes on FK columns** — PostgreSQL does not auto-index foreign keys. Add explicit indexes on `professional_id` and `client_user_id` across all child tables (`booking_question_responses`, `booking_question_templates`, `bookings`, `booking_payments`, and all `professional_*` child tables).
 
@@ -59,7 +60,7 @@ _Generated: March 12, 2026_
 
 - [ ] **Fix `get_db_session` — missing rollback on error** — `backend/app/core/database.py` should wrap the session yield in `try/finally` with `session.rollback()` to handle partially-flushed state on exceptions. Also add `AsyncGenerator[AsyncSession, None]` return type annotation.
 
-- [ ] **Fix `BookingPayment.amount` type mismatch** — `Mapped[float]` on a `Numeric(10, 2)` column causes silent float coercion. Change to `Mapped[Decimal]` and import `Decimal` from `decimal`.
+- [x] **Fix `BookingPayment.amount` type mismatch** — `BookingPayment.amount` now uses `Mapped[Decimal]` to match `Numeric(10, 2)`.
 
 - [ ] **Add precision/scale to `Professional.rating_avg`** — Bare `Numeric` without `(precision, scale)` should be `Numeric(3, 2)`.
 
