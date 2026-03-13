@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Award, ExternalLink, MapPin, TrendingUp, Users } from "lucide-react";
+import { Award, ChevronLeft, ChevronRight, ExternalLink, MapPin, TrendingUp, Users } from "lucide-react";
 
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,47 @@ type ResultsGridProps = {
     baseHref: string;
   };
 };
+
+function buildPageItems(currentPage: number, totalPages: number): Array<number | "ellipsis"> {
+  if (totalPages <= 7) {
+    return Array.from({ length: totalPages }, (_, index) => index + 1);
+  }
+
+  const pages = new Set<number>([1, totalPages]);
+  for (let page = currentPage - 1; page <= currentPage + 1; page += 1) {
+    if (page > 1 && page < totalPages) {
+      pages.add(page);
+    }
+  }
+
+  if (currentPage <= 3) {
+    pages.add(2);
+    pages.add(3);
+    pages.add(4);
+  }
+
+  if (currentPage >= totalPages - 2) {
+    pages.add(totalPages - 1);
+    pages.add(totalPages - 2);
+    pages.add(totalPages - 3);
+  }
+
+  const sortedPages = Array.from(pages)
+    .filter((page) => page >= 1 && page <= totalPages)
+    .sort((a, b) => a - b);
+
+  const items: Array<number | "ellipsis"> = [];
+  for (let index = 0; index < sortedPages.length; index += 1) {
+    const page = sortedPages[index];
+    const previous = sortedPages[index - 1];
+    if (previous && page - previous > 1) {
+      items.push("ellipsis");
+    }
+    items.push(page);
+  }
+
+  return items;
+}
 
 export function ResultsGrid({ scope, returnTo, professionals, pagination }: ResultsGridProps) {
   if (scope === "professionals") {
@@ -113,31 +154,92 @@ export function ResultsGrid({ scope, returnTo, professionals, pagination }: Resu
         </div>
 
         {pagination && pagination.totalPages > 1 ? (
-          <div className="flex items-center justify-between rounded-2xl border border-border bg-card/60 px-4 py-3">
+          <nav aria-label="Pagination" className="flex items-center justify-center gap-1.5">
+            {/* Previous */}
             {previousPageHref ? (
-              <Button variant="outline" asChild>
-                <Link href={previousPageHref}>Previous</Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                asChild
+              >
+                <Link href={previousPageHref} aria-label="Previous page">
+                  <ChevronLeft size={16} />
+                </Link>
               </Button>
             ) : (
-              <Button variant="outline" disabled>
-                Previous
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full opacity-30"
+                disabled
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={16} />
               </Button>
             )}
 
-            <p className="text-sm text-muted-foreground">
-              Page {pagination.currentPage} of {pagination.totalPages}
-            </p>
+            {/* Page pills */}
+            {buildPageItems(pagination.currentPage, pagination.totalPages).map((item, index) => {
+              if (item === "ellipsis") {
+                return (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-9 w-6 items-end justify-center pb-1 text-sm text-muted-foreground"
+                  >
+                    ···
+                  </span>
+                );
+              }
 
+              const pageHref = `${pagination.baseHref}&page=${item}`;
+              const isActive = item === pagination.currentPage;
+
+              return isActive ? (
+                <span
+                  key={item}
+                  aria-current="page"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-600 text-sm font-semibold text-white shadow-sm"
+                >
+                  {item}
+                </span>
+              ) : (
+                <Button
+                  key={item}
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 rounded-full text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  asChild
+                >
+                  <Link href={pageHref}>{item}</Link>
+                </Button>
+              );
+            })}
+
+            {/* Next */}
             {nextPageHref ? (
-              <Button variant="outline" asChild>
-                <Link href={nextPageHref}>Next</Link>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                asChild
+              >
+                <Link href={nextPageHref} aria-label="Next page">
+                  <ChevronRight size={16} />
+                </Link>
               </Button>
             ) : (
-              <Button variant="outline" disabled>
-                Next
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-full opacity-30"
+                disabled
+                aria-label="Next page"
+              >
+                <ChevronRight size={16} />
               </Button>
             )}
-          </div>
+          </nav>
         ) : null}
       </div>
     );

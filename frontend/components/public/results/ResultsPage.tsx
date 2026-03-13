@@ -4,6 +4,7 @@ import type { ProfessionalProfile } from "@/types/professional";
 import { scopeOptions } from "./results-data";
 import { ResultsGrid } from "./ResultsGrid";
 import { ResultsScopeTabs } from "./ResultsScopeTabs";
+import { ResultsStickyBar } from "./ResultsStickyBar";
 import { ResultsToolbar } from "./ResultsToolbar";
 import type { ResultsScope } from "./results-types";
 
@@ -34,14 +35,52 @@ export function resolveResultsScope(value?: string | null): ResultsScope {
 type ResultsPageProps = {
   scope: ResultsScope;
   query: string;
+  category: string;
   currentPage: number;
 };
 
 const PAGE_SIZE = 6;
 
-export async function ResultsPage({ scope, query, currentPage }: ResultsPageProps) {
+const PROFESSIONAL_CATEGORY_KEYWORDS: Record<string, string[]> = {
+  "fitness & training": ["fitness", "training", "strength", "conditioning", "workout", "gym"],
+  "yoga & mobility": ["yoga", "mobility", "flexibility", "pilates", "posture"],
+  "diet & nutrition": ["diet", "nutrition", "meal", "fat loss", "weight loss", "metabolic"],
+  "mental wellness": ["mental", "mindfulness", "stress", "anxiety", "therapy", "counsel", "wellbeing", "well-being"],
+};
+
+function filterProfessionalsByCategory(items: ProfessionalProfile[], category: string): ProfessionalProfile[] {
+  const normalizedCategory = category.trim().toLowerCase();
+  if (!normalizedCategory || normalizedCategory === "all") {
+    return items;
+  }
+
+  const categoryKeywords = PROFESSIONAL_CATEGORY_KEYWORDS[normalizedCategory] ?? [normalizedCategory];
+
+  return items.filter((profile) => {
+    const searchableText = [
+      profile.category,
+      profile.specialization,
+      ...(profile.subcategories ?? []),
+      ...(profile.specializations ?? []),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return categoryKeywords.some((keyword) => searchableText.includes(keyword));
+  });
+}
+
+export async function ResultsPage({ scope, query, category, currentPage }: ResultsPageProps) {
   const selectedScope = scopeOptions.find((scopeOption) => scopeOption.key === scope) ?? scopeOptions[0];
-  const baseHref = query ? `/results?scope=${scope}&q=${encodeURIComponent(query)}` : `/results?scope=${scope}`;
+  const params = new URLSearchParams({ scope });
+  if (query) {
+    params.set("q", query);
+  }
+  if (category && category.toLowerCase() !== "all") {
+    params.set("category", category);
+  }
+  const baseHref = `/results?${params.toString()}`;
   const summary = query
     ? `Showing ${selectedScope.label.toLowerCase()} for “${query}”`
     : `Showing all ${selectedScope.label.toLowerCase()}`;
@@ -52,26 +91,27 @@ export async function ResultsPage({ scope, query, currentPage }: ResultsPageProp
 
   if (scope === "professionals") {
     const allProfessionals = await searchProfessionals(query, 60);
-    totalPages = Math.max(1, Math.ceil(allProfessionals.length / PAGE_SIZE));
+    const filteredProfessionals = filterProfessionalsByCategory(allProfessionals, category);
+    totalPages = Math.max(1, Math.ceil(filteredProfessionals.length / PAGE_SIZE));
     safePage = Math.min(Math.max(1, currentPage), totalPages);
     const startIndex = (safePage - 1) * PAGE_SIZE;
-    professionals = allProfessionals.slice(startIndex, startIndex + PAGE_SIZE);
+    professionals = filteredProfessionals.slice(startIndex, startIndex + PAGE_SIZE);
   }
 
   const returnTo = safePage > 1 ? `${baseHref}&page=${safePage}` : baseHref;
 
   return (
     <div className="w-full">
-
-      <section className="sticky top-20 z-40 border-b border-border bg-background/92 backdrop-blur">
-        <div className="container mx-auto px-4 py-4 sm:px-6 lg:px-8">
-          <div className="space-y-3">
-            <p className="text-sm font-medium text-muted-foreground/90">{summary}</p>
-            <ResultsScopeTabs activeScope={scope} query={query} />
-            <ResultsToolbar scope={scope} query={query} />
-          </div>
+      <section className="border-b border-border/60 bg-background">
+        <div className="container mx-auto px-4 py-3 sm:px-6 lg:px-8">
+          <p className="text-sm font-medium text-muted-foreground/90">{summary}</p>
         </div>
       </section>
+
+      <ResultsStickyBar
+        scopeTabs={<ResultsScopeTabs activeScope={scope} query={query} />}
+        toolbar={<ResultsToolbar scope={scope} query={query} category={category} />}
+      />
 
       <section className="py-12 lg:py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">

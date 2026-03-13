@@ -2,11 +2,12 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/components/ui/utils";
 
 import type { ResultsScope } from "./results-types";
 
@@ -22,12 +23,16 @@ const categoryLabels: Record<ResultsScope, string[]> = {
 type ResultsToolbarProps = {
   scope: ResultsScope;
   query: string;
+  category: string;
 };
 
-export function ResultsToolbar({ scope, query }: ResultsToolbarProps) {
+export function ResultsToolbar({ scope, query, category }: ResultsToolbarProps) {
   const router = useRouter();
   const categories = categoryLabels[scope];
   const [searchText, setSearchText] = useState(query);
+  const normalizedCategory = category.trim();
+  const activeCategory = normalizedCategory ? normalizedCategory : "All";
+  const hasActiveFilters = Boolean(query.trim() || (normalizedCategory && normalizedCategory.toLowerCase() !== "all"));
 
   useEffect(() => {
     setSearchText(query);
@@ -36,10 +41,31 @@ export function ResultsToolbar({ scope, query }: ResultsToolbarProps) {
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmed = searchText.trim();
-    const href = trimmed
-      ? `/results?scope=${scope}&q=${encodeURIComponent(trimmed)}`
-      : `/results?scope=${scope}`;
-    router.push(href);
+    const params = new URLSearchParams({ scope });
+    if (trimmed) {
+      params.set("q", trimmed);
+    }
+    if (activeCategory.toLowerCase() !== "all") {
+      params.set("category", activeCategory);
+    }
+    router.push(`/results?${params.toString()}`);
+  };
+
+  const handleClear = () => {
+    setSearchText("");
+    router.push(`/results?scope=${scope}`);
+  };
+
+  const handleCategorySelect = (selectedCategory: string) => {
+    const params = new URLSearchParams({ scope });
+    const trimmed = searchText.trim();
+    if (trimmed) {
+      params.set("q", trimmed);
+    }
+    if (selectedCategory.toLowerCase() !== "all") {
+      params.set("category", selectedCategory);
+    }
+    router.push(`/results?${params.toString()}`);
   };
 
   return (
@@ -56,24 +82,37 @@ export function ResultsToolbar({ scope, query }: ResultsToolbarProps) {
           />
         </div>
         <div className="flex gap-2">
-          <Button type="submit" className="h-12 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 text-white">
-            Search
+          <Button
+            type={hasActiveFilters ? "button" : "submit"}
+            onClick={hasActiveFilters ? handleClear : undefined}
+            className="h-12 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 text-white"
+          >
+            {hasActiveFilters ? "Clear" : "Search"}
           </Button>
-          <Button type="button" variant="outline" className="h-12 rounded-2xl px-4">
-            <SlidersHorizontal size={16} />
-            Filters
-          </Button>
+
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
-        {categories.map((category, index) => (
-          <Badge
-            key={category}
-            variant={index === 0 ? "default" : "secondary"}
-            className={index === 0 ? "rounded-full bg-foreground px-3 py-1 text-background" : "rounded-full px-3 py-1"}
+        {categories.map((categoryOption) => (
+          <button
+            key={categoryOption}
+            type="button"
+            onClick={() => handleCategorySelect(categoryOption)}
+            className="rounded-full"
+            aria-pressed={activeCategory.toLowerCase() === categoryOption.toLowerCase()}
           >
-            {category}
-          </Badge>
+            <Badge
+              variant={activeCategory.toLowerCase() === categoryOption.toLowerCase() ? "default" : "secondary"}
+              className={cn(
+                "cursor-pointer rounded-full px-3 py-1 transition-colors",
+                activeCategory.toLowerCase() === categoryOption.toLowerCase()
+                  ? "bg-foreground text-background"
+                  : "hover:bg-muted",
+              )}
+            >
+              {categoryOption}
+            </Badge>
+          </button>
         ))}
       </div>
     </form>

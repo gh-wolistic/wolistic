@@ -11,6 +11,7 @@ type ResultsRouteProps = {
     q?: string;
     scope?: string;
     page?: string;
+    category?: string;
   }>;
 };
 
@@ -29,6 +30,7 @@ export default async function ResultsRoute({ searchParams }: ResultsRouteProps) 
   const params = searchParams ? await searchParams : undefined;
   const rawScope = params?.scope?.trim().toLowerCase() ?? "";
   const query = params?.q?.trim() ?? "";
+  const category = params?.category?.trim() ?? "";
   const currentPage = parsePage(params?.page);
 
   if (rawScope === "wolistic") {
@@ -42,5 +44,12 @@ export default async function ResultsRoute({ searchParams }: ResultsRouteProps) 
   }
 
   const scope = resolveResultsScope(rawScope);
-  return <ResultsPage scope={scope satisfies ResultsScope} query={query} currentPage={currentPage} />;
+  return (
+    <ResultsPage
+      scope={scope satisfies ResultsScope}
+      query={query}
+      category={category}
+      currentPage={currentPage}
+    />
+  );
 }
