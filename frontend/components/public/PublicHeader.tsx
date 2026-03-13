@@ -36,7 +36,7 @@ interface HeaderProps {
   user?: {
     name: string;
     email: string;
-    type: 'professional' | 'user' | 'brand' | 'influencer';
+    type: 'client' | 'partner';
   } | null;
   onOpenAuth?: () => void;
   onLogout?: () => void;

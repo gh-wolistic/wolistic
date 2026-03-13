@@ -40,7 +40,6 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
     id: raw.id as string,
     username: raw.username as string,
     name: raw.name as string,
-    email: (raw.email as string) ?? undefined,
     specialization: raw.specialization as string,
     category: (raw.category as string) ?? undefined,
     location: (raw.location as string) ?? undefined,
@@ -69,6 +68,10 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
       mode: s.mode as string,
       price: s.price as number,
       offers: (s.offers as string) ?? undefined,
+      negotiable: (s.negotiable as boolean) ?? undefined,
+      offer_type: (s.offer_type as string) ?? undefined,
+      offer_label: (s.offer_label as string) ?? undefined,
+      offer_value: (s.offer_value as number) ?? undefined,
     })),
     featuredProducts: (raw.featured_products as ProfessionalProfile["featuredProducts"]) ?? [],
   };
@@ -82,6 +85,76 @@ function toCamelReview(raw: Record<string, unknown>): ProfessionalReview {
     comment: (raw.comment as string) ?? undefined,
     createdAt: raw.created_at as string,
   };
+}
+
+function tokenize(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+function filterAndRankProfilesLocally(items: ProfessionalProfile[], query: string, limit: number): ProfessionalProfile[] {
+  const q = query.trim().toLowerCase();
+  if (!q) {
+    return items.slice(0, limit);
+  }
+
+  const queryTokens = tokenize(q);
+  const aliases = new Set(queryTokens);
+  if (aliases.has("sara")) aliases.add("sarah");
+  if (aliases.has("sarah")) aliases.add("sara");
+  if (aliases.has("diet")) aliases.add("nutrition");
+  if (aliases.has("nutrition")) aliases.add("diet");
+  if (aliases.has("strength")) {
+    aliases.add("conditioning");
+    aliases.add("fitness");
+    aliases.add("training");
+  }
+
+  const scored = items
+    .map((profile) => {
+      const haystack = [
+        profile.name,
+        profile.username,
+        profile.specialization,
+        profile.category,
+        profile.shortBio,
+        profile.about,
+        profile.approach,
+        ...(profile.subcategories ?? []),
+        ...(profile.specializations ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+      let score = 0;
+      for (const token of aliases) {
+        if (token.length < 3) {
+          continue;
+        }
+        if (haystack.includes(token)) {
+          score += 1;
+        }
+      }
+
+      if (score < 1) {
+        return null;
+      }
+
+      return {
+        profile,
+        score: score + (profile.rating || 0) * 0.05,
+      };
+    })
+    .filter((value): value is { profile: ProfessionalProfile; score: number } => value !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.profile);
+
+  return scored;
 }
 
 // ---------------------------------------------------------------------------
@@ -131,6 +204,49 @@ export async function getProfessionalReviews(
     items: data.items.map(toCamelReview),
     total: data.total,
   };
+}
+
+export async function getFeaturedProfessionals(limit = 8): Promise<ProfessionalProfile[]> {
+  const res = await fetch(`${API_BASE}/professionals/featured?limit=${encodeURIComponent(String(limit))}`, {
+    next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const items = (await res.json()) as Record<string, unknown>[];
+  return items.map(toCamelProfile);
+}
+
+export async function searchProfessionals(query: string, limit = 24): Promise<ProfessionalProfile[]> {
+  const safeLimit = Math.max(1, limit);
+  const params = new URLSearchParams({
+    q: query,
+    limit: String(safeLimit),
+  });
+
+  const res = await fetch(`${API_BASE}/professionals/search?${params.toString()}`, {
+    next: { revalidate: 60 },
+  });
+  if (res.ok) {
+    const items = (await res.json()) as Record<string, unknown>[];
+    return items.map(toCamelProfile);
+  }
+
+  // Compatibility fallback while /professionals/search is not deployed.
+  if (res.status === 404) {
+    const featuredLimit = Math.min(Math.max(safeLimit, 8), 20);
+    const fallback = await fetch(
+      `${API_BASE}/professionals/featured?limit=${encodeURIComponent(String(featuredLimit))}`,
+      { next: { revalidate: 60 } },
+    );
+    if (!fallback.ok) {
+      return [];
+    }
+
+    const items = (await fallback.json()) as Record<string, unknown>[];
+    const profiles = items.map(toCamelProfile);
+    return filterAndRankProfilesLocally(profiles, query, safeLimit);
+  }
+
+  throw new Error(`API error ${res.status}`);
 }
 
 export type { ProfessionalReview };

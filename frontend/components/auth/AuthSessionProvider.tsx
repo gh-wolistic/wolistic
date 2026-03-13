@@ -13,15 +13,18 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+import type { UserSubtype, UserType } from "@/components/onboarding/types";
 
-export type AuthUserType = "professional" | "user" | "brand" | "influencer" | "unknown";
+export type AuthUserType = UserType | "unknown";
 
 export type AuthSessionUser = {
   id: string;
   email: string;
   name: string;
   userType: AuthUserType;
+  userSubtype: UserSubtype | null;
   userRole: string | null;
+  onboardingRequired: boolean;
 };
 
 type ResolveUserProfile = (params: {
@@ -46,11 +49,27 @@ type AuthSessionProviderProps = {
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
 
 function normalizeUserType(value: unknown): AuthUserType {
-  if (value === "professional" || value === "user" || value === "brand" || value === "influencer") {
+  if (value === "client" || value === "partner") {
     return value;
   }
 
   return "unknown";
+}
+
+function normalizeUserSubtype(value: unknown): UserSubtype | null {
+  if (
+    value === "client" ||
+    value === "body_expert" ||
+    value === "mind_expert" ||
+    value === "diet_expert" ||
+    value === "mutiple_roles" ||
+    value === "brand" ||
+    value === "influencer"
+  ) {
+    return value;
+  }
+
+  return null;
 }
 
 function sessionUserToAuthUser(sessionUser: User): AuthSessionUser | null {
@@ -71,7 +90,9 @@ function sessionUserToAuthUser(sessionUser: User): AuthSessionUser | null {
     email: sessionUser.email,
     name: name.trim() || sessionUser.email.split("@")[0],
     userType: normalizeUserType(metadata.user_type),
+    userSubtype: normalizeUserSubtype(metadata.user_subtype),
     userRole: typeof metadata.user_role === "string" ? metadata.user_role : null,
+    onboardingRequired: !metadata.user_type || !metadata.user_subtype,
   };
 }
 
@@ -124,7 +145,15 @@ export function AuthSessionProvider({ children, resolveUserProfile }: AuthSessio
               email: profile.email ?? baseUser.email,
               name: profile.name ?? baseUser.name,
               userType: profile.userType ? normalizeUserType(profile.userType) : baseUser.userType,
+              userSubtype:
+                profile.userSubtype === undefined
+                  ? baseUser.userSubtype
+                  : normalizeUserSubtype(profile.userSubtype),
               userRole: profile.userRole === undefined ? baseUser.userRole : profile.userRole,
+              onboardingRequired:
+                profile.onboardingRequired === undefined
+                  ? baseUser.onboardingRequired
+                  : profile.onboardingRequired,
             };
           }
         } catch {
@@ -161,7 +190,11 @@ export function AuthSessionProvider({ children, resolveUserProfile }: AuthSessio
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    void refreshSession();
+
+    void (async () => {
+      const { data } = await supabase.auth.getSession();
+      await hydrateFromSession(data.session);
+    })();
 
     const {
       data: { subscription },
@@ -172,7 +205,7 @@ export function AuthSessionProvider({ children, resolveUserProfile }: AuthSessio
     return () => {
       subscription.unsubscribe();
     };
-  }, [hydrateFromSession, refreshSession]);
+  }, [hydrateFromSession]);
 
   const value = useMemo<AuthSessionContextValue>(
     () => ({

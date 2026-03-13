@@ -8,39 +8,45 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { UserOnboardingFlow } from "@/components/onboarding/UserOnboardingFlow";
+import { BookingOnboardingStep } from "@/components/onboarding/booking/BookingOnboardingStep";
+import {
+  clearBookingFlowDraft,
+  persistBookingFlowDraft,
+  readBookingFlowDraft,
+  type PersistedBookingDraft,
+} from "@/components/onboarding/booking/storage";
+import { useBookingOnboarding } from "@/components/onboarding/booking/useBookingOnboarding";
+import { markBookingFlowAutoClientSelection } from "@/components/onboarding/storage";
+import { mapUserProfileToDashboardRole, type OnboardingSelection } from "@/components/onboarding/types";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { usePaymentFlow } from "@/components/payment/hooks/usePaymentFlow";
 import type { PaymentStatus } from "@/components/payment/types";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { useSessionStore } from "@/store/session";
-import type { DashboardRole } from "@/types/dashboard";
 import type { ProfessionalProfile } from "@/types/professional";
-import { login, selectRole, signup } from "@/components/public/data/authApi";
+import { login, signup, updateUserOnboardingSelection } from "@/components/public/data/authApi";
+import { getPromotionalEligibility } from "@/components/public/data/bookingApi";
 import { ScheduleStep } from "./booking-steps/ScheduleStep";
-import { QuestionsStep } from "./booking-steps/QuestionsStep";
 import { AuthStep } from "./booking-steps/AuthStep";
 import { useBookingSchedule } from "./booking-hooks/useBookingSchedule";
-import { useMandatoryQuestions } from "./booking-hooks/useMandatoryQuestions";
 
 type ServicesBookingSectionProps = {
   professional: ProfessionalProfile;
   bookingStartSignal: number;
 };
 
-type BookingStep = "schedule" | "questions" | "auth" | "payment";
+type BookingStep = "schedule" | "questions" | "auth" | "user-onboarding" | "payment";
 type AuthMode = "signup" | "login";
+type PreferredTiming = "morning" | "afternoon" | "evening";
 
-function mapUserTypeToDashboardRole(type: "professional" | "user" | "brand" | "influencer"): DashboardRole {
-  switch (type) {
-    case "professional":
-      return "expert:trainer";
-    case "brand":
-      return "brand";
-    case "influencer":
-      return "partner";
-    default:
-      return "client";
-  }
-}
+const BOOKING_FLOW_STEPS: ReadonlyArray<{ step: BookingStep; label: string }> = [
+  { step: "schedule", label: "Schedule" },
+  { step: "questions", label: "Questions" },
+  { step: "auth", label: "Signin" },
+  { step: "user-onboarding", label: "Profile" },
+  { step: "payment", label: "Payment" },
+];
 
 export function ServicesBookingSection({ professional, bookingStartSignal }: ServicesBookingSectionProps) {
   const router = useRouter();
@@ -49,16 +55,26 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const { user: authSessionUser, accessToken: authSessionToken } = useAuthSession();
   const setAuthSession = useSessionStore((state) => state.setAuthSession);
   const setRole = useSessionStore((state) => state.setRole);
-  const setOnboardingComplete = useSessionStore((state) => state.setOnboardingComplete);
 
-  const effectiveUser = user ?? (authSessionUser
-    ? {
-        id: authSessionUser.id,
-        email: authSessionUser.email,
-        name: authSessionUser.name,
-        type: authSessionUser.userType,
-      }
-    : null);
+  const effectiveUser = useMemo(() => {
+    if (user) {
+      return user;
+    }
+
+    if (!authSessionUser) {
+      return null;
+    }
+
+    return {
+      id: authSessionUser.id,
+      email: authSessionUser.email,
+      name: authSessionUser.name,
+      type: authSessionUser.userType === "unknown" ? undefined : authSessionUser.userType,
+      userSubtype: authSessionUser.userSubtype,
+      userRole: authSessionUser.userRole,
+      onboardingRequired: authSessionUser.onboardingRequired,
+    };
+  }, [authSessionUser, user]);
   const effectiveToken = token ?? authSessionToken;
 
   const servicesToDisplay = useMemo(() => professional.services, [professional.services]);
@@ -78,6 +94,12 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [promotionalAlreadyClaimed, setPromotionalAlreadyClaimed] = useState(false);
+  const [userOnboardingError, setUserOnboardingError] = useState<string | null>(null);
+  const [userOnboardingSubmitting, setUserOnboardingSubmitting] = useState(false);
+  const restoredDraftRef = useRef(false);
+  const resumeAfterAuthRef = useRef<PersistedBookingDraft | null>(null);
+  const isAutoResumingAfterAuthRef = useRef(false);
   const bookingFlowRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -103,25 +125,68 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     mandatoryQuestions,
     questionAnswers,
     questionsLoading,
+    questionsResolved,
     needsMandatoryQuestions,
     questionError,
     setQuestionForm,
     setQuestionAnswers,
     persistQuestionAnswers,
-  } = useMandatoryQuestions({
+  } = useBookingOnboarding({
     showBookingFlow,
     professionalUsername: professional.username,
-    onboardingComplete: effectiveUser?.onboardingComplete,
     token: effectiveToken ?? undefined,
-    onOnboardingMarked: () => setOnboardingComplete(true),
   });
 
   const selectedService = servicesToDisplay[selectedServiceIndex] ?? servicesToDisplay[0];
+  const activeStepIndex = BOOKING_FLOW_STEPS.findIndex((item) => item.step === bookingStep);
   const isInitialConsultationSelected =
     selectedService?.name?.trim().toLowerCase() === "initial consultation";
   const isOnline = professional.isOnline;
 
-  const subtotal = selectedService?.price ?? 0;
+  const computeServiceDiscount = (service: (typeof servicesToDisplay)[number] | undefined): number => {
+    if (!service) {
+      return 0;
+    }
+
+    if (service.offer_type && service.offer_type !== "none") {
+      if (service.offer_type === "cashback") {
+        return 0;
+      }
+      if (service.offer_type === "percentage" && service.offer_value) {
+        return Number(((service.price * service.offer_value) / 100).toFixed(2));
+      }
+      if (service.offer_type === "flat" && service.offer_value) {
+        return Math.min(service.price, service.offer_value);
+      }
+    }
+
+    const offers = service.offers?.trim();
+    if (!offers) {
+      return 0;
+    }
+
+    const normalized = offers.toLowerCase();
+    if (normalized.includes("free")) {
+      return service.price;
+    }
+
+    const percentMatch = normalized.match(/(\d+(?:\.\d+)?)\s*%\s*off/);
+    if (percentMatch) {
+      const pct = Number(percentMatch[1]);
+      return Number(((service.price * pct) / 100).toFixed(2));
+    }
+
+    const flatMatch = normalized.match(/(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(?:off|discount)/);
+    if (flatMatch) {
+      return Math.min(service.price, Number(flatMatch[1]));
+    }
+
+    return 0;
+  };
+
+  const baseSubtotal = selectedService?.price ?? 0;
+  const discountAmount = computeServiceDiscount(selectedService);
+  const subtotal = Number(Math.max(baseSubtotal - discountAmount, 0).toFixed(2));
   const gstAmount = Number((subtotal * 0.18).toFixed(2));
   const platformFee = subtotal > 0 ? 49 : 0;
   const grandTotal = subtotal + gstAmount + platformFee;
@@ -204,7 +269,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
 
   const scrollToBookingFlow = () => {
     window.setTimeout(() => {
-      bookingFlowRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      bookingFlowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }, 50);
   };
 
@@ -228,12 +293,165 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
 
   useEffect(() => {
     if (bookingStartSignal > 0) {
+      clearBookingFlowDraft();
+      resumeAfterAuthRef.current = null;
+      isAutoResumingAfterAuthRef.current = false;
       setSelectedServiceIndex(initialConsultationIndex);
       setShowBookingFlow(false);
       setBookingStep("schedule");
       resetSchedule();
     }
   }, [bookingStartSignal, initialConsultationIndex, resetSchedule]);
+
+  useEffect(() => {
+    if (restoredDraftRef.current) {
+      return;
+    }
+
+    restoredDraftRef.current = true;
+
+    const draft = readBookingFlowDraft();
+    if (!draft || draft.professionalUsername !== professional.username) {
+      return;
+    }
+
+    resumeAfterAuthRef.current = draft;
+    setSelectedServiceIndex(draft.serviceIndex);
+    setShowBookingFlow(true);
+    setBookingStep(draft.bookingStep === "payment" ? "auth" : draft.bookingStep);
+    setAuthMode(draft.authMode);
+    setQuestionForm(draft.questionForm);
+    setQuestionAnswers(draft.questionAnswers);
+    setIsImmediateBooking(draft.isImmediateBooking);
+    setSelectedTimeSlot(draft.selectedTimeSlot);
+    setPreferredTiming(draft.preferredTiming as PreferredTiming | null);
+    setSelectedDate(draft.selectedDateIso ? new Date(draft.selectedDateIso) : undefined);
+    scrollToBookingFlow();
+  }, [
+    professional.username,
+    setIsImmediateBooking,
+    setPreferredTiming,
+    setQuestionAnswers,
+    setQuestionForm,
+    setSelectedDate,
+    setSelectedTimeSlot,
+  ]);
+
+  useEffect(() => {
+    const draft = resumeAfterAuthRef.current;
+
+    if (!draft || isAutoResumingAfterAuthRef.current || !effectiveUser || !effectiveToken || !showBookingFlow) {
+      return;
+    }
+
+    if (!questionsResolved || questionsLoading) {
+      return;
+    }
+
+    isAutoResumingAfterAuthRef.current = true;
+
+    void (async () => {
+      try {
+        if (needsMandatoryQuestions) {
+          const result = await persistQuestionAnswers({
+            professionalUsername: professional.username,
+            userId: effectiveUser.id,
+          });
+
+          if (!result.ok) {
+            setBookingStep("questions");
+            return;
+          }
+        }
+
+        setBookingStep(effectiveUser.onboardingRequired ? "user-onboarding" : "payment");
+        clearBookingFlowDraft();
+        resumeAfterAuthRef.current = null;
+      } finally {
+        isAutoResumingAfterAuthRef.current = false;
+      }
+    })();
+  }, [
+    effectiveToken,
+    effectiveUser,
+    needsMandatoryQuestions,
+    persistQuestionAnswers,
+    professional.username,
+    questionsLoading,
+    questionsResolved,
+    setBookingStep,
+    showBookingFlow,
+  ]);
+
+  useEffect(() => {
+    if (!showBookingFlow || bookingStep === "payment") {
+      return;
+    }
+
+    if (!resumeAfterAuthRef.current) {
+      return;
+    }
+
+    persistBookingFlowDraft({
+      professionalUsername: professional.username,
+      serviceIndex: selectedServiceIndex,
+      bookingStep: bookingStep === "user-onboarding" ? "user-onboarding" : "auth",
+      authMode,
+      preferredTiming,
+      selectedDateIso: selectedDate ? selectedDate.toISOString() : null,
+      selectedTimeSlot,
+      isImmediateBooking,
+      questionForm,
+      questionAnswers,
+    });
+  }, [
+    authMode,
+    bookingStep,
+    isImmediateBooking,
+    preferredTiming,
+    professional.username,
+    questionAnswers,
+    questionForm,
+    selectedDate,
+    selectedServiceIndex,
+    selectedTimeSlot,
+    showBookingFlow,
+  ]);
+
+  useEffect(() => {
+    if (!showBookingFlow) {
+      return;
+    }
+
+    scrollToBookingFlow();
+  }, [bookingStep, showBookingFlow]);
+
+  useEffect(() => {
+    if (!effectiveToken) {
+      setPromotionalAlreadyClaimed(false);
+      return;
+    }
+
+    let isMounted = true;
+
+    void getPromotionalEligibility(professional.username, effectiveToken)
+      .then((result) => {
+        if (!isMounted) {
+          return;
+        }
+        setPromotionalAlreadyClaimed(result.already_claimed);
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return;
+        }
+        setPromotionalAlreadyClaimed(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [effectiveToken, professional.username]);
 
   const handleScheduleContinue = () => {
     if (questionsLoading) {
@@ -282,8 +500,16 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
       return;
     }
 
+    if (effectiveUser.onboardingRequired) {
+      setBookingStep("user-onboarding");
+      return;
+    }
+
     setBookingStep("payment");
   };
+
+  const isPromotionalService = (serviceName: string, price: number) =>
+    serviceName.trim().toLowerCase() === "initial consultation" || price === 0;
 
   const handleAuthSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -297,38 +523,36 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
               email: authForm.email,
               password: authForm.password,
               full_name: authForm.name,
-              user_type: "user",
+              user_type: "client",
             })
           : await login({
               email: authForm.email,
               password: authForm.password,
             });
 
-      let resolvedUser = authResult.user;
-
-      if (!resolvedUser.role_selection_complete) {
-        resolvedUser = await selectRole({ role: "client" }, authResult.access_token);
-      }
+      const resolvedUser =
+        authMode === "signup"
+          ? await updateUserOnboardingSelection(
+              { userType: "client", userSubtype: "client" },
+              authResult.access_token,
+            )
+          : authResult.user;
 
       setAuthSession({
         user: {
           id: resolvedUser.id,
           email: resolvedUser.email,
           name: resolvedUser.full_name,
-          type: resolvedUser.user_type,
-          onboardingComplete: resolvedUser.onboarding_complete,
-          accountType: resolvedUser.account_type,
-          expertType: resolvedUser.expert_type,
-          expertSubtype: resolvedUser.expert_subtype,
-          roleStatus: resolvedUser.role_status,
-          onboardingStatus: resolvedUser.onboarding_status,
-          roleSelectionComplete: resolvedUser.role_selection_complete,
+          type: resolvedUser.user_type ?? undefined,
+          userSubtype: resolvedUser.user_subtype,
+          userRole: resolvedUser.user_role,
+          onboardingRequired: resolvedUser.onboarding_required,
         },
         token: authResult.access_token,
       });
-      setRole(mapUserTypeToDashboardRole(resolvedUser.user_type));
+      setRole(mapUserProfileToDashboardRole(resolvedUser.user_type, resolvedUser.user_subtype));
 
-      setBookingStep("payment");
+      setBookingStep(resolvedUser.onboarding_required ? "user-onboarding" : "payment");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to authenticate. Please try again.";
       setAuthError(message);
@@ -342,9 +566,123 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     await submitPayment();
   };
 
+  const handleGoogleAuth = async () => {
+    try {
+      setAuthSubmitting(true);
+      setAuthError(null);
+      markBookingFlowAutoClientSelection();
+      persistBookingFlowDraft({
+        professionalUsername: professional.username,
+        serviceIndex: selectedServiceIndex,
+        bookingStep: "auth",
+        authMode,
+        preferredTiming,
+        selectedDateIso: selectedDate ? selectedDate.toISOString() : null,
+        selectedTimeSlot,
+        isImmediateBooking,
+        questionForm,
+        questionAnswers,
+      });
+
+      const supabase = getSupabaseBrowserClient();
+      const redirectTo = window.location.href;
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        setAuthError(error.message);
+        clearBookingFlowDraft();
+      }
+    } catch (error) {
+      clearBookingFlowDraft();
+      setAuthError(error instanceof Error ? error.message : "Unable to continue with Google.");
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleUserOnboardingSubmit = async (selection: OnboardingSelection) => {
+    if (!effectiveToken) {
+      setUserOnboardingError("Please sign in again to continue.");
+      return;
+    }
+
+    setUserOnboardingSubmitting(true);
+    setUserOnboardingError(null);
+
+    try {
+      const resolvedUser = await updateUserOnboardingSelection(selection, effectiveToken);
+
+      setAuthSession({
+        user: {
+          id: resolvedUser.id,
+          email: resolvedUser.email,
+          name: resolvedUser.full_name,
+          type: resolvedUser.user_type ?? undefined,
+          userSubtype: resolvedUser.user_subtype,
+          userRole: resolvedUser.user_role,
+          onboardingRequired: resolvedUser.onboarding_required,
+          onboardingComplete: user?.onboardingComplete,
+        },
+        token: effectiveToken,
+      });
+      setRole(mapUserProfileToDashboardRole(resolvedUser.user_type, resolvedUser.user_subtype));
+      setBookingStep("payment");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to save your onboarding details.";
+      setUserOnboardingError(message);
+    } finally {
+      setUserOnboardingSubmitting(false);
+    }
+  };
+
+  const getPreviousStep = (): BookingStep | null => {
+    if (bookingStep === "schedule") {
+      return null;
+    }
+
+    if (bookingStep === "questions") {
+      return "schedule";
+    }
+
+    if (bookingStep === "auth") {
+      return needsMandatoryQuestions ? "questions" : "schedule";
+    }
+
+    if (bookingStep === "user-onboarding") {
+      if (needsMandatoryQuestions) {
+        return "questions";
+      }
+      return "schedule";
+    }
+
+    if (bookingStep === "payment") {
+      if (effectiveUser?.onboardingRequired) {
+        return "user-onboarding";
+      }
+      if (needsMandatoryQuestions) {
+        return "questions";
+      }
+      return "schedule";
+    }
+
+    return null;
+  };
+
+  const handleBackStep = () => {
+    const previousStep = getPreviousStep();
+    if (!previousStep) {
+      return;
+    }
+    setBookingStep(previousStep);
+  };
+
   return (
-    <div id="services" className="scroll-mt-32">
-      <Card className="p-6">
+    <div id="services" className="scroll-mt-20 sm:scroll-mt-32">
+      <Card className="p-5 sm:p-6">
         <h2 className="mb-6">Services & Pricing</h2>
         {servicesToDisplay.length === 0 ? (
           <p className="text-sm text-muted-foreground">
@@ -357,10 +695,28 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
               {(() => {
                 const isInitialConsultation =
                   service.name.trim().toLowerCase() === "initial consultation";
+                const isPromotional = isPromotionalService(service.name, service.price);
+                const isPromotionalBlocked = isPromotional && promotionalAlreadyClaimed;
+                const structuredOffer =
+                  service.offer_type && service.offer_type !== "none"
+                    ? service.offer_label
+                      ? service.offer_label
+                      : service.offer_type === "cashback" && service.offer_value
+                        ? `₹${service.offer_value} cashback`
+                        : service.offer_type === "percentage" && service.offer_value
+                          ? `${service.offer_value}% off`
+                          : service.offer_type === "flat" && service.offer_value
+                            ? `₹${service.offer_value} off`
+                            : "Offer available"
+                    : null;
+                const fallbackOffer = service.offers?.trim() ? service.offers.trim() : null;
+                const offerText = structuredOffer ?? fallbackOffer;
+                const cardDiscount = computeServiceDiscount(service);
+                const discountedPrice = Math.max(service.price - cardDiscount, 0);
 
                 return (
               <div
-                className={`flex items-center justify-between rounded-xl border bg-card p-5 transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/30 hover:shadow-md dark:hover:bg-emerald-500/10 ${
+                className={`flex flex-col gap-4 rounded-xl border bg-card p-4 transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/30 hover:shadow-md sm:flex-row sm:items-center sm:justify-between sm:p-5 dark:hover:bg-emerald-500/10 ${
                   selectedServiceIndex === index
                     ? "border-emerald-300 bg-emerald-50/30 dark:bg-emerald-500/10"
                     : "border-border"
@@ -371,6 +727,11 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                     <h3 className="text-lg">{service.name}</h3>
                     {selectedServiceIndex === index && (
                       <Badge className="bg-emerald-600 text-white">Selected</Badge>
+                    )}
+                    {isPromotionalBlocked && (
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100">
+                        Already Claimed
+                      </Badge>
                     )}
                     {service.negotiable && (
                       <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-xs dark:bg-emerald-500/15 dark:text-emerald-300">
@@ -388,20 +749,12 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                       </Badge>
                     )}
                   </div>
-                  {service.offer_type && service.offer_type !== "none" && (
-                    <div className="mt-2 text-sm text-emerald-700 dark:text-emerald-300">
-                      {service.offer_label
-                        ? service.offer_label
-                        : service.offer_type === "cashback" && service.offer_value
-                          ? `₹${service.offer_value} cashback`
-                          : service.offer_type === "percentage" && service.offer_value
-                            ? `${service.offer_value}% off`
-                            : service.offer_type === "flat" && service.offer_value
-                              ? `₹${service.offer_value} off`
-                              : "Offer available"}
+                  {offerText && (
+                    <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
+                      <span className="font-medium">Offer:</span> {offerText}
                     </div>
                   )}
-                  {isInitialConsultation && (
+                  {isInitialConsultation && !isPromotionalBlocked && (
                     <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-100/50 px-3 py-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/15">
                       <div className="mb-1.5 flex items-center gap-2">
                         <Badge className="bg-emerald-600 text-white text-[11px] px-2 py-0.5">Offer</Badge>
@@ -416,18 +769,26 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-2xl font-semibold text-emerald-600">
-                      {service.price === 0 ? "Free" : `₹${service.price}`}
-                    </p>
+                <div className="flex items-center justify-between gap-4 sm:justify-end">
+                  <div className="text-left sm:text-right">
+                    {service.price === 0 ? (
+                      <p className="text-2xl font-semibold text-emerald-600">Free</p>
+                    ) : cardDiscount > 0 ? (
+                      <>
+                        <p className="text-sm text-muted-foreground line-through">₹{service.price}</p>
+                        <p className="text-2xl font-semibold text-emerald-600">₹{discountedPrice}</p>
+                      </>
+                    ) : (
+                      <p className="text-2xl font-semibold text-emerald-600">₹{service.price}</p>
+                    )}
                   </div>
                   <Button
                     size="sm"
                     className="bg-emerald-600 shadow-sm hover:bg-emerald-700 hover:shadow-md hover:shadow-emerald-600/20"
                     onClick={() => beginBooking(index)}
+                    disabled={isPromotionalBlocked}
                   >
-                    Book
+                    {isPromotionalBlocked ? "Claimed" : "Book"}
                   </Button>
                 </div>
               </div>
@@ -441,30 +802,56 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
         {showBookingFlow && selectedService && (
           <Card
             ref={bookingFlowRef}
-            className="mt-6 border-emerald-200 bg-linear-to-br from-emerald-50 to-teal-50 p-6 dark:border-emerald-500/30 dark:from-emerald-950/30 dark:to-teal-950/30"
+            className="mt-6 border-emerald-200 bg-linear-to-br from-emerald-50 to-teal-50 p-4 sm:p-6 dark:border-emerald-500/30 dark:from-emerald-950/30 dark:to-teal-950/30"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-xl">Booking Flow</h3>
               <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                {bookingStep === "schedule"
-                  ? "Step 1/4"
-                  : bookingStep === "questions"
-                    ? "Step 2/4"
-                    : bookingStep === "auth"
-                      ? "Step 3/4"
-                      : "Step 4/4"}
+                {BOOKING_FLOW_STEPS[activeStepIndex]?.label ?? "Schedule"}
               </Badge>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-5">
+              {BOOKING_FLOW_STEPS.map((item, index) => {
+                const isActive = index === activeStepIndex;
+                const isComplete = index < activeStepIndex;
+
+                return (
+                  <div
+                    key={item.step}
+                    className={`rounded-xl border px-3 py-3 text-sm ${
+                      isActive
+                        ? "border-emerald-300 bg-white text-foreground shadow-sm dark:border-emerald-400/50 dark:bg-emerald-500/20 dark:text-emerald-100"
+                        : isComplete
+                          ? "border-teal-200 bg-teal-50/70 text-teal-800 dark:border-teal-500/30 dark:bg-teal-500/10 dark:text-teal-200"
+                          : "border-border/60 bg-background/70 text-muted-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="font-medium">{item.label}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <div className="mt-3 rounded-lg border border-emerald-200 bg-background p-4 shadow-sm dark:border-emerald-500/25">
               <p className="text-sm text-muted-foreground">Selected service</p>
-              <div className="mt-1 flex items-center justify-between">
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p>{selectedService.name}</p>
                 <p className="font-semibold text-emerald-600">
                   {selectedService.price === 0 ? "Free" : `₹${selectedService.price}`}
                 </p>
               </div>
             </div>
+
+            {bookingStep !== "schedule" && (
+              <div className="mt-4">
+                <Button type="button" variant="outline" onClick={handleBackStep}>
+                  Back
+                </Button>
+              </div>
+            )}
 
             {bookingStep === "schedule" && (
               <ScheduleStep
@@ -496,13 +883,13 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
             )}
 
             {bookingStep === "questions" && (
-              <QuestionsStep
+              <BookingOnboardingStep
                 questionForm={questionForm}
                 mandatoryQuestions={mandatoryQuestions}
                 questionAnswers={questionAnswers}
                 questionError={questionError}
                 questionsLoading={questionsLoading}
-                continueLabel={effectiveUser ? "Payment" : "Signup"}
+                continueLabel={effectiveUser ? (effectiveUser.onboardingRequired ? "Profile Setup" : "Payment") : "Signup"}
                 onSubmit={handleQuestionsSubmit}
                 onChange={(field, value) => setQuestionForm((previous) => ({ ...previous, [field]: value }))}
                 onQuestionAnswerChange={(questionId, value) =>
@@ -518,13 +905,31 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                 authError={authError}
                 authSubmitting={authSubmitting}
                 onSubmit={handleAuthSubmit}
+                onGoogleAuth={() => void handleGoogleAuth()}
                 onModeToggle={() => setAuthMode((previous) => (previous === "signup" ? "login" : "signup"))}
                 onChange={(field, value) => setAuthForm((previous) => ({ ...previous, [field]: value }))}
               />
             )}
 
+            {bookingStep === "user-onboarding" && (
+              <div className="mt-5">
+                <UserOnboardingFlow
+                  compact
+                  userName={effectiveUser?.name}
+                  initialUserType={effectiveUser?.type ?? null}
+                  initialUserSubtype={effectiveUser?.userSubtype ?? null}
+                  error={userOnboardingError}
+                  isSubmitting={userOnboardingSubmitting}
+                  submitLabel="Continue to Payment"
+                  onSubmit={handleUserOnboardingSubmit}
+                />
+              </div>
+            )}
+
             {bookingStep === "payment" && (
               <PaymentStep
+                baseSubtotal={baseSubtotal}
+                discountAmount={discountAmount}
                 subtotal={subtotal}
                 gstAmount={gstAmount}
                 platformFee={platformFee}

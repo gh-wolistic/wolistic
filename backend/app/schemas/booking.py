@@ -17,6 +17,11 @@ class BookingQuestionsPageOut(BaseModel):
     already_answered: bool = False
 
 
+class PromotionalEligibilityOut(BaseModel):
+    eligible: bool = True
+    already_claimed: bool = False
+
+
 class BookingQuestionAnswerIn(BaseModel):
     question_id: int = Field(gt=0)
     answer: str = Field(min_length=1, max_length=4000)

@@ -10,18 +10,20 @@ type GalleryProductsSectionProps = {
 };
 
 export function GalleryProductsSection({ professional }: GalleryProductsSectionProps) {
+  const sectionAnchorClassName = "scroll-mt-20 sm:scroll-mt-32";
+
   return (
     <>
-      <div id="gallery" className="scroll-mt-32">
-        <Card className="p-6">
+      <div id="gallery" className={sectionAnchorClassName}>
+        <Card className="p-5 sm:p-6">
           <h2 className="mb-6">Gallery & Feed</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-3">
             {professional.gallery.map((image, index) => (
-              <div key={`${image}-${index}`} className="aspect-square rounded-lg overflow-hidden group cursor-pointer">
+              <div key={`${image}-${index}`} className="group aspect-square cursor-pointer overflow-hidden rounded-lg">
                 <ImageWithFallback
                   src={image}
                   alt={`Gallery ${index + 1}`}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                 />
               </div>
             ))}
@@ -29,9 +31,9 @@ export function GalleryProductsSection({ professional }: GalleryProductsSectionP
         </Card>
       </div>
 
-      <div id="products" className="scroll-mt-32">
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
+      <div id="products" className={sectionAnchorClassName}>
+        <Card className="p-5 sm:p-6">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="mb-1">Featured Products</h2>
               <p className="text-sm text-muted-foreground">
@@ -41,19 +43,19 @@ export function GalleryProductsSection({ professional }: GalleryProductsSectionP
             <ShoppingBag className="text-emerald-600" size={32} />
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {professional.featuredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow">
+              <Card key={product.id} className="group cursor-pointer overflow-hidden transition-shadow hover:shadow-lg">
                 <div className="aspect-square overflow-hidden">
                   <ImageWithFallback
                     src={product.image}
                     alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                   />
                 </div>
                 <div className="p-4">
                   <h3 className="mb-2">{product.name}</h3>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <span className="text-xl font-semibold text-emerald-600">₹ {product.price}</span>
                     <Button size="sm" variant="outline">View Details</Button>
                   </div>

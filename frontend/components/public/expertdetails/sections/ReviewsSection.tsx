@@ -40,6 +40,7 @@ function getRelativeTimeLabel(isoDate: string): string {
 }
 
 export function ReviewsSection({ professionalId }: ReviewsSectionProps) {
+  const sectionAnchorClassName = "scroll-mt-20 sm:scroll-mt-32";
   const [reviews, setReviews] = useState<ProfessionalReview[]>([]);
   const [total, setTotal] = useState(0);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -103,9 +104,9 @@ export function ReviewsSection({ professionalId }: ReviewsSectionProps) {
   };
 
   return (
-    <div id="reviews" className="scroll-mt-32">
-      <Card className="p-6">
-        <div className="mb-6 flex items-center justify-between gap-3">
+    <div id="reviews" className={sectionAnchorClassName}>
+      <Card className="p-5 sm:p-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2>Client Reviews</h2>
           <span className="rounded-full border border-border bg-background/70 px-3 py-1 text-xs font-medium tracking-wide text-muted-foreground dark:bg-background/40">
             {total.toLocaleString()} total
@@ -124,10 +125,10 @@ export function ReviewsSection({ professionalId }: ReviewsSectionProps) {
         {!isInitialLoading && reviews.length > 0 ? (
           <div className="space-y-6">
             {reviews.map((review) => (
-              <div key={review.id} className="space-y-2 pb-6 border-b last:border-b-0 last:pb-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-full bg-linear-to-br from-emerald-400 to-teal-600" />
+              <div key={review.id} className="space-y-3 border-b pb-6 last:border-b-0 last:pb-0">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-linear-to-br from-emerald-400 to-teal-600" />
                   <div>
                     <p className="font-medium">{review.reviewerName}</p>
                     <div className="flex items-center gap-1">
@@ -145,11 +146,11 @@ export function ReviewsSection({ professionalId }: ReviewsSectionProps) {
                     </div>
                   </div>
                 </div>
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm text-muted-foreground sm:pt-1">
                   {getRelativeTimeLabel(review.createdAt)}
                 </span>
               </div>
-              <p className="text-muted-foreground">{review.comment}</p>
+              <p className="break-words text-sm text-muted-foreground sm:text-base">{review.comment}</p>
               </div>
             ))}
 

@@ -9,7 +9,9 @@ type BackendProfileResponse = {
   email?: string;
   name?: string;
   user_type?: string;
+  user_subtype?: string | null;
   user_role?: string | null;
+  onboarding_required?: boolean;
 };
 
 // Optional resolver to enrich session user with backend-owned profile fields.
@@ -34,6 +36,8 @@ export async function resolveAuthProfileFromBackend(params: {
     email: data.email,
     name: data.name,
     userType: data.user_type as AuthSessionUser["userType"],
+    userSubtype: (data.user_subtype ?? null) as AuthSessionUser["userSubtype"],
     userRole: data.user_role,
+    onboardingRequired: Boolean(data.onboarding_required),
   };
 }

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type PaymentStepProps = {
+  baseSubtotal: number;
+  discountAmount: number;
   subtotal: number;
   gstAmount: number;
   platformFee: number;
@@ -19,6 +21,8 @@ type PaymentStepProps = {
 };
 
 export function PaymentStep({
+  baseSubtotal,
+  discountAmount,
   subtotal,
   gstAmount,
   platformFee,
@@ -37,8 +41,20 @@ export function PaymentStep({
       <div className="space-y-2 rounded-lg border bg-background p-4 text-sm">
         <div className="flex justify-between">
           <span>Service Fee</span>
-          <span>{subtotal === 0 ? "Free" : `₹${subtotal.toFixed(2)}`}</span>
+          <span>{baseSubtotal === 0 ? "Free" : `₹${baseSubtotal.toFixed(2)}`}</span>
         </div>
+        {discountAmount > 0 && (
+          <div className="flex justify-between text-emerald-700 dark:text-emerald-300">
+            <span>Offer Discount</span>
+            <span>-₹{discountAmount.toFixed(2)}</span>
+          </div>
+        )}
+        {discountAmount > 0 && (
+          <div className="flex justify-between">
+            <span>Discounted Service Fee</span>
+            <span>{subtotal === 0 ? "Free" : `₹${subtotal.toFixed(2)}`}</span>
+          </div>
+        )}
         <div className="flex justify-between">
           <span>GST (18%)</span>
           <span>₹{gstAmount.toFixed(2)}</span>

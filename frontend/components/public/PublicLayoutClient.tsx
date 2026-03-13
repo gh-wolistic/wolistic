@@ -7,6 +7,7 @@ import { PublicHeader } from "./PublicHeader";
 import { BackToTopButton } from "./BackToTopButton";
 import { AuthModalProvider, useAuthModal } from "@/components/auth/AuthModalProvider";
 import { AuthSessionProvider, useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { UserOnboardingProvider } from "@/components/onboarding/UserOnboardingProvider";
 import { resolveAuthProfileFromBackend } from "@/components/auth/resolve-auth-profile";
 
 function PublicLayoutShell({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ function PublicLayoutShell({ children }: { children: React.ReactNode }) {
     ? {
         name: user.name,
         email: user.email,
-        type: user.userType === "unknown" ? "user" : user.userType,
+        type: user.userType === "unknown" ? "client" : user.userType,
       }
     : null;
 
@@ -60,7 +61,9 @@ export function PublicLayoutClient({ children }: { children: React.ReactNode }) 
       }
     >
       <AuthModalProvider>
-        <PublicLayoutShell>{children}</PublicLayoutShell>
+        <UserOnboardingProvider>
+          <PublicLayoutShell>{children}</PublicLayoutShell>
+        </UserOnboardingProvider>
       </AuthModalProvider>
     </AuthSessionProvider>
   );

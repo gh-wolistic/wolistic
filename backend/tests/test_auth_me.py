@@ -24,21 +24,31 @@ USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 class DummyAuthMeResult:
-    def __init__(self, row: tuple[User, uuid.UUID | None] | None) -> None:
+    def __init__(self, row: User | None) -> None:
         self._row = row
 
-    def one_or_none(self) -> tuple[User, uuid.UUID | None] | None:
+    def scalar_one_or_none(self) -> User | None:
         return self._row
 
 
 class DummySession:
-    async def execute(self, _query: object) -> DummyAuthMeResult:
-        user = User(
+    def __init__(self) -> None:
+        self.user = User(
             id=USER_ID,
             email="member@example.com",
             full_name="Morgan Lee",
+            user_type="partner",
+            user_subtype="diet_expert",
         )
-        return DummyAuthMeResult((user, USER_ID))
+
+    async def execute(self, _query: object) -> DummyAuthMeResult:
+        return DummyAuthMeResult(self.user)
+
+    async def commit(self) -> None:
+        return None
+
+    async def refresh(self, _user: User) -> None:
+        return None
 
 
 async def override_get_db_session() -> AsyncGenerator[DummySession, None]:
@@ -72,6 +82,48 @@ def test_auth_me_returns_authenticated_profile() -> None:
         "id": str(USER_ID),
         "email": "member@example.com",
         "name": "Morgan Lee",
-        "user_type": "professional",
-        "user_role": "professional",
+        "user_type": "partner",
+        "user_subtype": "diet_expert",
+        "user_role": "diet_expert",
+        "onboarding_required": False,
     }
+
+
+def test_auth_onboarding_updates_current_user() -> None:
+    session = DummySession()
+
+    async def override_get_db_session() -> AsyncGenerator[DummySession, None]:
+        yield session
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        response = client.patch(
+            "/api/v1/auth/onboarding",
+            json={"user_type": "client", "user_subtype": "client"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert session.user.user_type == "client"
+    assert session.user.user_subtype == "client"
+    assert response.json()["onboarding_required"] is False
+
+
+def test_auth_onboarding_rejects_invalid_selection() -> None:
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        response = client.patch(
+            "/api/v1/auth/onboarding",
+            json={"user_type": "client", "user_subtype": "diet_expert"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422

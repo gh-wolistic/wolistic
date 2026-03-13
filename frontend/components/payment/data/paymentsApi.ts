@@ -18,7 +18,14 @@ export async function createPaymentOrderWithToken(
   });
 
   if (!response.ok) {
-    throw new Error(`Unable to create payment order (${response.status})`);
+    let detail = "";
+    try {
+      const errorPayload = (await response.json()) as { detail?: string };
+      detail = errorPayload.detail ? `: ${errorPayload.detail}` : "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(`Unable to create payment order (${response.status})${detail}`);
   }
 
   const payload = (await response.json()) as {

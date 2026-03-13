@@ -16,6 +16,7 @@
 - [ ] Add basic error handling and validation schemas
 - [ ] Add environment split (`.env.development`, `.env.production`)
 - [ ] Add CI/CD pipeline (GitHub Actions)
+- [ ] Add mobile UX review checklist for every public page before shipping
 
 ## Pre-AI Features
 - [ ] Add Redis for caching
@@ -65,3 +66,4 @@
 - [ ] Add database schema diagram
 - [ ] Add contribution guidelines
 - [ ] Add architecture decision records (ADRs)
+- [ ] Document mobile-first acceptance criteria for profile, onboarding, and booking flows

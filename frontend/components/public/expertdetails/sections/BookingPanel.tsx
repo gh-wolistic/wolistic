@@ -1,11 +1,10 @@
 "use client";
 
-import { MessageCircle, Tag, Video } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import type { ProfessionalProfile } from "@/types/professional";
 
 type BookingPanelProps = {
@@ -16,7 +15,7 @@ export function BookingPanel({ professional, onBookConsultation }: BookingPanelP
 
   return (
     <div className="lg:col-span-1">
-      <Card className="border-emerald-200 bg-linear-to-br from-emerald-50 to-teal-50 p-6 dark:border-emerald-500/30 dark:from-emerald-950/30 dark:to-teal-950/30">
+      <Card className="border-emerald-200 bg-linear-to-br from-emerald-50 to-teal-50 p-4 sm:p-6 dark:border-emerald-500/30 dark:from-emerald-950/30 dark:to-teal-950/30">
         <div className="space-y-4">
 
           <div className="space-y-2">

@@ -76,9 +76,11 @@ wolistic.com/
 
 ## Frontend Architecture
 - Public routes are wrapped by `PublicLayoutClient`, which composes `AuthSessionProvider` and `AuthModalProvider`.
-- `AuthSessionProvider` can enrich the Supabase session with backend profile data from `/api/v1/auth/me`.
-- Expert profile pages render a client booking flow with schedule, required questions, auth, and payment steps.
+- `AuthSessionProvider` enriches the Supabase session with backend profile data from `/api/v1/auth/me`, including onboarding state.
+- Public routes also compose a shared `UserOnboardingProvider` so signup-only onboarding can run outside the booking flow when required.
+- Expert profile pages render a client booking flow with schedule, required questions, auth, user onboarding, and payment steps.
 - A public `/results` route exists as a modular UI shell for future multi-scope search (`professionals`, `products`, `influencers`, and planned scopes).
+- All user-facing pages are expected to be mobile-first and fully usable on small screens before desktop enhancements are layered on.
 
 ## Data Model Notes
 - `users.id` is the global UUID identity anchor.
@@ -94,9 +96,8 @@ wolistic.com/
 
 ## Near-Term Gaps
 - Real Razorpay signature verification is still pending.
-- `authApi.ts` remains a frontend stub for several auth-adjacent operations.
 - The professionals list/search endpoint does not yet exist.
-- Some docs and code still reflect an intermediate state around session ownership and role modeling.
+- Some docs still need cleanup as onboarding and booking UX continue to evolve.
 
 ## Ownership Matrix
 See `AI_DONT_DELETE_OWNERSHIP_MATRIX.md` for the preferred split between direct Supabase usage and FastAPI-owned privileged logic.

@@ -17,7 +17,8 @@ from app.models.professional import (
     ProfessionalSessionType,
     ProfessionalSubcategory,
 )
-from app.models.user import User
+from app.models.user import User, UserFavourite
+from app.models.wolistic_content import WolisticArticle, WolisticProduct, WolisticService
 
 __all__ = [
     "Booking",
@@ -36,4 +37,5 @@ __all__ = [
     "ProfessionalSessionType",
     "ProfessionalSubcategory",
     "User",
+    "UserFavourite",
 ]

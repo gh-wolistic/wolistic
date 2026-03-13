@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from decimal import Decimal
+import re
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthenticatedUser, get_current_user, get_optional_current_user
 from app.core.database import get_db_session
 from app.models.booking import Booking, BookingPayment, BookingQuestionResponse, BookingQuestionTemplate
-from app.models.professional import Professional
+from app.models.professional import Professional, ProfessionalService
 from app.core.config import get_settings
 from app.schemas.booking import (
     BookingHistoryItemOut,
@@ -21,6 +23,7 @@ from app.schemas.booking import (
     BookingQuestionsPageOut,
     CreatePaymentOrderIn,
     CreatePaymentOrderOut,
+    PromotionalEligibilityOut,
     SubmitBookingAnswersIn,
     SubmitBookingAnswersOut,
     VerifyPaymentIn,
@@ -53,6 +56,115 @@ def _to_utc(dt: datetime | None) -> datetime | None:
 
 def _generate_booking_reference() -> str:
     return f"bk_{uuid.uuid4().hex}"
+
+
+def _is_promotional_service(service_name: str, amount: Decimal) -> bool:
+    return service_name.strip().lower() == "initial consultation" or amount <= Decimal("0")
+
+
+def _compute_discounted_amount(
+    base_amount: Decimal,
+    offers: str | None,
+    offer_type: str | None,
+    offer_value: int | None,
+) -> Decimal:
+    if base_amount <= Decimal("0"):
+        return Decimal("0")
+
+    normalized_offer_type = (offer_type or "none").strip().lower()
+    if normalized_offer_type in {"percentage", "percent"} and offer_value is not None:
+        discount = (base_amount * Decimal(str(offer_value))) / Decimal("100")
+        return max(base_amount - discount, Decimal("0"))
+
+    if normalized_offer_type == "flat" and offer_value is not None:
+        return max(base_amount - Decimal(str(offer_value)), Decimal("0"))
+
+    if normalized_offer_type == "free":
+        return Decimal("0")
+
+    if normalized_offer_type == "cashback":
+        return base_amount
+
+    if not offers:
+        return base_amount
+
+    normalized = offers.lower().strip()
+    if "free" in normalized:
+        return Decimal("0")
+
+    percent_match = re.search(r"(\d+(?:\.\d+)?)\s*%\s*off", normalized)
+    if percent_match:
+        percent = Decimal(percent_match.group(1))
+        discount = (base_amount * percent) / Decimal("100")
+        discounted = base_amount - discount
+        return max(discounted, Decimal("0"))
+
+    flat_match = re.search(r"(?:₹|rs\.?|inr)?\s*(\d+(?:\.\d+)?)\s*(?:off|discount)", normalized)
+    if flat_match:
+        discount = Decimal(flat_match.group(1))
+        discounted = base_amount - discount
+        return max(discounted, Decimal("0"))
+
+    return base_amount
+
+
+async def _resolve_service_amount(
+    *,
+    db: AsyncSession,
+    professional_id: uuid.UUID,
+    service_name: str,
+) -> Decimal:
+    service_result = await db.execute(
+        select(
+            ProfessionalService.price,
+            ProfessionalService.offers,
+            ProfessionalService.offer_type,
+            ProfessionalService.offer_value,
+        )
+        .where(
+            ProfessionalService.professional_id == professional_id,
+            func.lower(func.trim(ProfessionalService.name)) == service_name.strip().lower(),
+            ProfessionalService.is_active.is_(True),
+        )
+        .limit(1)
+    )
+    service_row = service_result.one_or_none()
+    if service_row is None:
+        raise HTTPException(status_code=404, detail="Service not found for this professional")
+
+    base_amount = Decimal(str(service_row[0]))
+    return _compute_discounted_amount(
+        base_amount,
+        service_row[1],
+        service_row[2],
+        service_row[3],
+    )
+
+
+async def _has_claimed_promotional_service(
+    *,
+    db: AsyncSession,
+    professional_id: uuid.UUID,
+    user_id: uuid.UUID,
+) -> bool:
+    result = await db.execute(
+        select(Booking.id)
+        .outerjoin(BookingPayment, BookingPayment.booking_id == Booking.id)
+        .where(
+            Booking.professional_id == professional_id,
+            Booking.client_user_id == user_id,
+            or_(
+                func.lower(func.trim(Booking.service_name)) == "initial consultation",
+                BookingPayment.provider == "free",
+            ),
+            or_(
+                Booking.status == "confirmed",
+                BookingPayment.status == "success",
+            ),
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none() is not None
 
 
 @router.get("/questions/{professional_username}", response_model=BookingQuestionsPageOut)
@@ -107,6 +219,32 @@ async def get_booking_questions(
             for template in templates
         ],
         already_answered=already_answered,
+    )
+
+
+@router.get("/promotions/{professional_username}/eligibility", response_model=PromotionalEligibilityOut)
+async def get_promotional_eligibility(
+    professional_username: str,
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> PromotionalEligibilityOut:
+    professional_id_result = await db.execute(
+        select(Professional.user_id).where(Professional.username == professional_username)
+    )
+    professional_id = professional_id_result.scalar_one_or_none()
+
+    if professional_id is None:
+        raise HTTPException(status_code=404, detail="Professional not found")
+
+    already_claimed = await _has_claimed_promotional_service(
+        db=db,
+        professional_id=professional_id,
+        user_id=current_user.user_id,
+    )
+
+    return PromotionalEligibilityOut(
+        eligible=not already_claimed,
+        already_claimed=already_claimed,
     )
 
 
@@ -195,9 +333,36 @@ async def create_payment_order(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> CreatePaymentOrderOut:
+    professional_id_result = await db.execute(
+        select(Professional.user_id).where(Professional.username == payload.professional_username)
+    )
+    professional_id = professional_id_result.scalar_one_or_none()
+
+    if professional_id is None:
+        raise HTTPException(status_code=404, detail="Professional not found")
+
+    canonical_amount = await _resolve_service_amount(
+        db=db,
+        professional_id=professional_id,
+        service_name=payload.service_name,
+    )
+
+    if _is_promotional_service(payload.service_name, canonical_amount):
+        already_claimed = await _has_claimed_promotional_service(
+            db=db,
+            professional_id=professional_id,
+            user_id=current_user.user_id,
+        )
+        if already_claimed:
+            raise HTTPException(
+                status_code=409,
+                detail="Initial/free consultation already claimed for this professional",
+            )
+
     booking_reference = _generate_booking_reference()
+    normalized_payload = payload.model_copy(update={"amount": float(canonical_amount)})
     return await create_payment_order_service(
-        payload=payload,
+        payload=normalized_payload,
         booking_reference=booking_reference,
         current_user_id=current_user.user_id,
         db=db,

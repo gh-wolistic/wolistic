@@ -6,12 +6,13 @@ import uuid
 from datetime import datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import Float, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.database import get_db_session
 from app.models.professional import Professional, ProfessionalReview
+from app.services.ai.professional_search import rank_professional_profiles
 from app.schemas.professional import (
     CertificationOut,
     ProfessionalProfileOut,
@@ -112,6 +113,10 @@ def _flatten_professional(prof: Professional) -> dict:
                 mode=s.mode,
                 price=int(s.price),
                 offers=s.offers,
+                negotiable=s.negotiable,
+                offer_type="percentage" if s.offer_type == "percent" else s.offer_type,
+                offer_value=s.offer_value,
+                offer_label=s.offer_label,
             )
             for s in prof.services
             if s.is_active
@@ -137,6 +142,70 @@ async def get_professional_username_by_id(
     if username is None:
         raise HTTPException(status_code=404, detail="Professional not found")
     return ProfessionalUsernameOut(username=username)
+
+
+@router.get("/featured", response_model=list[ProfessionalProfileOut])
+async def get_featured_professionals(
+    limit: int = Query(default=8, ge=1, le=20),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[ProfessionalProfileOut]:
+    """Return featured professionals using a simple score-based recommendation."""
+    tier_bonus = case(
+        (Professional.membership_tier == "premium", 0.30),
+        (Professional.membership_tier == "verified", 0.15),
+        else_=0.0,
+    )
+    online_bonus = case((Professional.is_online.is_(True), 0.20), else_=0.0)
+
+    featured_score = (
+        (func.coalesce(Professional.rating_avg, 0).cast(Float) * 0.70)
+        + (func.least(func.coalesce(Professional.rating_count, 0), 100) * 0.01)
+        + tier_bonus
+        + online_bonus
+    )
+
+    result = await db.execute(
+        select(Professional)
+        .order_by(
+            featured_score.desc(),
+            Professional.rating_count.desc(),
+            Professional.created_at.desc(),
+        )
+        .limit(limit)
+    )
+    professionals = result.scalars().all()
+
+    return [ProfessionalProfileOut(**_flatten_professional(prof)) for prof in professionals]
+
+
+@router.get("/search", response_model=list[ProfessionalProfileOut])
+async def search_professionals(
+    q: str = Query(default="", max_length=200),
+    limit: int = Query(default=24, ge=1, le=60),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[ProfessionalProfileOut]:
+    """Search professionals by query across identity, specialization, and expertise signals."""
+    result = await db.execute(
+        select(Professional)
+        .options(
+            selectinload(Professional.approaches),
+            selectinload(Professional.availability_slots),
+            selectinload(Professional.certifications),
+            selectinload(Professional.expertise_areas),
+            selectinload(Professional.gallery),
+            selectinload(Professional.languages),
+            selectinload(Professional.services),
+            selectinload(Professional.session_types),
+            selectinload(Professional.subcategories),
+        )
+        .order_by(Professional.rating_avg.desc(), Professional.rating_count.desc())
+        .limit(250)
+    )
+    professionals = result.scalars().all()
+    flattened = [_flatten_professional(prof) for prof in professionals]
+    ranked = rank_professional_profiles(flattened, q, limit=limit)
+
+    return [ProfessionalProfileOut(**profile) for profile in ranked]
 
 
 @router.get("/{professional_id}/reviews", response_model=ReviewPageOut)

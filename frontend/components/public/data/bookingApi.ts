@@ -16,6 +16,11 @@ export type BookingQuestionsResult = {
   already_answered: boolean;
 };
 
+export type PromotionalEligibilityResult = {
+  eligible: boolean;
+  already_claimed: boolean;
+};
+
 export type BookingHistoryItem = {
   booking_reference: string;
   professional_username: string;
@@ -93,4 +98,25 @@ export async function getBookingHistory(token: string): Promise<BookingHistoryRe
   }
 
   return (await response.json()) as BookingHistoryResult;
+}
+
+export async function getPromotionalEligibility(
+  professionalUsername: ProfessionalProfile["username"],
+  token: string,
+): Promise<PromotionalEligibilityResult> {
+  const response = await fetch(
+    `${API_BASE}/booking/promotions/${encodeURIComponent(professionalUsername)}/eligibility`,
+    {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Unable to load promotional eligibility (${response.status})`);
+  }
+
+  return (await response.json()) as PromotionalEligibilityResult;
 }

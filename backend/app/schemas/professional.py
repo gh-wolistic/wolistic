@@ -16,6 +16,10 @@ class ServiceOut(BaseModel):
     mode: str
     price: int
     offers: str | None = None
+    negotiable: bool = False
+    offer_type: str | None = None
+    offer_value: int | None = None
+    offer_label: str | None = None
 
 
 class ReviewOut(BaseModel):

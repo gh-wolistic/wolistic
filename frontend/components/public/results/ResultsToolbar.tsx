@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Search, SlidersHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -21,23 +25,38 @@ type ResultsToolbarProps = {
 };
 
 export function ResultsToolbar({ scope, query }: ResultsToolbarProps) {
+  const router = useRouter();
   const categories = categoryLabels[scope];
+  const [searchText, setSearchText] = useState(query);
+
+  useEffect(() => {
+    setSearchText(query);
+  }, [query]);
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmed = searchText.trim();
+    const href = trimmed
+      ? `/results?scope=${scope}&q=${encodeURIComponent(trimmed)}`
+      : `/results?scope=${scope}`;
+    router.push(href);
+  };
 
   return (
-    <div className="space-y-4 rounded-[1.75rem] border border-border bg-card/70 p-4 shadow-sm backdrop-blur-sm">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-[1.75rem] border border-border bg-card/70 p-4 shadow-sm backdrop-blur-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
-            value={query}
-            readOnly
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
             placeholder="Search"
             className="h-12 rounded-2xl border-border pl-10"
-            aria-label="Results search preview"
+            aria-label="Search results"
           />
         </div>
         <div className="flex gap-2">
-          <Button type="button" className="h-12 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 text-white">
+          <Button type="submit" className="h-12 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 text-white">
             Search
           </Button>
           <Button type="button" variant="outline" className="h-12 rounded-2xl px-4">
@@ -57,6 +76,6 @@ export function ResultsToolbar({ scope, query }: ResultsToolbarProps) {
           </Badge>
         ))}
       </div>
-    </div>
+    </form>
   );
 }

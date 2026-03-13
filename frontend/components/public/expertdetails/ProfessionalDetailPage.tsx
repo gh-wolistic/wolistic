@@ -13,6 +13,7 @@ import { GalleryProductsSection } from "./sections/GalleryProductsSection";
 import { ReviewsSection } from "./sections/ReviewsSection";
 import { SidebarSection } from "./sections/SidebarSection";
 import { DesktopSectionNav } from "./sections/DesktopSectionNav";
+import { MobileSectionNav } from "./sections/MobileSectionNav";
 
 type ProfessionalDetailPageProps = {
   professional: ProfessionalProfile;
@@ -44,27 +45,28 @@ export function ProfessionalDetailPage({ professional }: ProfessionalDetailPageP
 
   return (
     <div className="w-full">
-      {/* Back Button */}
-      <div className="border-b border-border bg-background/95 backdrop-blur sticky top-16 z-40">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <Button asChild variant="ghost" className="gap-2">
+      <section className="border-b border-border/60 bg-background">
+        <div className="container mx-auto px-4 py-3 sm:px-6 lg:px-8">
+          <Button asChild variant="ghost" className="h-auto px-0 text-muted-foreground hover:text-foreground">
             <Link href={backHref}>
-              <ArrowLeft size={18} />
-              Back to Professionals
+              <ArrowLeft size={16} className="mr-2" />
+              Back to results
             </Link>
           </Button>
         </div>
-      </div>
+      </section>
 
       {/* Hero Section */}
       <ExpertHeroSection professional={professional} onBookConsultation={handleStartBooking} />
 
-      <section className="py-12 bg-background">
+      <section className="bg-background py-8 sm:py-10 lg:py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-8 lg:grid-cols-[220px_minmax(0,1fr)_320px]">
+          <MobileSectionNav />
+
+          <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_320px] lg:gap-8">
             <DesktopSectionNav />
 
-            <div className="space-y-8">
+            <div className="space-y-6 sm:space-y-8">
               <AboutServicesSection
                 professional={professional}
                 bookingStartSignal={bookingStartSignal}

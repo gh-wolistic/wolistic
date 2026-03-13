@@ -21,6 +21,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   // Email/password form fields
   const [name, setName] = useState("");
@@ -30,6 +31,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   const resetForm = () => {
     setError(null);
+    setSuccess(null);
     setName("");
     setEmail("");
     setPassword("");
@@ -101,6 +103,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     try {
       setLoading(true);
+      setSuccess(null);
       const supabase = getSupabaseBrowserClient();
       const { error: signUpError } = await supabase.auth.signUp({
         email,
@@ -116,10 +119,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       if (signUpError) {
         setError(signUpError.message);
       } else {
-        resetForm();
-        alert(
-          "Account created successfully! Please check your email to confirm your account, then you can log in."
-        );
+        const { data } = await supabase.auth.getSession();
+
+        if (data.session) {
+          resetForm();
+          onClose();
+        } else {
+          setSuccess("Account created. Please confirm your email to activate your session.");
+          setMode("login");
+          setPassword("");
+          setPasswordConfirm("");
+        }
       }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to sign up");
@@ -148,6 +158,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
     try {
       setLoading(true);
+      setSuccess(null);
       const supabase = getSupabaseBrowserClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -157,7 +168,6 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
       if (signInError) {
         setError(signInError.message);
       } else {
-        // Close the modal on successful login
         onClose();
       }
     } catch (caughtError) {
@@ -234,6 +244,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </form>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -323,6 +334,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </form>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">

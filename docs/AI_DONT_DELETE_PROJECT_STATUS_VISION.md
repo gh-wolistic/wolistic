@@ -15,14 +15,14 @@
 
 ### 🔧 Current Working State
 - Backend API is structured under `/api/v1`.
-- Frontend public layout uses Supabase session state plus backend profile enrichment.
+- Frontend public layout uses Supabase session state plus backend profile enrichment and shared signup-only onboarding handling.
 - Public professional pages and authorized booking-history pages are wired end to end.
 - Booking history now separates immediate bookings from scheduled upcoming/past bookings.
+- Public profile and booking surfaces are being standardized around a mobile-first UX baseline.
 - Booking references are generated server-side during payment order creation.
 
 ### 🚧 Important Open Gaps
 - Razorpay verification is still mock-oriented and not cryptographically validated yet.
-- `authApi.ts` remains a stub, so some booking-flow auth actions are not production-ready.
 - The professionals list/search API still does not exist.
 - CORS is still broader than production should allow.
 - Some state management remains duplicated between Zustand and the auth context.
@@ -36,9 +36,9 @@ Wolistic is a wellness discovery and booking platform combining:
 
 ## Near-Term Product Direction
 - Complete payment hardening and remove mock verification paths.
-- Finish role/profile-backed auth operations in the frontend data layer.
 - Add search/list endpoints and production-grade filtering for professionals.
 - Continue tightening backend ownership of all privileged state and workflow transitions.
+- Keep profile, onboarding, and booking experiences mobile-friendly by default.
 
 ## Doc Ownership
 Use the following as the maintained reference set:

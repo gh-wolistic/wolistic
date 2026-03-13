@@ -1,6 +1,5 @@
-import { Compass, Sparkles } from "lucide-react";
-
-import { Badge } from "@/components/ui/badge";
+import { searchProfessionals } from "@/components/public/data/professionalsApi";
+import type { ProfessionalProfile } from "@/types/professional";
 
 import { scopeOptions } from "./results-data";
 import { ResultsGrid } from "./ResultsGrid";
@@ -17,7 +16,13 @@ export function resolveResultsScope(value?: string | null): ResultsScope {
     return "professionals";
   }
 
-  const normalized = value.trim().toLowerCase() as ResultsScope;
+  const normalizedValue = value.trim().toLowerCase();
+
+  if (normalizedValue === "professional") {
+    return "professionals";
+  }
+
+  const normalized = normalizedValue as ResultsScope;
 
   if (supportedScopes.includes(normalized)) {
     return normalized;
@@ -31,12 +36,17 @@ type ResultsPageProps = {
   query: string;
 };
 
-export function ResultsPage({ scope, query }: ResultsPageProps) {
+export async function ResultsPage({ scope, query }: ResultsPageProps) {
   const selectedScope = scopeOptions.find((scopeOption) => scopeOption.key === scope) ?? scopeOptions[0];
   const returnTo = query ? `/results?scope=${scope}&q=${encodeURIComponent(query)}` : `/results?scope=${scope}`;
   const summary = query
     ? `Showing ${selectedScope.label.toLowerCase()} for “${query}”`
     : `Showing all ${selectedScope.label.toLowerCase()}`;
+
+  let professionals: ProfessionalProfile[] = [];
+  if (scope === "professionals") {
+    professionals = await searchProfessionals(query, 24);
+  }
 
   return (
     <div className="w-full">
@@ -53,7 +63,7 @@ export function ResultsPage({ scope, query }: ResultsPageProps) {
 
       <section className="py-12 lg:py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <ResultsGrid scope={scope} returnTo={returnTo} />
+          <ResultsGrid scope={scope} returnTo={returnTo} professionals={professionals} />
         </div>
       </section>
     </div>

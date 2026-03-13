@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const sectionLinks = [
+export const sectionLinks = [
   { href: "#short-bio", label: "Short Bio" },
   { href: "#about", label: "About" },
   { href: "#approach", label: "Approach" },

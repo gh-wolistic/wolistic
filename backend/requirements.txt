@@ -7,3 +7,4 @@ psycopg[binary]==3.2.6
 pydantic-settings==2.8.1
 PyJWT[crypto]==2.10.1
 python-dotenv==1.0.1
+spacy==3.8.7

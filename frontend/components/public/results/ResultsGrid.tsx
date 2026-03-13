@@ -9,21 +9,33 @@ import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
 import {
   influencerResults,
   productResults,
-  professionalResults,
   scopeOptions,
 } from "./results-data";
 import type { ResultsScope } from "./results-types";
+import type { ProfessionalProfile } from "@/types/professional";
 
 type ResultsGridProps = {
   scope: ResultsScope;
   returnTo: string;
+  professionals: ProfessionalProfile[];
 };
 
-export function ResultsGrid({ scope, returnTo }: ResultsGridProps) {
+export function ResultsGrid({ scope, returnTo, professionals }: ResultsGridProps) {
   if (scope === "professionals") {
+    if (professionals.length < 1) {
+      return (
+        <div className="rounded-3xl border border-dashed border-border p-10 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">No matching professionals found</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Try adjusting your search with related keywords like nutrition, strength, stress, or mobility.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {professionalResults.map((professional) => (
+        {professionals.map((professional) => (
           <Link
             key={professional.id}
             href={`/${professional.username}?returnTo=${encodeURIComponent(returnTo)}`}
@@ -46,25 +58,37 @@ export function ResultsGrid({ scope, returnTo }: ResultsGridProps) {
                 <RatingChip value={professional.rating} textClassName="text-sm" />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{professional.category}</Badge>
+                  {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
                 <StatusChip label="Certified" tone="certified" className="text-[11px]" />
-                {professional.membershipLabel ? (
+                  {professional.membershipTier ? (
                   <Badge variant="outline" className="text-[11px]">
-                    {professional.membershipLabel}
+                      {professional.membershipTier}
                   </Badge>
                 ) : null}
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <Award size={16} />
-                  <span>{professional.certifications.join(", ")}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} />
-                  <span>{professional.location}</span>
-                </div>
+                  {professional.certifications.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <Award size={16} />
+                      <span>
+                        {professional.certifications
+                          .map((certification) =>
+                            typeof certification === "string" ? certification : certification.name,
+                          )
+                          .join(", ")}
+                      </span>
+                    </div>
+                  ) : null}
+                  {professional.location ? (
+                    <div className="flex items-center gap-2">
+                      <MapPin size={16} />
+                      <span>{professional.location}</span>
+                    </div>
+                  ) : null}
               </div>
-              <p className="text-sm leading-relaxed text-muted-foreground">Approach: {professional.approach}</p>
+                {professional.approach ? (
+                  <p className="text-sm leading-relaxed text-muted-foreground">Approach: {professional.approach}</p>
+                ) : null}
               <Button className="w-full" variant="outline">
                 View Profile
               </Button>
