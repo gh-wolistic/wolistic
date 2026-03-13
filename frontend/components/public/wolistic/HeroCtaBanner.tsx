@@ -32,11 +32,6 @@ export function HeroCtaBanner({ query, onYes, onNo }: HeroCtaBannerProps) {
               <h1 className="text-4xl lg:text-5xl font-semibold leading-tight tracking-tight">
                 Need an expert to help you with your journey?
               </h1>
-              {trimmedQuery ? (
-                <p className="text-sm text-emerald-700 bg-white/70 inline-flex items-center gap-2 rounded-full px-4 py-2 border border-emerald-100 shadow-sm dark:bg-slate-900/70 dark:text-emerald-200">
-                  <Brain size={16} /> Your focus: {trimmedQuery}
-                </p>
-              ) : null}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">

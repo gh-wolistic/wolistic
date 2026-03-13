@@ -81,6 +81,8 @@ async def wolistic_search(
             "image_url": p.image_url,
             "category": p.category,
             "brand": p.brand,
+            "website_name": p.website_name,
+            "website_url": p.website_url,
             "description": p.description,
             "price": p.price,
             "tags": p.tags or [],
@@ -96,6 +98,8 @@ async def wolistic_search(
             image=p.get("image_url"),
             category=p.get("category"),
             brand=p.get("brand"),
+            website_name=p.get("website_name"),
+            website_url=p.get("website_url"),
             description=p.get("description"),
             price=p.get("price", 0),
         )
@@ -115,6 +119,9 @@ async def wolistic_search(
             "title": s.title,
             "type": s.type,
             "location": s.location,
+            "image_url": s.image_url,
+            "website_name": s.website_name,
+            "website_url": s.website_url,
             "tags": s.tags or [],
             "sort_order": s.sort_order,
         }
@@ -127,6 +134,10 @@ async def wolistic_search(
             title=s["title"],
             type=s["type"],
             location=s["location"],
+            image_url=s.get("image_url"),
+            website_name=s.get("website_name"),
+            website_url=s.get("website_url"),
+            tags=s.get("tags") or [],
         )
         for s in ranked_services
     ]

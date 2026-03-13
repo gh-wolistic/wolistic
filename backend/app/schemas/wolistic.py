@@ -15,6 +15,8 @@ class ProductOut(BaseModel):
     image: str | None = None
     category: str | None = None
     brand: str | None = None
+    website_name: str | None = None
+    website_url: str | None = None
     description: str | None = None
     price: int = 0
 
@@ -24,6 +26,10 @@ class WolisticServiceOut(BaseModel):
     title: str
     type: str
     location: str
+    image_url: str | None = None
+    website_name: str | None = None
+    website_url: str | None = None
+    tags: list[str] = []
 
 
 class WolisticArticleOut(BaseModel):

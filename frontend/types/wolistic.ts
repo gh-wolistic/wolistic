@@ -4,6 +4,8 @@ export type Product = {
   image?: string;
   category?: string;
   brand?: string;
+  websiteName?: string;
+  websiteUrl?: string;
   description?: string;
   price: number;
 };
@@ -13,6 +15,10 @@ export type WolisticService = {
   title: string;
   type: string;
   location: string;
+  imageUrl?: string;
+  websiteName?: string;
+  websiteUrl?: string;
+  tags: string[];
 };
 
 export type WolisticArticle = {

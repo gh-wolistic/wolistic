@@ -47,6 +47,8 @@ function toCamelProduct(raw: Record<string, unknown>): Product {
     image: (raw.image as string) ?? undefined,
     category: (raw.category as string) ?? undefined,
     brand: (raw.brand as string) ?? undefined,
+    websiteName: (raw.website_name as string) ?? undefined,
+    websiteUrl: (raw.website_url as string) ?? undefined,
     description: (raw.description as string) ?? undefined,
     price: (raw.price as number) ?? 0,
   };
@@ -58,6 +60,10 @@ function toCamelService(raw: Record<string, unknown>): WolisticService {
     title: raw.title as string,
     type: raw.type as string,
     location: raw.location as string,
+    imageUrl: (raw.image_url as string) ?? undefined,
+    websiteName: (raw.website_name as string) ?? undefined,
+    websiteUrl: (raw.website_url as string) ?? undefined,
+    tags: (raw.tags as string[]) ?? [],
   };
 }
 
@@ -80,6 +86,7 @@ export async function wolisticSearch(
   });
 
   const res = await fetch(`${API_BASE}/ai/wolistic-search?${params}`, {
+    cache: "force-cache",
     next: { revalidate: 60 },
   });
 

@@ -2,7 +2,6 @@ import React from "react";
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import type { Product } from "@/types/wolistic";
 
 type ProductsSectionProps = {
@@ -28,20 +27,20 @@ export function ProductsSection({ products, isLoading, resultsHref }: ProductsSe
       ) : (
         <div className="mb-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
-            <div key={product.id} className="rounded-xl border border-border overflow-hidden bg-background">
-              <div className="aspect-4/3">
-                <ImageWithFallback
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+            <div key={product.id} className="rounded-xl border border-border bg-background">
               <div className="p-4">
                 <p className="font-medium">{product.name}</p>
-                {product.brand && (
-                  <p className="text-xs text-muted-foreground">{product.brand}</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Sold by {product.brand?.trim() || product.websiteName?.trim() || "Partner brand"}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">₹{product.price.toLocaleString("en-IN")}</p>
+                {product.websiteUrl && (
+                  <Button asChild variant="outline" size="sm" className="mt-4 w-full">
+                    <a href={product.websiteUrl} target="_blank" rel="noreferrer">
+                      Check on {product.websiteName?.trim() || product.brand?.trim() || "website"}
+                    </a>
+                  </Button>
                 )}
-                <p className="text-sm text-muted-foreground">₹{product.price}</p>
               </div>
             </div>
           ))}

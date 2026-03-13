@@ -18,9 +18,14 @@ type ResultsGridProps = {
   scope: ResultsScope;
   returnTo: string;
   professionals: ProfessionalProfile[];
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    baseHref: string;
+  };
 };
 
-export function ResultsGrid({ scope, returnTo, professionals }: ResultsGridProps) {
+export function ResultsGrid({ scope, returnTo, professionals, pagination }: ResultsGridProps) {
   if (scope === "professionals") {
     if (professionals.length < 1) {
       return (
@@ -33,68 +38,107 @@ export function ResultsGrid({ scope, returnTo, professionals }: ResultsGridProps
       );
     }
 
+    const previousPageHref =
+      pagination && pagination.currentPage > 1
+        ? `${pagination.baseHref}&page=${pagination.currentPage - 1}`
+        : null;
+    const nextPageHref =
+      pagination && pagination.currentPage < pagination.totalPages
+        ? `${pagination.baseHref}&page=${pagination.currentPage + 1}`
+        : null;
+
     return (
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {professionals.map((professional) => (
-          <Link
-            key={professional.id}
-            href={`/${professional.username}?returnTo=${encodeURIComponent(returnTo)}`}
-            className="group overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
-          >
-            <div className="relative aspect-[4/3] overflow-hidden">
-              <ImageWithFallback
-                src={professional.image}
-                alt={professional.name}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-              />
-              <PresenceChip isOnline={professional.isOnline} className="absolute left-3 top-3" />
-            </div>
-            <div className="space-y-4 p-6">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold tracking-tight">{professional.name}</h3>
-                  <p className="text-sm text-muted-foreground">{professional.specialization}</p>
+      <div className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {professionals.map((professional) => (
+            <Link
+              key={professional.id}
+              href={`/${professional.username}?returnTo=${encodeURIComponent(returnTo)}`}
+              className="group overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+            >
+              <div className="relative aspect-[4/3] overflow-hidden">
+                <ImageWithFallback
+                  src={professional.image}
+                  alt={professional.name}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                />
+                <PresenceChip isOnline={professional.isOnline} className="absolute left-3 top-3" />
+              </div>
+              <div className="space-y-4 p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-tight">{professional.name}</h3>
+                    <p className="text-sm text-muted-foreground">{professional.specialization}</p>
+                  </div>
+                  <RatingChip value={professional.rating} textClassName="text-sm" />
                 </div>
-                <RatingChip value={professional.rating} textClassName="text-sm" />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                  {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
-                <StatusChip label="Certified" tone="certified" className="text-[11px]" />
-                  {professional.membershipTier ? (
-                  <Badge variant="outline" className="text-[11px]">
+                <div className="flex flex-wrap gap-2">
+                    {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
+                  <StatusChip label="Certified" tone="certified" className="text-[11px]" />
+                    {professional.membershipTier ? (
+                    <Badge variant="outline" className="text-[11px]">
                       {professional.membershipTier}
-                  </Badge>
-                ) : null}
-              </div>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                  {professional.certifications.length > 0 ? (
-                    <div className="flex items-center gap-2">
-                      <Award size={16} />
-                      <span>
-                        {professional.certifications
-                          .map((certification) =>
-                            typeof certification === "string" ? certification : certification.name,
-                          )
-                          .join(", ")}
-                      </span>
-                    </div>
+                    </Badge>
                   ) : null}
-                  {professional.location ? (
-                    <div className="flex items-center gap-2">
-                      <MapPin size={16} />
-                      <span>{professional.location}</span>
-                    </div>
+                </div>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                    {professional.certifications.length > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <Award size={16} />
+                        <span>
+                          {professional.certifications
+                            .map((certification) =>
+                              typeof certification === "string" ? certification : certification.name,
+                            )
+                            .join(", ")}
+                        </span>
+                      </div>
+                    ) : null}
+                    {professional.location ? (
+                      <div className="flex items-center gap-2">
+                        <MapPin size={16} />
+                        <span>{professional.location}</span>
+                      </div>
+                    ) : null}
+                </div>
+                  {professional.approach ? (
+                    <p className="text-sm leading-relaxed text-muted-foreground">Approach: {professional.approach}</p>
                   ) : null}
+                <Button className="w-full" variant="outline">
+                  View Profile
+                </Button>
               </div>
-                {professional.approach ? (
-                  <p className="text-sm leading-relaxed text-muted-foreground">Approach: {professional.approach}</p>
-                ) : null}
-              <Button className="w-full" variant="outline">
-                View Profile
+            </Link>
+          ))}
+        </div>
+
+        {pagination && pagination.totalPages > 1 ? (
+          <div className="flex items-center justify-between rounded-2xl border border-border bg-card/60 px-4 py-3">
+            {previousPageHref ? (
+              <Button variant="outline" asChild>
+                <Link href={previousPageHref}>Previous</Link>
               </Button>
-            </div>
-          </Link>
-        ))}
+            ) : (
+              <Button variant="outline" disabled>
+                Previous
+              </Button>
+            )}
+
+            <p className="text-sm text-muted-foreground">
+              Page {pagination.currentPage} of {pagination.totalPages}
+            </p>
+
+            {nextPageHref ? (
+              <Button variant="outline" asChild>
+                <Link href={nextPageHref}>Next</Link>
+              </Button>
+            ) : (
+              <Button variant="outline" disabled>
+                Next
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
     );
   }

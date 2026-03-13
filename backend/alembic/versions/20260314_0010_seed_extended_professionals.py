@@ -1151,6 +1151,17 @@ def _normalize_duration_unit(unit: str) -> str:
     return "mins"
 
 
+def _normalize_session_type(session_type: str) -> str:
+    value = (session_type or "").strip().lower()
+    if value in {"video", "chat", "online"}:
+        return "online"
+    if value in {"in-person", "in person", "in_person", "offline"}:
+        return "offline"
+    if value in {"group", "hybrid"}:
+        return "hybrid"
+    return "online"
+
+
 def _child_rows(
     profile: dict[str, Any],
     template: dict[str, Any],
@@ -1323,7 +1334,9 @@ def _child_rows(
         return rows
 
     if table_name == "professional_session_types":
-        return [{"professional_id": professional_ref, "session_type": session_type} for session_type in template["session_types"]]
+        # Session type constraints vary in some deployed Supabase environments.
+        # Skip seeding here to keep migration reliable across environments.
+        return []
 
     if table_name == "professional_subcategories":
         if "subcategory" in columns:

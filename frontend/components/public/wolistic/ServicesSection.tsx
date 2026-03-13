@@ -1,5 +1,7 @@
 import React from "react";
 import { Stethoscope } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { WolisticService } from "@/types/wolistic";
 
 type ServicesSectionProps = {
@@ -23,6 +25,22 @@ export function ServicesSection({ suggestions }: ServicesSectionProps) {
             <p className="font-medium">{item.title}</p>
             <p className="text-sm text-muted-foreground">{item.type}</p>
             <p className="text-sm text-muted-foreground">{item.location}</p>
+            {item.tags.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {item.tags.slice(0, 5).map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-[11px] capitalize">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {item.websiteUrl && (
+              <Button asChild variant="outline" size="sm" className="mt-4 w-full">
+                <a href={item.websiteUrl} target="_blank" rel="noreferrer">
+                  Visit {item.websiteName?.trim() || item.title}
+                </a>
+              </Button>
+            )}
           </div>
         ))}
       </div>

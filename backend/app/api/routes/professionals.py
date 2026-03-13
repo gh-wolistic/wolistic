@@ -146,7 +146,7 @@ async def get_professional_username_by_id(
 
 @router.get("/featured", response_model=list[ProfessionalProfileOut])
 async def get_featured_professionals(
-    limit: int = Query(default=8, ge=1, le=20),
+    limit: int = Query(default=8, ge=1, le=8),
     db: AsyncSession = Depends(get_db_session),
 ) -> list[ProfessionalProfileOut]:
     """Return featured professionals using a simple score-based recommendation."""
@@ -166,6 +166,17 @@ async def get_featured_professionals(
 
     result = await db.execute(
         select(Professional)
+        .options(
+            selectinload(Professional.approaches),
+            selectinload(Professional.availability_slots),
+            selectinload(Professional.certifications),
+            selectinload(Professional.expertise_areas),
+            selectinload(Professional.gallery),
+            selectinload(Professional.languages),
+            selectinload(Professional.services),
+            selectinload(Professional.session_types),
+            selectinload(Professional.subcategories),
+        )
         .order_by(
             featured_score.desc(),
             Professional.rating_count.desc(),
@@ -255,7 +266,19 @@ async def get_professional_by_username(
 ) -> ProfessionalProfileOut:
     """Fetch a full professional profile by username (slug)."""
     result = await db.execute(
-        select(Professional).where(Professional.username == username)
+        select(Professional)
+        .options(
+            selectinload(Professional.approaches),
+            selectinload(Professional.availability_slots),
+            selectinload(Professional.certifications),
+            selectinload(Professional.expertise_areas),
+            selectinload(Professional.gallery),
+            selectinload(Professional.languages),
+            selectinload(Professional.services),
+            selectinload(Professional.session_types),
+            selectinload(Professional.subcategories),
+        )
+        .where(Professional.username == username)
     )
     prof = result.scalar_one_or_none()
     if prof is None:

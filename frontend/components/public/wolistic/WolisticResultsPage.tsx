@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { ProfessionalProfile } from "@/types/professional";
-import type { Product, WolisticArticle, WolisticService } from "@/types/wolistic";
-import { wolisticSearch } from "@/components/public/data/wolisticApi";
+import type { Product, WolisticArticle, WolisticSearchResult, WolisticService } from "@/types/wolistic";
 
 import { ArticlesSection } from "./ArticlesSection";
 import { FloatingSuggestion } from "./FloatingSuggestion";
@@ -16,48 +15,17 @@ import { ServicesSection } from "./ServicesSection";
 
 type WolisticResultsPageProps = {
   query: string;
+  initialData?: WolisticSearchResult;
 };
 
-export function WolisticResultsPage({ query }: WolisticResultsPageProps) {
+export function WolisticResultsPage({ query, initialData }: WolisticResultsPageProps) {
   const router = useRouter();
   const browseSectionRef = useRef<HTMLElement>(null);
 
-  const [professionals, setProfessionals] = useState<ProfessionalProfile[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [services, setServices] = useState<WolisticService[]>([]);
-  const [articles, setArticles] = useState<WolisticArticle[]>([]);
-  const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(true);
-  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      setIsLoadingProfessionals(true);
-      setIsLoadingProducts(true);
-
-      try {
-        const result = await wolisticSearch(query, 6);
-        if (cancelled) return;
-        setProfessionals(result.professionals);
-        setProducts(result.products);
-        setServices(result.services);
-        setArticles(result.articles);
-      } catch {
-        // silently show empty sections if backend is unavailable
-      } finally {
-        if (!cancelled) {
-          setIsLoadingProfessionals(false);
-          setIsLoadingProducts(false);
-        }
-      }
-    }
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [query]);
+  const professionals = initialData?.professionals ?? [];
+  const products = initialData?.products ?? [];
+  const services = initialData?.services ?? [];
+  const articles = initialData?.articles ?? [];
 
   const handleExpertReview = () => {
     const destination = query
@@ -90,13 +58,13 @@ export function WolisticResultsPage({ query }: WolisticResultsPageProps) {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
           <ProfessionalsSection
             professionals={professionals}
-            isLoading={isLoadingProfessionals}
+            isLoading={false}
             resultsHref={expertsResultsHref}
           />
 
           <ProductsSection
             products={products}
-            isLoading={isLoadingProducts}
+            isLoading={false}
             resultsHref={productsResultsHref}
           />
 
