@@ -49,3 +49,17 @@ export type InfluencerResultCard = {
   followerCount: number;
   content: string;
 };
+
+export type CertificateProviderResultCard = {
+  id: string;
+  name: string;
+  image: string;
+  accreditationBody: string;
+  eligibility: string;
+  duration: string;
+  format: string;
+  fees: string;
+  verificationMethod: string;
+  focusAreas: string[];
+  applyUrl?: string;
+};

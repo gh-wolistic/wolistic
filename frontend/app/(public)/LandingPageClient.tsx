@@ -7,8 +7,7 @@ import { LandingHeroSection } from "@/components/public/landing/HeroSection";
 import { parseSearchQuery } from "@/components/public/data/searchApi";
 import { HowItWorks } from "@/components/public/landing/HowItWorks";
 import { FeaturedProfessionalsSection } from "@/components/public/landing/FeaturedProfessionalsSection";
-import { FeaturedProductsSection } from "@/components/public/landing/FeaturedProductsSection";
-import { FeaturedWellnessCentersSection } from "@/components/public/landing/FeaturedWellnessCentersSection";
+import { DiscoverListingsSection } from "@/components/public/landing/DiscoverListingsSection";
 import { Benefits } from "@/components/public/landing/Benefits";
 import { FinalCTA } from "@/components/public/landing/FinalCTA";
 import type { ProfessionalProfile } from "@/types/professional";
@@ -71,15 +70,13 @@ export function LandingPageClient({
         onNavigate={handleNavigate}
         initialProfessionals={featuredProfessionals}
       />
-      <FeaturedProductsSection
+      <HowItWorks />
+      <DiscoverListingsSection
         initialProducts={featuredProducts}
-        onNavigate={handleNavigate}
-      />
-      <FeaturedWellnessCentersSection
         initialCenters={featuredWellnessCenters}
         onNavigate={handleNavigate}
       />
-      <HowItWorks />
+      
       <Benefits onNavigate={handleNavigate} />
       <FinalCTA onNavigate={handleNavigate} />
     </div>

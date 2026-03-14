@@ -1,5 +1,7 @@
 import { searchProfessionals } from "@/components/public/data/professionalsApi";
+import { getFeaturedWellnessCenters } from "@/components/public/data/wellnessCentersApi";
 import type { ProfessionalProfile } from "@/types/professional";
+import type { WolisticService } from "@/types/wolistic";
 
 import { scopeOptions } from "./results-data";
 import { ResultsGrid } from "./ResultsGrid";
@@ -39,7 +41,7 @@ type ResultsPageProps = {
   currentPage: number;
 };
 
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 
 const PROFESSIONAL_CATEGORY_KEYWORDS: Record<string, string[]> = {
   "fitness & training": ["fitness", "training", "strength", "conditioning", "workout", "gym"],
@@ -86,6 +88,7 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
     : `Showing all ${selectedScope.label.toLowerCase()}`;
 
   let professionals: ProfessionalProfile[] = [];
+  let wellnessCenters: WolisticService[] = [];
   let totalPages = 1;
   let safePage = 1;
 
@@ -96,6 +99,27 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
     safePage = Math.min(Math.max(1, currentPage), totalPages);
     const startIndex = (safePage - 1) * PAGE_SIZE;
     professionals = filteredProfessionals.slice(startIndex, startIndex + PAGE_SIZE);
+  }
+
+  if (scope === "wellness-centers") {
+    const allCenters = await getFeaturedWellnessCenters(8);
+    const normalizedQuery = query.trim().toLowerCase();
+
+    wellnessCenters = normalizedQuery
+      ? allCenters.filter((center) => {
+        const searchable = [
+          center.title,
+          center.type,
+          center.location,
+          ...(center.tags ?? []),
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        return searchable.includes(normalizedQuery);
+      })
+      : allCenters;
   }
 
   const returnTo = safePage > 1 ? `${baseHref}&page=${safePage}` : baseHref;
@@ -117,8 +141,10 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <ResultsGrid
             scope={scope}
+            query={query}
             returnTo={returnTo}
             professionals={professionals}
+            wellnessCenters={wellnessCenters}
             pagination={scope === "professionals" ? { currentPage: safePage, totalPages, baseHref } : undefined}
           />
         </div>

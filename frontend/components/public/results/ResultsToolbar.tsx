@@ -69,36 +69,36 @@ export function ResultsToolbar({ scope, query, category }: ResultsToolbarProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-[1.75rem] border border-border bg-card/70 p-4 shadow-sm backdrop-blur-sm">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-[1.75rem] border border-border bg-card/70 p-3 shadow-sm backdrop-blur-sm">
+      <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
           <Input
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Search"
-            className="h-12 rounded-2xl border-border pl-10"
+            placeholder="Search anything wellness-related..."
+            className="h-10 rounded-2xl border-border pl-10"
             aria-label="Search results"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full gap-2 lg:w-auto">
           <Button
             type={hasActiveFilters ? "button" : "submit"}
             onClick={hasActiveFilters ? handleClear : undefined}
-            className="h-12 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 text-white"
+            className="h-10 w-full rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 text-white lg:w-auto"
           >
             {hasActiveFilters ? "Clear" : "Search"}
           </Button>
 
         </div>
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 whitespace-nowrap md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:whitespace-normal">
         {categories.map((categoryOption) => (
           <button
             key={categoryOption}
             type="button"
             onClick={() => handleCategorySelect(categoryOption)}
-            className="rounded-full"
+            className="shrink-0 rounded-full"
             aria-pressed={activeCategory.toLowerCase() === categoryOption.toLowerCase()}
           >
             <Badge

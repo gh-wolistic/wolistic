@@ -74,12 +74,12 @@ export function LandingHeroSection({ onNavigate, onSearch, isSearching = false }
             <div className="space-y-6">
               <h1 className="text-5xl lg:text-6xl xl:text-7xl tracking-tight leading-tight">
                 <span className="block bg-linear-to-r from-emerald-700 via-teal-600 to-cyan-600 bg-clip-text text-transparent dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300">
-                  Discover <span className="text-emerald-600 dark:text-emerald-300 font-medium">Body, </span> Mind, <span className="text-emerald-600 dark:text-emerald-300 font-medium"> & Diet -</span>
+                  Discover <span className="text-emerald-600 dark:text-emerald-300 font-medium">Mind, </span> Body, <span className="text-emerald-600 dark:text-emerald-300 font-medium"> & Diet -</span>
                 </span>
                 <span className="block mt-2">All in one place.</span>
               </h1>
               <p className="text-xl lg:text-2xl text-muted-foreground leading-relaxed max-w-2xl">
-                <span className="text-emerald-600 dark:text-emerald-300 font-medium">AI-powered wellness guidance, verified by certified professionals</span> — <span className="text-emerald-600 dark:text-emerald-300 font-medium"> plus access to trusted experts, services, and products</span>.
+                <span className="text-emerald-600 dark:text-emerald-300 font-medium">AI-powered wellness guidance from verified professionals</span> — <span className="text-emerald-600 dark:text-emerald-300 font-medium">plus discover wellness services, products, and programs</span>.
               </p>
             </div>
 

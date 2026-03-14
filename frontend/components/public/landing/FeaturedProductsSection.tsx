@@ -21,7 +21,7 @@ function ProductCard({ product }: { product: Product }) {
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background">
       {/* Image header */}
-      <div className="relative h-44 w-full shrink-0 bg-linear-to-br from-slate-800/60 to-slate-900/40">
+      <div className="relative h-56 w-full shrink-0 bg-linear-to-br from-slate-800/60 to-slate-900/40">
         {product.image ? (
           <ImageWithFallback
             src={product.image}

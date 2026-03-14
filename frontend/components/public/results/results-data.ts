@@ -1,4 +1,5 @@
 import type {
+  CertificateProviderResultCard,
   InfluencerResultCard,
   ProductResultCard,
   ProfessionalResultCard,
@@ -27,20 +28,20 @@ export const scopeOptions: ScopeOption[] = [
   {
     key: "brands",
     label: "Brands",
-    description: "Brand discovery will plug into this route in a later phase.",
-    isReady: false,
+    description: "Explore wellness brands with their curated product catalogs in one place.",
+    isReady: true,
   },
   {
     key: "services",
     label: "Services",
-    description: "Structured service results will land here once the API is defined.",
-    isReady: false,
+    description: "Discover certificate providers with accreditation, format, fees, and verification details.",
+    isReady: true,
   },
   {
     key: "wellness-centers",
     label: "Wellness Centers",
-    description: "Location-based center discovery is planned for a later release.",
-    isReady: false,
+    description: "Discover wellness centers by location, offerings, and lifestyle fit.",
+    isReady: true,
   },
 ];
 
@@ -225,5 +226,64 @@ export const influencerResults: InfluencerResultCard[] = [
     focus: "Mobility & Recovery",
     followerCount: 73000,
     content: "Teaches recovery basics, movement prep, and consistency strategies for busy schedules.",
+  },
+];
+
+export const certificateProviderResults: CertificateProviderResultCard[] = [
+  {
+    id: "ace-wellness-academy",
+    name: "ACE Wellness Academy",
+    image:
+      "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1200&q=80",
+    accreditationBody: "ACE International",
+    eligibility: "12th pass or graduate; health background preferred",
+    duration: "12 weeks",
+    format: "Hybrid",
+    fees: "Rs 38,000",
+    verificationMethod: "Public certificate lookup + QR verification",
+    focusAreas: ["Fitness coaching", "Program design", "Client safety"],
+    applyUrl: "https://example.com/certifications/ace-wellness-academy",
+  },
+  {
+    id: "integrative-nutrition-institute",
+    name: "Integrative Nutrition Institute",
+    image:
+      "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80",
+    accreditationBody: "Board of Integrative Nutrition",
+    eligibility: "Graduates, dietitians, or wellness coaches",
+    duration: "16 weeks",
+    format: "Online",
+    fees: "Rs 52,000",
+    verificationMethod: "Candidate ID + issuer portal verification",
+    focusAreas: ["Nutrition counseling", "Behavior change", "Lifestyle planning"],
+    applyUrl: "https://example.com/certifications/integrative-nutrition-institute",
+  },
+  {
+    id: "mindful-therapy-board",
+    name: "Mindful Therapy Board",
+    image:
+      "https://images.unsplash.com/photo-1544717305-2782549b5136?auto=format&fit=crop&w=1200&q=80",
+    accreditationBody: "National Mindfulness Standards Council",
+    eligibility: "Psychology, counseling, or coaching background",
+    duration: "10 weeks",
+    format: "Weekend cohorts",
+    fees: "Rs 44,000",
+    verificationMethod: "Digital badge + registry listing",
+    focusAreas: ["Mindfulness facilitation", "Stress management", "Ethical practice"],
+    applyUrl: "https://example.com/certifications/mindful-therapy-board",
+  },
+  {
+    id: "rehab-mobility-cert-lab",
+    name: "Rehab Mobility Cert Lab",
+    image:
+      "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?auto=format&fit=crop&w=1200&q=80",
+    accreditationBody: "Functional Recovery Education Council",
+    eligibility: "Physios, trainers, movement coaches",
+    duration: "14 weeks",
+    format: "Blended practical",
+    fees: "Rs 48,500",
+    verificationMethod: "Certificate serial + cohort record verification",
+    focusAreas: ["Mobility rehab", "Posture correction", "Recovery protocols"],
+    applyUrl: "https://example.com/certifications/rehab-mobility-cert-lab",
   },
 ];

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { ArrowRight, ExternalLink, MapPin, Stethoscope } from "lucide-react";
 
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
@@ -18,11 +19,17 @@ type FeaturedWellnessCentersSectionProps = {
 
 function WellnessCenterCard({ center }: { center: WolisticService }) {
   const websiteLabel = center.websiteName?.trim() || center.title;
+  const detailsHref = `/wellness-center/${center.id}?returnTo=${encodeURIComponent("/results?scope=wellness-centers")}`;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background">
+    <article className="relative flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background">
+      <Link
+        href={detailsHref}
+        aria-label={`Open details for ${center.title}`}
+        className="absolute inset-0 z-10"
+      />
       {/* Image header */}
-      <div className="relative h-44 w-full shrink-0 bg-linear-to-br from-slate-800/60 to-slate-900/40">
+      <div className="relative h-56 w-full shrink-0 bg-linear-to-br from-slate-800/60 to-slate-900/40">
         {center.imageUrl ? (
           <ImageWithFallback
             src={center.imageUrl}
@@ -37,7 +44,7 @@ function WellnessCenterCard({ center }: { center: WolisticService }) {
       </div>
 
       {/* Body */}
-      <div className="flex flex-1 flex-col p-4">
+      <div className="relative z-20 flex flex-1 flex-col p-4">
         <p className="line-clamp-2 text-sm font-semibold leading-snug">{center.title}</p>
         <p className="mt-1 text-xs text-muted-foreground">{center.type}</p>
         <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -59,7 +66,7 @@ function WellnessCenterCard({ center }: { center: WolisticService }) {
               href={center.websiteUrl}
               target="_blank"
               rel="noreferrer"
-              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs font-medium text-emerald-600 transition-all hover:border-emerald-500 hover:bg-emerald-500/10 dark:text-emerald-400"
+              className="relative z-30 flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-xs font-medium text-emerald-600 transition-all hover:border-emerald-500 hover:bg-emerald-500/10 dark:text-emerald-400"
             >
               <ExternalLink size={12} />
               Visit {websiteLabel}
@@ -67,7 +74,7 @@ function WellnessCenterCard({ center }: { center: WolisticService }) {
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 }
 
