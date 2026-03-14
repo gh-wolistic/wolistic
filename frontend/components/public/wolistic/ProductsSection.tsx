@@ -19,7 +19,7 @@ export function ProductsSection({ products, isLoading, resultsHref }: ProductsSe
     <div className="rounded-2xl border border-border bg-white p-6 lg:p-8 dark:bg-slate-950/60 dark:border-slate-800">
       <div className="flex items-center gap-2 mb-4 text-emerald-700 dark:text-emerald-300">
         <ShoppingBag size={20} />
-        <h2 className="text-xl lg:text-2xl">Products we recommend</h2>
+        <h2 className="text-xl lg:text-2xl">Products matching your needs</h2>
       </div>
 
       {isLoading ? (

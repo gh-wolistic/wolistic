@@ -14,6 +14,7 @@ export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) 
   const [collapsed, setCollapsed] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
   const lastScrollY = useRef(0);
+  const toolbarRef = useRef<HTMLDivElement>(null);
 
   const handleScroll = useCallback(() => {
     const y = window.scrollY;
@@ -37,6 +38,17 @@ export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) 
     return () => window.removeEventListener("scroll", handleScroll);
   }, [handleScroll]);
 
+  const openToolbar = () => {
+    setManualOpen(true);
+    if (toolbarRef.current) {
+      toolbarRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      const input = toolbarRef.current.querySelector<HTMLInputElement>(
+        'input[aria-label="Search results"]'
+      );
+      input?.focus();
+    }
+  };
+
   const showToolbar = !collapsed || manualOpen;
 
   return (
@@ -52,7 +64,7 @@ export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) 
                 variant="outline"
                 size="icon"
                 className="h-9 w-9 shrink-0 rounded-full"
-                onClick={() => setManualOpen(true)}
+                onClick={openToolbar}
                 aria-label="Show search bar"
               >
                 <Search size={16} />
@@ -68,7 +80,7 @@ export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) 
                 : "grid-rows-[0fr] opacity-0"
             }`}
           >
-            <div className="overflow-hidden">
+            <div ref={toolbarRef} className="overflow-hidden">
               {toolbar}
             </div>
           </div>
