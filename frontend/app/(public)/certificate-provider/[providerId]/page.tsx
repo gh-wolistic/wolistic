@@ -84,7 +84,7 @@ export default async function CertificateProviderDetailsPage({ params, searchPar
 
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
-            <div className="relative aspect-square sm:aspect-[5/4]">
+            <div className="relative aspect-square sm:aspect-5/4">
               <ImageWithFallback src={provider.image} alt={provider.name} className="h-full w-full object-cover" />
             </div>
           </Card>

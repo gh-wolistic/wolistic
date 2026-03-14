@@ -80,7 +80,7 @@ export default async function WellnessCenterDetailsPage({ params, searchParams }
 
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
-            <div className="relative aspect-square sm:aspect-[5/4]">
+            <div className="relative aspect-square sm:aspect-5/4">
               {center.imageUrl ? (
                 <ImageWithFallback src={center.imageUrl} alt={center.title} className="h-full w-full object-cover" />
               ) : (
@@ -177,7 +177,7 @@ export default async function WellnessCenterDetailsPage({ params, searchParams }
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {center.gallery.map((image, index) => (
                 <div key={`${image}-${index}`} className="overflow-hidden rounded-2xl border border-border">
-                  <div className="aspect-[4/3] overflow-hidden">
+                  <div className="aspect-4/3 overflow-hidden">
                     <ImageWithFallback
                       src={image}
                       alt={`${center.title} gallery ${index + 1}`}

@@ -18,8 +18,8 @@ export default function ResultsLoading() {
         <div className="container mx-auto px-4">
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-[1.5rem] border border-border bg-card overflow-hidden">
-                <div className="aspect-[4/3] bg-muted" />
+              <div key={i} className="rounded-3xl border border-border bg-card overflow-hidden">
+                <div className="aspect-4/3 bg-muted" />
                 <div className="p-6 space-y-4">
                   <div className="h-5 w-36 rounded bg-muted" />
                   <div className="h-3 w-24 rounded bg-muted" />

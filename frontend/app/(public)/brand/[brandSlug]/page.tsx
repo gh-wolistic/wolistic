@@ -115,7 +115,7 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
 
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
-            <div className="relative aspect-square sm:aspect-[5/4]">
+            <div className="relative aspect-square sm:aspect-5/4">
               {brand.heroImage ? (
                 <ImageWithFallback src={brand.heroImage} alt={brand.name} className="h-full w-full object-cover" />
               ) : (
@@ -205,7 +205,7 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {sortedProducts.map((product) => (
                 <Card key={product.id} className="overflow-hidden rounded-2xl border border-border/80">
-                  <div className="aspect-[4/3] overflow-hidden">
+                  <div className="aspect-4/3 overflow-hidden">
                     <ImageWithFallback
                       src={product.image}
                       alt={product.name}

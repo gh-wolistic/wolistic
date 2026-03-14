@@ -150,9 +150,9 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
             <Link
               key={professional.id}
               href={`/${professional.username}?returnTo=${encodeURIComponent(returnTo)}`}
-              className="group overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+              className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
-              <div className="relative aspect-[4/3] overflow-hidden">
+              <div className="relative aspect-4/3 overflow-hidden">
                 <ImageWithFallback
                   src={professional.image}
                   alt={professional.name}
@@ -334,14 +334,14 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
           return (
             <article
               key={product.id}
-              className="group relative overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+              className="group relative overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
               <Link
                 href={`/product/${product.id}?returnTo=${encodeURIComponent(returnTo)}`}
                 aria-label={`Open details for ${product.name}`}
                 className="absolute inset-0 z-10"
               />
-              <div className="aspect-[5/5] overflow-hidden">
+              <div className="aspect-5/5 overflow-hidden">
                 <ImageWithFallback
                   src={product.image}
                   alt={product.name}
@@ -474,9 +474,9 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
             <Link
               key={brand.slug}
               href={`/brand/${brand.slug}?returnTo=${encodeURIComponent(returnTo)}`}
-              className="group overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+              className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
-              <div className="aspect-[5/3] overflow-hidden bg-muted">
+              <div className="aspect-5/3 overflow-hidden bg-muted">
                 {brand.image ? (
                   <ImageWithFallback
                     src={brand.image}
@@ -533,7 +533,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
         {wellnessCenters.map((center) => (
           <article
             key={center.id}
-            className="group relative overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+            className="group relative overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
           >
             <Link
               href={`/wellness-center/${center.id}?returnTo=${encodeURIComponent(returnTo)}`}
@@ -541,7 +541,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
               className="absolute inset-0 z-10"
             />
 
-            <div className="aspect-[5/3] overflow-hidden bg-muted">
+            <div className="aspect-5/3 overflow-hidden bg-muted">
               {center.imageUrl ? (
                 <ImageWithFallback
                   src={center.imageUrl}
@@ -623,7 +623,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
         {filteredProviders.map((provider) => (
           <article
             key={provider.id}
-            className="group relative overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+            className="group relative overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
           >
             <Link
               href={`/certificate-provider/${provider.id}?returnTo=${encodeURIComponent(returnTo)}`}
@@ -631,7 +631,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
               className="absolute inset-0 z-10"
             />
 
-            <div className="aspect-[5/3] overflow-hidden bg-muted">
+            <div className="aspect-5/3 overflow-hidden bg-muted">
               <ImageWithFallback
                 src={provider.image}
                 alt={provider.name}
@@ -680,7 +680,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
           {influencerResults.map((influencer) => (
             <article
               key={influencer.id}
-              className="group overflow-hidden rounded-[1.5rem] border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+              className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
               <div className="aspect-square overflow-hidden">
                 <ImageWithFallback
@@ -708,7 +708,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
             </article>
           ))}
         </div>
-        <section className="rounded-[2rem] border border-border/70 bg-accent/30 p-8 lg:p-10">
+        <section className="rounded-3xl border border-border/70 bg-accent/30 p-8 lg:p-10">
           <div className="mx-auto max-w-4xl">
             <div className="mb-10 text-center">
               <h2 className="mb-4 text-3xl font-semibold tracking-tight">Authentic Voices in Wellness</h2>
@@ -748,7 +748,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
   const selectedScope = scopeOptions.find((scopeOption) => scopeOption.key === scope);
 
   return (
-    <div className="rounded-[2rem] border border-dashed border-border p-10 text-center">
+    <div className="rounded-3xl border border-dashed border-border p-10 text-center">
       <Badge variant="outline" className="mb-4 rounded-full px-3 py-1">
         Coming Soon
       </Badge>

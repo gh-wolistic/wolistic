@@ -136,7 +136,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
 
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
-            <div className="relative aspect-square sm:aspect-[5/4]">
+            <div className="relative aspect-square sm:aspect-5/4">
               <ImageWithFallback src={product.image} alt={product.name} className="h-full w-full object-cover" />
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                 <Badge variant="secondary">{product.category}</Badge>
@@ -237,7 +237,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
                   href={`/product/${related.id}?returnTo=${encodeURIComponent(returnTo)}`}
                   className="group overflow-hidden rounded-2xl border border-border bg-card"
                 >
-                  <div className="aspect-[4/3] overflow-hidden">
+                  <div className="aspect-4/3 overflow-hidden">
                     <ImageWithFallback
                       src={related.image}
                       alt={related.name}
