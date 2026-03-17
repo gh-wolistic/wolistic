@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { updateUserOnboardingSelection } from "@/components/public/data/authApi";
@@ -17,6 +18,7 @@ type UserOnboardingProviderProps = {
 };
 
 export function UserOnboardingProvider({ children }: UserOnboardingProviderProps) {
+  const router = useRouter();
   const { status, user, accessToken, refreshSession } = useAuthSession();
   const setAuthSession = useSessionStore((state) => state.setAuthSession);
   const setRole = useSessionStore((state) => state.setRole);
@@ -106,6 +108,7 @@ export function UserOnboardingProvider({ children }: UserOnboardingProviderProps
       setRole(mapUserProfileToDashboardRole(profile.user_type, profile.user_subtype));
       await refreshSession();
       setIsOpen(false);
+      router.push("/authorized");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to save your profile right now.");
     } finally {
@@ -117,7 +120,7 @@ export function UserOnboardingProvider({ children }: UserOnboardingProviderProps
     <>
       {children}
       {isOpen && user ? (
-        <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-950/55 px-3 py-3 backdrop-blur-sm md:px-6 md:py-6">
+        <div className="fixed inset-0 z-70 overflow-y-auto bg-slate-950/55 px-3 py-3 backdrop-blur-sm md:px-6 md:py-6">
           <div className="mx-auto flex min-h-full w-full max-w-7xl items-start justify-center md:items-center">
             <UserOnboardingFlow
               userName={user.name}

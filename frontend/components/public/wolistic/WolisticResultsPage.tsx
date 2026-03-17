@@ -29,8 +29,8 @@ export function WolisticResultsPage({ query, initialData }: WolisticResultsPageP
 
   const handleExpertReview = () => {
     const destination = query
-      ? `/results?scope=professionals&q=${encodeURIComponent(query)}`
-      : "/results?scope=professionals";
+      ? `/expert-review?scope=professionals&q=${encodeURIComponent(query)}`
+      : "/expert-review?scope=professionals";
     router.push(destination);
   };
 

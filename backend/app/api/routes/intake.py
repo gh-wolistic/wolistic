@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db_session
 from app.models.expert_review_request import ExpertReviewRequest
 from app.models.user import User
-from app.core.auth import get_optional_user
+from app.core.auth import get_optional_current_user
 from app.schemas.intake import ExpertReviewResponse, ExpertReviewSubmission
 
 router = APIRouter(prefix="/intake", tags=["intake"])
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/intake", tags=["intake"])
 async def submit_expert_review(
     payload: ExpertReviewSubmission,
     db: AsyncSession = Depends(get_db_session),
-    current_user: User | None = Depends(get_optional_user),
+    current_user: User | None = Depends(get_optional_current_user),
 ) -> ExpertReviewResponse:
     try:
         request_record = ExpertReviewRequest(

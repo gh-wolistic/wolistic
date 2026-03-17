@@ -15,6 +15,7 @@ type AuthProfileResponse = {
   name: string;
   user_type: UserType | null;
   user_subtype: UserSubtype | null;
+  user_status: "pending" | "verified" | "suspended" | null;
   user_role: string | null;
   onboarding_required: boolean;
 };
@@ -25,6 +26,7 @@ export type AuthApiUser = {
   full_name: string;
   user_type: UserType | null;
   user_subtype: UserSubtype | null;
+  user_status: "pending" | "verified" | "suspended" | null;
   user_role: string | null;
   onboarding_required: boolean;
   role_selection_complete: boolean;
@@ -37,6 +39,7 @@ function toAuthApiUser(profile: AuthProfileResponse): AuthApiUser {
     full_name: profile.name,
     user_type: profile.user_type,
     user_subtype: profile.user_subtype,
+    user_status: profile.user_status,
     user_role: profile.user_role,
     onboarding_required: profile.onboarding_required,
     role_selection_complete: !profile.onboarding_required,
@@ -66,6 +69,7 @@ async function syncCurrentUserMetadata(profile: AuthApiUser): Promise<void> {
       data: {
         user_type: profile.user_type,
         user_subtype: profile.user_subtype,
+        user_status: profile.user_status,
         user_role: profile.user_role,
       },
     });
@@ -117,7 +121,7 @@ export async function signup(body: {
         name: body.full_name,
         full_name: body.full_name,
       },
-      emailRedirectTo: `${window.location.origin}/authorized`,
+      emailRedirectTo: `${window.location.origin}/`,
     },
   });
 

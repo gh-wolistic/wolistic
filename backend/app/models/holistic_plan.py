@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import DateTime, Text, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -15,7 +15,7 @@ from app.models.base import Base
 class HolisticPlan(Base):
     __tablename__ = "holistic_plans"
 
-    id: Mapped[uuid.UUID] = mapped_column(uuid.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     package_price: Mapped[str] = mapped_column(Text, nullable=False)
     schedule: Mapped[str] = mapped_column(Text, nullable=False)

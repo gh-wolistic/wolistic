@@ -10,6 +10,7 @@ type BackendProfileResponse = {
   name?: string;
   user_type?: string;
   user_subtype?: string | null;
+  user_status?: string | null;
   user_role?: string | null;
   onboarding_required?: boolean;
 };
@@ -30,6 +31,8 @@ export async function resolveAuthProfileFromBackend(params: {
   }
 
   const data = (await response.json()) as BackendProfileResponse;
+  const resolvedUserStatus =
+    data.user_status === undefined ? undefined : ((data.user_status ?? null) as AuthSessionUser["userStatus"]);
 
   return {
     id: data.id,
@@ -37,6 +40,7 @@ export async function resolveAuthProfileFromBackend(params: {
     name: data.name,
     userType: data.user_type as AuthSessionUser["userType"],
     userSubtype: (data.user_subtype ?? null) as AuthSessionUser["userSubtype"],
+    ...(resolvedUserStatus === undefined ? {} : { userStatus: resolvedUserStatus }),
     userRole: data.user_role,
     onboardingRequired: Boolean(data.onboarding_required),
   };

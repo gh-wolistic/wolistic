@@ -33,7 +33,7 @@ function PublicLayoutShell({ children }: { children: React.ReactNode }) {
     : null;
 
   const handleDashboard = useCallback(() => {
-    router.push("/dashboard");
+    router.push("/authorized");
   }, [router]);
 
   return (

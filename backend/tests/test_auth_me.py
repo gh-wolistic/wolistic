@@ -39,6 +39,7 @@ class DummySession:
             full_name="Morgan Lee",
             user_type="partner",
             user_subtype="diet_expert",
+            user_status="verified",
         )
 
     async def execute(self, _query: object) -> DummyAuthMeResult:
@@ -84,6 +85,7 @@ def test_auth_me_returns_authenticated_profile() -> None:
         "name": "Morgan Lee",
         "user_type": "partner",
         "user_subtype": "diet_expert",
+        "user_status": "verified",
         "user_role": "diet_expert",
         "onboarding_required": False,
     }
@@ -110,6 +112,7 @@ def test_auth_onboarding_updates_current_user() -> None:
     assert response.status_code == 200
     assert session.user.user_type == "client"
     assert session.user.user_subtype == "client"
+    assert session.user.user_status == "verified"
     assert response.json()["onboarding_required"] is False
 
 

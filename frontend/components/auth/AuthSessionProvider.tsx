@@ -16,6 +16,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { UserSubtype, UserType } from "@/components/onboarding/types";
 
 export type AuthUserType = UserType | "unknown";
+export type AuthUserStatus = "pending" | "verified" | "suspended";
 
 export type AuthSessionUser = {
   id: string;
@@ -23,6 +24,7 @@ export type AuthSessionUser = {
   name: string;
   userType: AuthUserType;
   userSubtype: UserSubtype | null;
+  userStatus: AuthUserStatus | null;
   userRole: string | null;
   onboardingRequired: boolean;
 };
@@ -72,6 +74,14 @@ function normalizeUserSubtype(value: unknown): UserSubtype | null {
   return null;
 }
 
+function normalizeUserStatus(value: unknown): AuthUserStatus | null {
+  if (value === "pending" || value === "verified" || value === "suspended") {
+    return value;
+  }
+
+  return null;
+}
+
 function sessionUserToAuthUser(sessionUser: User): AuthSessionUser | null {
   if (!sessionUser.email) {
     return null;
@@ -91,6 +101,10 @@ function sessionUserToAuthUser(sessionUser: User): AuthSessionUser | null {
     name: name.trim() || sessionUser.email.split("@")[0],
     userType: normalizeUserType(metadata.user_type),
     userSubtype: normalizeUserSubtype(metadata.user_subtype),
+    userStatus:
+      metadata.user_type === "client"
+        ? "verified"
+        : normalizeUserStatus(metadata.user_status),
     userRole: typeof metadata.user_role === "string" ? metadata.user_role : null,
     onboardingRequired: !metadata.user_type || !metadata.user_subtype,
   };
@@ -149,6 +163,10 @@ export function AuthSessionProvider({ children, resolveUserProfile }: AuthSessio
                 profile.userSubtype === undefined
                   ? baseUser.userSubtype
                   : normalizeUserSubtype(profile.userSubtype),
+              userStatus:
+                profile.userStatus === undefined
+                  ? baseUser.userStatus
+                  : normalizeUserStatus(profile.userStatus),
               userRole: profile.userRole === undefined ? baseUser.userRole : profile.userRole,
               onboardingRequired:
                 profile.onboardingRequired === undefined

@@ -1,7 +1,9 @@
 import React from "react";
 import Link from "next/link";
-import { Stethoscope } from "lucide-react";
+import { Award, Globe, MapPin, MessageCircle, Phone, Stethoscope, Users, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import type { ProfessionalProfile } from "@/types/professional";
 
@@ -10,6 +12,38 @@ type ProfessionalsSectionProps = {
   isLoading: boolean;
   resultsHref: string;
 };
+
+function getSessionTypeVisual(sessionType: string) {
+  const normalized = sessionType.trim().toLowerCase();
+  const normalizedWords = normalized.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+
+  if (
+    normalizedWords.includes("in person")
+    || normalizedWords.includes("inperson")
+    || normalizedWords.includes("offline")
+    || normalizedWords.includes("onsite")
+  ) {
+    return { label: "In-person", icon: MapPin };
+  }
+
+  if (normalizedWords.includes("video") || normalizedWords.includes("online") || normalizedWords.includes("virtual")) {
+    return { label: "Video call", icon: Video };
+  }
+
+  if (normalizedWords.includes("phone") || normalizedWords.includes("audio") || normalizedWords.includes("voice")) {
+    return { label: "Phone", icon: Phone };
+  }
+
+  if (normalizedWords.includes("chat") || normalizedWords.includes("message") || normalizedWords.includes("text")) {
+    return { label: "Chat", icon: MessageCircle };
+  }
+
+  if (normalizedWords.includes("group")) {
+    return { label: "Group", icon: Users };
+  }
+
+  return { label: sessionType, icon: Video };
+}
 
 export function ProfessionalsSection({ professionals, isLoading, resultsHref }: ProfessionalsSectionProps) {
   if (!isLoading && professionals.length === 0) {
@@ -29,25 +63,82 @@ export function ProfessionalsSection({ professionals, isLoading, resultsHref }: 
       {isLoading ? (
         <p className="mb-4 text-sm text-muted-foreground">Loading matching professionals...</p>
       ) : (
-        <div className="mb-4 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mb-4 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {professionals.map((professional) => (
             <Link
               key={professional.id}
               href={`/${professional.username}`}
-              className="overflow-hidden rounded-xl border border-border bg-background transition-shadow hover:shadow-md"
+              className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
-              <div className="aspect-4/3">
+              <div className="relative aspect-4/3 overflow-hidden">
                 <ImageWithFallback
                   src={professional.image}
                   alt={professional.name}
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
+                <PresenceChip isOnline={professional.isOnline} className="absolute left-3 top-3" />
               </div>
-              <div className="space-y-1 p-3">
-                <p className="font-medium leading-tight">{professional.name}</p>
-                <p className="text-sm text-muted-foreground">{professional.specialization}</p>
-                <p className="text-xs text-muted-foreground">{professional.location}</p>
-                <p className="text-xs text-muted-foreground">⭐ {professional.rating}</p>
+              <div className="space-y-4 p-6">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-tight">{professional.name}</h3>
+                    <p className="text-sm text-muted-foreground">{professional.specialization}</p>
+                  </div>
+                  <RatingChip value={professional.rating} textClassName="text-sm" />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
+                  {professional.membershipTier ? <StatusChip label={professional.membershipTier} tone="featured" /> : null}
+                </div>
+
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  {professional.certifications.length > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <Award size={16} />
+                      <span>
+                        {professional.certifications
+                          .map((certification) =>
+                            typeof certification === "string" ? certification : certification.name,
+                          )
+                          .join(", ")}
+                      </span>
+                    </div>
+                  ) : null}
+                  {professional.location ? (
+                    <div className="flex items-center gap-2">
+                      <MapPin size={16} />
+                      <span>{professional.location}</span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {professional.languages.length > 0 ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Globe size={14} />
+                    <span>Languages: {professional.languages.join(", ")}</span>
+                  </div>
+                ) : null}
+
+                {professional.sessionTypes.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {professional.sessionTypes.map((sessionType) => {
+                      const visual = getSessionTypeVisual(sessionType);
+                      const Icon = visual.icon;
+
+                      return (
+                        <Badge key={sessionType} variant="outline" className="gap-1.5 text-[11px]">
+                          <Icon size={12} />
+                          {visual.label}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                ) : null}
+
+                <Button className="w-full" variant="outline">
+                  View Profile
+                </Button>
               </div>
             </Link>
           ))}

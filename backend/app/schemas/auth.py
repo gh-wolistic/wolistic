@@ -15,6 +15,7 @@ UserSubtype = Literal[
     "brand",
     "influencer",
 ]
+UserStatus = Literal["pending", "verified", "suspended"]
 
 
 class AuthMeOut(BaseModel):
@@ -23,6 +24,7 @@ class AuthMeOut(BaseModel):
     name: str
     user_type: UserType | None = None
     user_subtype: UserSubtype | None = None
+    user_status: UserStatus | None = None
     user_role: str | None = None
     onboarding_required: bool = True
 

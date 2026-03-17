@@ -11,9 +11,23 @@ from app.schemas.auth import AuthMeOut, UpdateOnboardingIn
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
+PARTNER_USER_STATUS_VALUES = {"pending", "verified", "suspended"}
+
 
 def _display_name_for_user(user: User) -> str:
     return user.full_name or user.email.split("@")[0]
+
+
+def _resolved_user_status(user: User) -> str | None:
+    if user.user_type == "client":
+        return "verified"
+
+    if user.user_type == "partner":
+        if user.user_status in PARTNER_USER_STATUS_VALUES:
+            return user.user_status
+        return "pending"
+
+    return None
 
 
 def _to_auth_me_out(user: User) -> AuthMeOut:
@@ -23,6 +37,7 @@ def _to_auth_me_out(user: User) -> AuthMeOut:
         name=_display_name_for_user(user),
         user_type=user.user_type,
         user_subtype=user.user_subtype,
+        user_status=_resolved_user_status(user),
         user_role=user.user_subtype or user.user_type,
         onboarding_required=not bool(user.user_type and user.user_subtype),
     )
@@ -56,6 +71,12 @@ async def update_auth_onboarding(
 
     user.user_type = payload.user_type
     user.user_subtype = payload.user_subtype
+
+    if payload.user_type == "client":
+        user.user_status = "verified"
+    elif user.user_status not in PARTNER_USER_STATUS_VALUES:
+        user.user_status = "pending"
+
     await db.commit()
     await db.refresh(user)
 

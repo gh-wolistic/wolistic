@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { CheckCircle2 } from "lucide-react";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ type AuthModalProps = {
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>("login");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -46,10 +48,11 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const signInWithGoogle = async () => {
     try {
       setLoading(true);
+      setGoogleLoading(true);
       setError(null);
 
       const supabase = getSupabaseBrowserClient();
-      const redirectTo = `${window.location.origin}/authorized`;
+      const redirectTo = `${window.location.origin}/`;
       const { error: signInError } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
@@ -63,6 +66,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Failed to continue with Google");
     } finally {
+      setGoogleLoading(false);
       setLoading(false);
     }
   };
@@ -112,7 +116,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           data: {
             name,
           },
-          emailRedirectTo: `${window.location.origin}/authorized`,
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
@@ -177,6 +181,39 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
     }
   };
 
+  const handleForgotPassword = async () => {
+    setError(null);
+    setSuccess(null);
+
+    if (!email.trim()) {
+      setError("Enter your email first to receive a reset link.");
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      setError("Please enter a valid email");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const supabase = getSupabaseBrowserClient();
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (resetError) {
+        setError(resetError.message);
+      } else {
+        setSuccess("Password reset email sent. Check your inbox for the secure link.");
+      }
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Failed to send password reset email");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGoogleLogin = () => {
     signInWithGoogle();
   };
@@ -234,6 +271,16 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   required
                 />
               </div>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  className="text-sm text-emerald-700 hover:underline dark:text-emerald-300"
+                  onClick={() => void handleForgotPassword()}
+                  disabled={loading}
+                >
+                  Forgot password?
+                </button>
+              </div>
               <Button
                 type="submit"
                 disabled={loading}
@@ -244,7 +291,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </form>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
+            {success ? (
+              <div
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-semibold">Check your inbox to activate your account</p>
+                    <p className="mt-1 text-sm leading-relaxed">{success}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -255,7 +316,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
             </div>
 
-            <Button type="button" variant="outline" onClick={handleGoogleLogin} disabled={loading} className="w-full">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full border-emerald-200 transition-colors hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+            >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -274,7 +341,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   fill="#EA4335"
                 />
               </svg>
-              {loading ? "Redirecting..." : "Google"}
+              {googleLoading ? "Logging in with Google..." : "Continue with Google"}
             </Button>
           </TabsContent>
 
@@ -334,7 +401,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </form>
 
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
-            {success ? <p className="text-sm text-emerald-700">{success}</p> : null}
+            {success ? (
+              <div
+                className="rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden="true" />
+                  <div>
+                    <p className="text-sm font-semibold">Check your inbox to activate your account</p>
+                    <p className="mt-1 text-sm leading-relaxed">{success}</p>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -345,7 +426,13 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
             </div>
 
-            <Button type="button" variant="outline" onClick={handleGoogleLogin} disabled={loading} className="w-full">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="w-full border-emerald-200 transition-colors hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+            >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -364,7 +451,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   fill="#EA4335"
                 />
               </svg>
-              {loading ? "Redirecting..." : "Google"}
+              {googleLoading ? "Continuing with Google..." : "Continue with Google"}
             </Button>
           </TabsContent>
         </Tabs>

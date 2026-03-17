@@ -25,7 +25,7 @@ const floatingStats = [
     valueClassName: "text-emerald-600",
     iconBgClassName: "bg-emerald-100",
     iconClassName: "text-emerald-600",
-    cardClassName: "absolute -left-6 bottom-1/4",
+    cardClassName: "absolute -right-6 top-1/4",
     animationDelay: "0s",
   },
 ];
@@ -74,7 +74,7 @@ export function LandingHeroSection({ onNavigate, onSearch, isSearching = false }
             <div className="space-y-6">
               <h1 className="text-5xl lg:text-6xl xl:text-7xl tracking-tight leading-tight">
                 <span className="block bg-linear-to-r from-emerald-700 via-teal-600 to-cyan-600 bg-clip-text text-transparent dark:from-emerald-300 dark:via-teal-300 dark:to-cyan-300">
-                  Discover <span className="text-emerald-600 dark:text-emerald-300 font-medium">Mind, </span> Body, <span className="text-emerald-600 dark:text-emerald-300 font-medium"> & Diet -</span>
+                  Discover <span className="text-emerald-600 dark:text-emerald-300 font-medium">Body, </span> Mind, <span className="text-emerald-600 dark:text-emerald-300 font-medium"> & Diet -</span>
                 </span>
                 <span className="block mt-2">All in one place.</span>
               </h1>
@@ -138,7 +138,7 @@ export function LandingHeroSection({ onNavigate, onSearch, isSearching = false }
 
           <div className="relative lg:block hidden">
             <div className="relative">
-              <div className="aspect-5/5 rounded-3xl overflow-hidden shadow-2xl">
+              <div className="aspect-5/4 rounded-3xl overflow-hidden shadow-2xl">
                 <ImageWithFallback
                   src={heroMain.src}
                   alt="Wolistic Wellness"
