@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ServiceOut(BaseModel):
@@ -87,3 +87,85 @@ class ReviewPageOut(BaseModel):
 
     items: list[ReviewOut]
     total: int
+
+
+class ProfessionalApproachIn(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=5000)
+
+
+class ProfessionalAvailabilityIn(BaseModel):
+    day_of_week: int = Field(ge=0, le=6)
+    start_time: time
+    end_time: time
+    timezone: str = Field(min_length=2, max_length=100)
+
+
+class ProfessionalCertificationIn(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    issuer: str | None = Field(default=None, max_length=255)
+    issued_year: int | None = Field(default=None, ge=1900, le=2100)
+
+
+class ProfessionalExpertiseAreaIn(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=5000)
+
+
+class ProfessionalGalleryIn(BaseModel):
+    image_url: str = Field(min_length=1, max_length=4000)
+    caption: str | None = Field(default=None, max_length=255)
+    display_order: int = Field(default=0, ge=0, le=500)
+
+
+class ProfessionalServiceIn(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    short_brief: str | None = Field(default=None, max_length=255)
+    price: float = Field(ge=0)
+    offers: str | None = Field(default=None, max_length=255)
+    negotiable: bool = False
+    offer_type: str = Field(default="none", min_length=2, max_length=20)
+    offer_value: int | None = Field(default=None, ge=0)
+    offer_label: str | None = Field(default=None, max_length=100)
+    offer_starts_at: datetime | None = None
+    offer_ends_at: datetime | None = None
+    mode: str = Field(min_length=1, max_length=64)
+    duration_value: int = Field(ge=1, le=1440)
+    duration_unit: str = Field(min_length=1, max_length=32)
+    is_active: bool = True
+
+
+class BookingQuestionTemplateIn(BaseModel):
+    prompt: str = Field(min_length=1, max_length=4000)
+    display_order: int = Field(default=1, ge=1, le=20)
+    is_required: bool = True
+    is_active: bool = True
+
+
+class ProfessionalEditorPayload(BaseModel):
+    username: str = Field(min_length=2, max_length=100)
+    cover_image_url: str | None = None
+    profile_image_url: str | None = None
+    specialization: str = Field(min_length=1, max_length=255)
+    membership_tier: str | None = Field(default=None, max_length=64)
+    experience_years: int = Field(default=0, ge=0, le=80)
+    location: str | None = Field(default=None, max_length=255)
+    sex: str = Field(default="undisclosed", min_length=2, max_length=32)
+    short_bio: str | None = Field(default=None, max_length=255)
+    about: str | None = Field(default=None, max_length=10000)
+
+    approaches: list[ProfessionalApproachIn] = []
+    availability_slots: list[ProfessionalAvailabilityIn] = []
+    certifications: list[ProfessionalCertificationIn] = []
+    education: list[str] = []
+    expertise_areas: list[ProfessionalExpertiseAreaIn] = []
+    gallery: list[ProfessionalGalleryIn] = []
+    languages: list[str] = []
+    session_types: list[str] = []
+    subcategories: list[str] = []
+    services: list[ProfessionalServiceIn] = []
+    booking_question_templates: list[BookingQuestionTemplateIn] = []
+
+
+class ProfessionalEditorOut(ProfessionalEditorPayload):
+    professional_id: uuid.UUID

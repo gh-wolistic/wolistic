@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { Bell, Menu } from "lucide-react";
 
 import type { AuthSessionUser } from "@/components/auth/AuthSessionProvider";
+import { DASHBOARD_V1_PATHS } from "@/components/dashboard/v1/routing";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -62,6 +64,16 @@ export function DashboardHeader({ user, onMenuClick, onSignOut }: DashboardHeade
                 <p className="text-sm font-medium">{user.name}</p>
                 <p className="text-xs text-zinc-500">{user.email}</p>
               </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href={DASHBOARD_V1_PATHS.profile.viewAsPublic}>View as public</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={DASHBOARD_V1_PATHS.profile.edit}>Edit / update profile</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={DASHBOARD_V1_PATHS.profile.settings}>Profile settings</Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem disabled>{user.userType === "partner" ? "Partner" : "Client"}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => void onSignOut()}>Logout</DropdownMenuItem>

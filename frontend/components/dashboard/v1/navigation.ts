@@ -31,6 +31,11 @@ const commonItems: DashboardNavItem[] = [
     icon: LayoutDashboard,
   },
   {
+    label: "Profile Studio",
+    href: DASHBOARD_V1_PATHS.profile.edit,
+    icon: UserSquare2,
+  },
+  {
     label: "Account",
     href: "/account",
     icon: UserSquare2,
@@ -121,7 +126,7 @@ export function getDashboardNavSections(user: AuthSessionUser): DashboardNavSect
   sections.push({
     id: "common",
     title: "Common",
-    items: [...commonItems, { label: "Settings", href: "/account", icon: Settings }],
+    items: [...commonItems, { label: "Profile Settings", href: DASHBOARD_V1_PATHS.profile.settings, icon: Settings }],
   });
 
   return sections;
