@@ -55,6 +55,28 @@ type Message = {
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+function mapBudgetRangeToPrices(budgetRange: string): { minPrice?: number; maxPrice?: number } {
+  const value = (budgetRange || "").trim();
+  if (value === "₹2,000–₹5,000") {
+    return { minPrice: 2000, maxPrice: 5000 };
+  }
+  if (value === "₹5,000–₹10,000") {
+    return { minPrice: 5000, maxPrice: 10000 };
+  }
+  if (value === "₹10,000+") {
+    return { minPrice: 10000 };
+  }
+  return {};
+}
+
+function normalizeMode(value: string): string | undefined {
+  const mode = (value || "").trim().toLowerCase();
+  if (["online", "offline", "hybrid"].includes(mode)) {
+    return mode;
+  }
+  return undefined;
+}
+
 export default function ExpertReviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -143,15 +165,35 @@ export default function ExpertReviewPage() {
         throw new Error(`Failed to submit expert review (${response.status})`);
       }
 
-      setProcessingMessage("Generating your personalized plan...");
+      setProcessingMessage("Preparing your team...");
+      const normalizedMode = normalizeMode(finalAnswers.preferred_mode);
+      const budget = mapBudgetRangeToPrices(finalAnswers.budget_range);
+
+      await fetch(`${apiBase}/api/v1/holistic-teams/prepare`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: query.trim() || finalAnswers.goal || "general wellness",
+          scope,
+          preferred_mode: normalizedMode,
+          min_price: budget.minPrice,
+          max_price: budget.maxPrice,
+        }),
+      });
+
       setTimeout(() => {
-        addBotMessage("Our certified experts are reviewing your responses.");
+        addBotMessage("Your team is being prepared using your preferences.");
       }, 400);
       setTimeout(() => {
         const next = new URLSearchParams();
         if (query.trim()) next.set("q", query.trim());
         if (scope) next.set("scope", scope);
-        router.replace(`/holistic-plan?${next.toString()}`);
+        if (normalizedMode) next.set("mode", normalizedMode);
+        if (typeof budget.minPrice === "number") next.set("minPrice", String(budget.minPrice));
+        if (typeof budget.maxPrice === "number") next.set("maxPrice", String(budget.maxPrice));
+        router.replace(`/holistic-team?${next.toString()}`);
       }, 1800);
     } catch (err) {
       console.error(err);

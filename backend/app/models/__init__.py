@@ -4,6 +4,7 @@ from app.models.booking import (
     BookingQuestionResponse,
     BookingQuestionTemplate,
 )
+from app.models.holistic_team import HolisticTeam, HolisticTeamMember
 from app.models.professional import (
     Professional,
     ProfessionalApproach,
@@ -28,6 +29,8 @@ __all__ = [
     "BookingQuestionTemplate",
     "BookingQuestionResponse",
     "BookingPayment",
+    "HolisticTeam",
+    "HolisticTeamMember",
     "Professional",
     "ProfessionalApproach",
     "ProfessionalAvailability",
