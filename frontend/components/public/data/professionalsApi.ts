@@ -53,6 +53,7 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
     about: (raw.about as string) ?? undefined,
     membershipTier: (raw.membership_tier as string) ?? undefined,
     isOnline: raw.is_online as boolean,
+    placementLabel: (raw.placement_label as string) ?? undefined,
     approach: (raw.approach as string) ?? undefined,
     availability: (raw.availability as string) ?? undefined,
     certifications,
@@ -213,6 +214,29 @@ export async function getFeaturedProfessionals(limit = 8): Promise<ProfessionalP
   const res = await fetch(`${API_BASE}/professionals/featured?limit=${encodeURIComponent(String(safeLimit))}`, {
     cache: "force-cache",
     next: { revalidate: 300 },
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}`);
+  const items = (await res.json()) as Record<string, unknown>[];
+  return items.map(toCamelProfile);
+}
+
+export async function getFeaturedProfessionalsNearby(
+  lat: number,
+  lng: number,
+  opts?: { limit?: number; radiusKm?: number },
+): Promise<ProfessionalProfile[]> {
+  const safeLimit = Math.min(Math.max(opts?.limit ?? 8, 1), 8);
+  const safeRadiusKm = Math.min(Math.max(opts?.radiusKm ?? 300, 1), 3000);
+
+  const params = new URLSearchParams({
+    limit: String(safeLimit),
+    lat: String(lat),
+    lng: String(lng),
+    radius_km: String(safeRadiusKm),
+  });
+
+  const res = await fetch(`${API_BASE}/professionals/featured?${params.toString()}`, {
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const items = (await res.json()) as Record<string, unknown>[];

@@ -37,6 +37,8 @@ class Professional(Base):
     membership_tier: Mapped[str | None] = mapped_column(String)
     experience_years: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     location: Mapped[str | None] = mapped_column(String)
+    latitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    longitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
     sex: Mapped[str] = mapped_column(String, nullable=False, server_default="undisclosed")
     short_bio: Mapped[str | None] = mapped_column(String)
     about: Mapped[str | None] = mapped_column(Text)
@@ -86,6 +88,9 @@ class Professional(Base):
         back_populates="professional", lazy="selectin"
     )
     subcategories: Mapped[list["ProfessionalSubcategory"]] = relationship(
+        back_populates="professional", lazy="selectin"
+    )
+    service_areas: Mapped[list["ProfessionalServiceArea"]] = relationship(
         back_populates="professional", lazy="selectin"
     )
 
@@ -263,3 +268,43 @@ class ProfessionalSubcategory(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
 
     professional: Mapped["Professional"] = relationship(back_populates="subcategories")
+
+
+class ProfessionalServiceArea(Base):
+    __tablename__ = "professional_service_areas"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.user_id"), nullable=False
+    )
+    city_name: Mapped[str] = mapped_column(String, nullable=False)
+    latitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    longitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    radius_km: Mapped[int] = mapped_column(Integer, nullable=False, server_default="300")
+    is_primary: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    professional: Mapped["Professional"] = relationship(back_populates="service_areas")
+
+
+class ProfessionalBoostImpression(Base):
+    __tablename__ = "professional_boost_impressions"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.user_id"), nullable=False
+    )
+    surface: Mapped[str] = mapped_column(String(32), nullable=False)
+    slot_position: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    placement_label: Mapped[str] = mapped_column(String(32), nullable=False, server_default="Boosted")
+    query_text: Mapped[str | None] = mapped_column(Text)
+    user_latitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    user_longitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
+    radius_km: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    professional: Mapped["Professional"] = relationship(lazy="joined")

@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, MapPin } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { getFeaturedProfessionalsNearby } from "@/components/public/data/professionalsApi";
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
 import { inferMembershipLabel, isProfessionalOnline } from "@/lib/professionalSignals";
 import type { ProfessionalProfile } from "@/types/professional";
@@ -14,8 +16,10 @@ import { FeaturedExpertModal } from "./FeaturedExpertModal";
 
 const MAX_FEATURED = 8;
 const DESKTOP_VISIBLE = 4;
+const GEO_RESOLUTION_TIMEOUT_MS = 2500;
 
 type PublicDestination = "professionals" | "partners";
+type FeaturedDataSource = "loading" | "nearby" | "fallback";
 
 type FeaturedProfessionalsSectionProps = {
   onNavigate?: (destination: PublicDestination) => void;
@@ -61,6 +65,11 @@ function ProfessionalCard({
         <Badge variant="secondary" className="mb-3 text-xs">{prof.category}</Badge>
         <div className="mb-3 flex flex-wrap gap-2">
           <StatusChip label="Certified" tone="certified" className="text-[11px]" />
+          {prof.placementLabel === "Boosted" && (
+            <Badge variant="outline" className="text-[11px] border-amber-400/60 text-amber-200">
+              Boosted
+            </Badge>
+          )}
           {membershipLabel && (
             <Badge variant="outline" className="text-[11px]">{membershipLabel}</Badge>
           )}
@@ -89,13 +98,109 @@ function ProfessionalCard({
   );
 }
 
+function FeaturedCardSkeleton() {
+  return (
+    <div className="bg-card rounded-xl border border-border overflow-hidden h-full">
+      <Skeleton className="aspect-4/3 w-full rounded-none" />
+      <div className="p-4 space-y-3">
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-2/3" />
+          <Skeleton className="h-4 w-1/2" />
+        </div>
+        <Skeleton className="h-5 w-24" />
+        <div className="flex gap-2">
+          <Skeleton className="h-5 w-16" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+    </div>
+  );
+}
+
 export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals = [] }: FeaturedProfessionalsSectionProps) {
   const router = useRouter();
+  const fallbackProfessionals = useMemo(
+    () => initialProfessionals.slice(0, MAX_FEATURED),
+    [initialProfessionals],
+  );
+
   // Hard cap at MAX_FEATURED — defence against backend sending extras
-  const professionals = initialProfessionals.slice(0, MAX_FEATURED);
+  const [professionals, setProfessionals] = useState<ProfessionalProfile[]>([]);
+  const [dataSource, setDataSource] = useState<FeaturedDataSource>("loading");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const applyFallback = () => {
+      if (isCancelled) return;
+      setProfessionals(fallbackProfessionals);
+      setDataSource("fallback");
+      setCurrentIndex(0);
+    };
+
+    const resolveGeolocation = async () => {
+      setDataSource("loading");
+
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        applyFallback();
+        return;
+      }
+
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          const timeoutId = window.setTimeout(() => {
+            reject(new Error("geolocation-resolution-timeout"));
+          }, GEO_RESOLUTION_TIMEOUT_MS);
+
+          navigator.geolocation.getCurrentPosition(
+            (value) => {
+              window.clearTimeout(timeoutId);
+              resolve(value);
+            },
+            (error) => {
+              window.clearTimeout(timeoutId);
+              reject(error);
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 10000,
+              maximumAge: 300000,
+            },
+          );
+        });
+
+        const nearbyProfessionals = await getFeaturedProfessionalsNearby(
+          position.coords.latitude,
+          position.coords.longitude,
+          { limit: MAX_FEATURED, radiusKm: 300 },
+        );
+
+        if (isCancelled) return;
+
+        if (nearbyProfessionals.length > 0) {
+          setProfessionals(nearbyProfessionals.slice(0, MAX_FEATURED));
+          setDataSource("nearby");
+          setCurrentIndex(0);
+          return;
+        }
+
+        applyFallback();
+      } catch {
+        applyFallback();
+      }
+    };
+
+    void resolveGeolocation();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [fallbackProfessionals]);
 
   const selectedProfessional = useMemo(
     () => professionals.find((p) => p.id === selectedProfessionalId) ?? null,
@@ -116,7 +221,7 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
   const onViewFullProfile = (username: string) => router.push(`/${username}`);
   const onBookConsultation = (username: string) => router.push(`/${username}?startBooking=1#services`);
 
-  if (n < 1) return null;
+  if (dataSource !== "loading" && n < 1) return null;
 
   // Track width is expressed as a % of the container.
   // Desktop: n cards must fit, but only DESKTOP_VISIBLE are shown at once.
@@ -136,7 +241,9 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
           <div>
             <h2 className="mb-2 text-3xl lg:text-4xl">Featured Experts</h2>
             <p className="text-lg text-muted-foreground">
-              Connect with our top-rated certified professionals
+              {dataSource === "loading" && "Finding nearby experts for your location..."}
+              {dataSource === "nearby" && "Showing top-rated certified professionals near you"}
+              {dataSource === "fallback" && "Showing popular certified professionals across India"}
             </p>
           </div>
           <Button
@@ -149,6 +256,19 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
           </Button>
         </div>
 
+        {dataSource === "loading" ? (
+          <>
+            <div className="hidden md:grid md:grid-cols-4 gap-6">
+              {Array.from({ length: DESKTOP_VISIBLE }).map((_, index) => (
+                <FeaturedCardSkeleton key={`featured-skeleton-desktop-${index}`} />
+              ))}
+            </div>
+            <div className="md:hidden grid grid-cols-1 gap-4">
+              <FeaturedCardSkeleton />
+            </div>
+          </>
+        ) : (
+        <>
         {/* ── Desktop carousel (md+) ── */}
         <div className="hidden md:block relative">
           {desktopIndex > 0 && (
@@ -236,6 +356,8 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
             ))}
           </div>
         </div>
+        </>
+        )}
 
         {/* Mobile view-all */}
         <div className="text-center mt-8 md:hidden">

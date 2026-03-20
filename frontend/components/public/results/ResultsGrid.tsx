@@ -170,6 +170,11 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
+                    {professional.placementLabel === "Boosted" ? (
+                      <Badge variant="outline" className="border-amber-400/60 text-amber-200">
+                        Boosted
+                      </Badge>
+                    ) : null}
                     {professional.membershipTier ? <StatusChip label={professional.membershipTier} tone="featured" /> : null}
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">

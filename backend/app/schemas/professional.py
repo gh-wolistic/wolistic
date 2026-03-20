@@ -40,6 +40,16 @@ class CertificationOut(BaseModel):
     issued_year: int | None = None
 
 
+class ServiceAreaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    city_name: str
+    latitude: float | None = None
+    longitude: float | None = None
+    radius_km: int = 300
+    is_primary: bool = False
+
+
 class ProfessionalProfileOut(BaseModel):
     """Full professional profile returned by GET /professionals/{username}."""
 
@@ -61,6 +71,7 @@ class ProfessionalProfileOut(BaseModel):
     about: str | None = None
     membership_tier: str | None = None
     is_online: bool = False
+    placement_label: str | None = None
 
     # Flattened child data
     approach: str | None = None
@@ -73,6 +84,7 @@ class ProfessionalProfileOut(BaseModel):
     subcategories: list[str] = []
     gallery: list[str] = []
     services: list[ServiceOut] = []
+    service_areas: list[ServiceAreaOut] = []
     featured_products: list[dict] = []
 
 
@@ -135,6 +147,14 @@ class ProfessionalServiceIn(BaseModel):
     is_active: bool = True
 
 
+class ProfessionalServiceAreaIn(BaseModel):
+    city_name: str = Field(min_length=1, max_length=255)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    radius_km: int = Field(default=300, ge=1, le=3000)
+    is_primary: bool = False
+
+
 class BookingQuestionTemplateIn(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
     display_order: int = Field(default=1, ge=1, le=20)
@@ -164,6 +184,7 @@ class ProfessionalEditorPayload(BaseModel):
     session_types: list[str] = []
     subcategories: list[str] = []
     services: list[ProfessionalServiceIn] = []
+    service_areas: list[ProfessionalServiceAreaIn] = []
     booking_question_templates: list[BookingQuestionTemplateIn] = []
 
 

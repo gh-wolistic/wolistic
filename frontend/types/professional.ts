@@ -37,6 +37,7 @@ export type ProfessionalProfile = {
   about?: string;
   membershipTier?: string;
   isOnline: boolean;
+  placementLabel?: string;
 
   approach?: string;
   availability?: string;
