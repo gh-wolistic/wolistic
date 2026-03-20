@@ -127,8 +127,10 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
   );
 
   // Hard cap at MAX_FEATURED — defence against backend sending extras
-  const [professionals, setProfessionals] = useState<ProfessionalProfile[]>([]);
-  const [dataSource, setDataSource] = useState<FeaturedDataSource>("loading");
+  const [professionals, setProfessionals] = useState<ProfessionalProfile[]>(fallbackProfessionals);
+  const [dataSource, setDataSource] = useState<FeaturedDataSource>(
+    fallbackProfessionals.length > 0 ? "fallback" : "loading",
+  );
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null);
@@ -144,7 +146,9 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
     };
 
     const resolveGeolocation = async () => {
-      setDataSource("loading");
+      if (fallbackProfessionals.length < 1) {
+        setDataSource("loading");
+      }
 
       if (typeof navigator === "undefined" || !navigator.geolocation) {
         applyFallback();

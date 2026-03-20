@@ -55,6 +55,32 @@ Service:
 - Readiness: `http://localhost:8000/api/v1/readyz`
 - Razorpay webhook: `POST /api/v1/booking/payments/webhooks/razorpay`
 
+### Featured index background refresh
+
+Featured professionals index is refreshed by a background worker command (default every 15 minutes).
+
+Configuration:
+
+- `FEATURED_INDEX_REFRESH_SECONDS=900` in `.env`
+
+Run once manually:
+
+```bash
+python -m app.scripts.refresh_featured_index --once
+```
+
+Run worker loop:
+
+```bash
+python -m app.scripts.refresh_featured_index
+```
+
+Using docker compose (includes API + worker):
+
+```bash
+docker compose up --build
+```
+
 ## 4) Run tests
 
 ```bash

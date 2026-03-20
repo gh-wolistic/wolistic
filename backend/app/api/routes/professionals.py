@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy import Float, and_, case, delete, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,6 +20,7 @@ from app.models.professional import (
     ProfessionalAvailability,
     ProfessionalBoostImpression,
     ProfessionalCertification,
+    ProfessionalFeaturedIndex,
     ProfessionalEducation,
     ProfessionalExpertiseArea,
     ProfessionalGallery,
@@ -547,6 +549,82 @@ async def _record_boost_impressions(
         await db.rollback()
 
 
+async def _load_featured_profiles_from_index(
+    db: AsyncSession,
+    *,
+    limit: int,
+) -> list[dict]:
+    result = await db.execute(
+        select(ProfessionalFeaturedIndex.payload)
+        .order_by(ProfessionalFeaturedIndex.sort_rank.asc())
+        .limit(limit)
+    )
+    return [row for row in result.scalars().all() if isinstance(row, dict)]
+
+
+async def _rebuild_featured_profiles_index(db: AsyncSession) -> None:
+    now_utc = datetime.now(timezone.utc)
+
+    tier_bonus = case(
+        (func.lower(Professional.membership_tier) == "premium", 0.30),
+        (func.lower(Professional.membership_tier) == "elite", 0.20),
+        else_=0.0,
+    )
+    online_bonus = case((Professional.is_online.is_(True), 0.20), else_=0.0)
+    rank_score = (
+        (func.coalesce(Professional.rating_avg, 0).cast(Float) * 0.70)
+        + (func.least(func.coalesce(Professional.rating_count, 0), 100) * 0.01)
+        + tier_bonus
+        + online_bonus
+    )
+
+    online_or_hybrid_service_exists = exists(
+        select(1).where(
+            ProfessionalService.professional_id == Professional.user_id,
+            ProfessionalService.is_active.is_(True),
+            func.lower(ProfessionalService.mode).in_(("online", "hybrid")),
+        )
+    )
+
+    result = await db.execute(
+        select(Professional)
+        .options(*_professional_load_options(include_education=False))
+        .where(
+            func.lower(func.coalesce(Professional.membership_tier, "")).in_(("premium", "elite")),
+            online_or_hybrid_service_exists,
+        )
+        .order_by(
+            rank_score.desc(),
+            Professional.rating_count.desc(),
+            Professional.created_at.desc(),
+        )
+        .limit(400)
+    )
+    professionals = result.scalars().all()
+    flattened = [_flatten_professional(prof) for prof in professionals]
+
+    await db.execute(delete(ProfessionalFeaturedIndex))
+
+    for idx, profile in enumerate(flattened, start=1):
+        rank_value = _quality_score(profile)
+        payload = jsonable_encoder(profile)
+        db.add(
+            ProfessionalFeaturedIndex(
+                professional_id=profile["id"],
+                sort_rank=idx,
+                rank_score=rank_value,
+                membership_tier=(str(profile.get("membership_tier") or "").lower() or None),
+                payload=payload,
+                updated_at=now_utc,
+            )
+        )
+
+    try:
+        await db.commit()
+    except Exception:
+        await db.rollback()
+
+
 def _build_service_areas(payload: ProfessionalEditorPayload) -> list[dict]:
     areas: list[dict] = []
 
@@ -875,6 +953,11 @@ async def get_featured_professionals(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Both lat and lng are required together.",
         )
+
+    if lat is None and lng is None:
+        indexed_profiles = await _load_featured_profiles_from_index(db, limit=limit)
+        if indexed_profiles:
+            return [ProfessionalProfileOut(**profile) for profile in indexed_profiles]
 
     tier_bonus = case(
         (Professional.membership_tier == "premium", 0.30),

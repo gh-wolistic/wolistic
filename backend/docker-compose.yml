@@ -17,3 +17,16 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+
+  featured-index-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: featured-index-worker
+    env_file:
+      - .env
+    command: python -m app.scripts.refresh_featured_index
+    volumes:
+      - .:/app
+    depends_on:
+      - backend

@@ -6,27 +6,28 @@ import type { Product, WolisticService } from "@/types/wolistic";
 import { LandingPageClient } from "./LandingPageClient";
 
 export default async function Home() {
-  let featuredProfessionals: ProfessionalProfile[];
-  let featuredProducts: Product[];
-  let featuredWellnessCenters: WolisticService[];
+  const [
+    featuredProfessionalsResult,
+    featuredProductsResult,
+    featuredWellnessCentersResult,
+  ] = await Promise.allSettled([
+    getFeaturedProfessionals(8), // hard cap enforced in API + component
+    getFeaturedProducts(8),
+    getFeaturedWellnessCenters(8),
+  ]);
 
-  try {
-    featuredProfessionals = await getFeaturedProfessionals(8); // hard cap enforced in API + component
-  } catch {
-    featuredProfessionals = [];
-  }
-
-  try {
-    featuredProducts = await getFeaturedProducts(8);
-  } catch {
-    featuredProducts = [];
-  }
-
-  try {
-    featuredWellnessCenters = await getFeaturedWellnessCenters(8);
-  } catch {
-    featuredWellnessCenters = [];
-  }
+  const featuredProfessionals: ProfessionalProfile[] =
+    featuredProfessionalsResult.status === "fulfilled"
+      ? featuredProfessionalsResult.value
+      : [];
+  const featuredProducts: Product[] =
+    featuredProductsResult.status === "fulfilled"
+      ? featuredProductsResult.value
+      : [];
+  const featuredWellnessCenters: WolisticService[] =
+    featuredWellnessCentersResult.status === "fulfilled"
+      ? featuredWellnessCentersResult.value
+      : [];
 
   return (
     <LandingPageClient

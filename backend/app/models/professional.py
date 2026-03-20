@@ -15,6 +15,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -304,6 +305,23 @@ class ProfessionalBoostImpression(Base):
     user_longitude: Mapped[float | None] = mapped_column(Numeric(9, 6))
     radius_km: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    professional: Mapped["Professional"] = relationship(lazy="joined")
+
+
+class ProfessionalFeaturedIndex(Base):
+    __tablename__ = "professional_featured_index"
+
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.user_id", ondelete="CASCADE"), primary_key=True
+    )
+    sort_rank: Mapped[int] = mapped_column(Integer, nullable=False)
+    rank_score: Mapped[float] = mapped_column(Numeric, nullable=False, server_default="0")
+    membership_tier: Mapped[str | None] = mapped_column(String(32))
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
