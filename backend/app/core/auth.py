@@ -3,13 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import json
+import secrets
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 import uuid
 
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import InvalidTokenError, PyJWKClient, PyJWKClientError
 
@@ -137,3 +138,19 @@ def get_optional_current_user(
         return None
 
     return _resolve_current_user(credentials.credentials)
+
+
+def require_admin_api_key(x_admin_key: str | None = Header(default=None, alias="X-Admin-Key")) -> None:
+    configured_key = settings.ADMIN_API_KEY
+
+    if not configured_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Admin API key is not configured",
+        )
+
+    if not x_admin_key or not secrets.compare_digest(x_admin_key, configured_key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid admin credentials",
+        )

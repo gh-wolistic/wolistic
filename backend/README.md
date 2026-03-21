@@ -32,6 +32,11 @@ Payment configuration:
 
 Keep real Razorpay secrets only in `backend/.env`. Do not place them in tracked files or frontend env files.
 
+Admin dashboard configuration:
+
+- `ADMIN_API_KEY` must be set in `backend/.env`.
+- Internal admin clients must send this value in `X-Admin-Key` for `/api/v1/admin/*` endpoints.
+
 ## 2) Run database migration
 
 ```bash

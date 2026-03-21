@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
 import { inferMembershipLabel, isProfessionalOnline } from "@/lib/professionalSignals";
+import { getRoleAccentFromProfessional } from "@/lib/professionalRoleAccent";
 import type { ProfessionalProfile } from "@/types/professional";
 import { FeaturedExpertModal } from "./FeaturedExpertModal";
 
@@ -35,10 +36,11 @@ function ProfessionalCard({
 }) {
   const isOnline = isProfessionalOnline(prof);
   const membershipLabel = inferMembershipLabel(prof);
+  const roleAccent = getRoleAccentFromProfessional(prof);
 
   return (
     <div
-      className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg dark:hover:shadow-black/30 transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 h-full"
+      className={`bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg dark:hover:shadow-black/30 transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 h-full ${roleAccent.cardClass}`}
       role="button"
       tabIndex={0}
       aria-label={`Open profile preview for ${prof.name}`}
@@ -62,7 +64,12 @@ function ProfessionalCard({
           </div>
           <RatingChip value={prof.rating} />
         </div>
-        <Badge variant="secondary" className="mb-3 text-xs">{prof.category}</Badge>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className={`text-[11px] ${roleAccent.badgeClass}`}>
+            {roleAccent.label}
+          </Badge>
+          {prof.category ? <Badge variant="secondary" className="text-xs">{prof.category}</Badge> : null}
+        </div>
         <div className="mb-3 flex flex-wrap gap-2">
           <StatusChip label="Certified" tone="certified" className="text-[11px]" />
           {prof.placementLabel === "Boosted" && (

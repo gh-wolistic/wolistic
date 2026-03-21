@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
     FEATURED_INDEX_REFRESH_SECONDS: int = 900
+    ADMIN_API_KEY: str = ""
 
     # NoDecode avoids JSON-only parsing so comma-separated env values work.
     BACKEND_CORS_ORIGINS: Annotated[List[str], NoDecode] = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -53,6 +54,11 @@ class Settings(BaseSettings):
     @field_validator("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET")
     @classmethod
     def strip_payment_secret_values(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("ADMIN_API_KEY")
+    @classmethod
+    def strip_admin_api_key(cls, value: str) -> str:
         return value.strip()
 
 

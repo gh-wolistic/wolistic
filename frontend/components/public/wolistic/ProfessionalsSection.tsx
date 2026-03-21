@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
+import { getRoleAccentFromProfessional } from "@/lib/professionalRoleAccent";
 import type { ProfessionalProfile } from "@/types/professional";
 
 type ProfessionalsSectionProps = {
@@ -64,12 +65,15 @@ export function ProfessionalsSection({ professionals, isLoading, resultsHref }: 
         <p className="mb-4 text-sm text-muted-foreground">Loading matching professionals...</p>
       ) : (
         <div className="mb-4 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {professionals.map((professional) => (
-            <Link
-              key={professional.id}
-              href={`/${professional.username}`}
-              className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
-            >
+          {professionals.map((professional) => {
+            const roleAccent = getRoleAccentFromProfessional(professional);
+
+            return (
+              <Link
+                key={professional.id}
+                href={`/${professional.username}`}
+                className={`group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30 ${roleAccent.cardClass}`}
+              >
               <div className="relative aspect-4/3 overflow-hidden">
                 <ImageWithFallback
                   src={professional.image}
@@ -88,6 +92,9 @@ export function ProfessionalsSection({ professionals, isLoading, resultsHref }: 
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline" className={`${roleAccent.badgeClass}`}>
+                    {roleAccent.label}
+                  </Badge>
                   {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
                   {professional.membershipTier ? <StatusChip label={professional.membershipTier} tone="featured" /> : null}
                 </div>
@@ -140,8 +147,9 @@ export function ProfessionalsSection({ professionals, isLoading, resultsHref }: 
                   View Profile
                 </Button>
               </div>
-            </Link>
-          ))}
+              </Link>
+            );
+          })}
         </div>
       )}
 

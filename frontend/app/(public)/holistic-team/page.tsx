@@ -10,6 +10,7 @@ import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { listHolisticTeams } from "@/components/public/data/holisticTeamsApi";
+import { getRoleAccentByRole } from "@/lib/professionalRoleAccent";
 import type { HolisticTeam } from "@/types/holistic-team";
 
 export default function HolisticTeamPage() {
@@ -180,13 +181,18 @@ export default function HolisticTeamPage() {
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team members</p>
                   <div className="flex gap-3 flex-wrap">
                     {team.members.map((member) => (
-                      <div key={`${team.id}-${member.professional.id}`} className="w-40 sm:w-44 rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/50 dark:border-slate-800">
+                      <div
+                        key={`${team.id}-${member.professional.id}`}
+                        className={`w-40 sm:w-44 rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/50 dark:border-slate-800 ${getRoleAccentByRole(member.role).cardClass}`}
+                      >
                         <div className="aspect-square">
                           <ImageWithFallback src={member.professional.image} alt={member.professional.name} className="w-full h-full object-cover" />
                         </div>
                         <div className="p-2">
                           <p className="text-[11px] font-medium leading-tight truncate text-foreground">{member.professional.name}</p>
-                          <p className="text-[10px] text-muted-foreground capitalize">{member.role}</p>
+                          <Badge variant="outline" className={`mt-1 text-[10px] ${getRoleAccentByRole(member.role).badgeClass}`}>
+                            {getRoleAccentByRole(member.role).label}
+                          </Badge>
                           <p className="text-[10px] text-muted-foreground">{member.sessionsIncluded} session(s)</p>
                           <Button
                             size="sm"

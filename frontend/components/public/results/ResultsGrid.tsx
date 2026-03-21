@@ -19,6 +19,7 @@ import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
+import { getRoleAccentFromProfessional } from "@/lib/professionalRoleAccent";
 
 import {
   certificateProviderResults,
@@ -146,11 +147,13 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
     return (
       <div className="space-y-6">
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {professionals.map((professional) => (
+          {professionals.map((professional) => {
+            const roleAccent = getRoleAccentFromProfessional(professional);
+            return (
             <Link
               key={professional.id}
               href={`/${professional.username}?returnTo=${encodeURIComponent(returnTo)}`}
-              className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
+              className={`group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30 ${roleAccent.cardClass}`}
             >
               <div className="relative aspect-4/3 overflow-hidden">
                 <ImageWithFallback
@@ -169,6 +172,9 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                   <RatingChip value={professional.rating} textClassName="text-sm" />
                 </div>
                 <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className={`${roleAccent.badgeClass}`}>
+                      {roleAccent.label}
+                    </Badge>
                     {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
                     {professional.placementLabel === "Boosted" ? (
                       <Badge variant="outline" className="border-amber-400/60 text-amber-200">
@@ -227,7 +233,8 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                 </Button>
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
 
         {pagination && pagination.totalPages > 1 ? (

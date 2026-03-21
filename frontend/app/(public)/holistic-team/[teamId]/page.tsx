@@ -10,6 +10,7 @@ import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getHolisticTeam } from "@/components/public/data/holisticTeamsApi";
+import { getRoleAccentByRole } from "@/lib/professionalRoleAccent";
 import type { HolisticTeam } from "@/types/holistic-team";
 
 export default function HolisticTeamDetailPage() {
@@ -171,13 +172,19 @@ export default function HolisticTeamDetailPage() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {team.members.map((member) => (
-                  <div key={`${team.id}-${member.professional.id}`} className="rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/70 dark:border-slate-800">
+                  <div
+                    key={`${team.id}-${member.professional.id}`}
+                    className={`rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/70 dark:border-slate-800 ${getRoleAccentByRole(member.role).cardClass}`}
+                  >
                     <div className="aspect-square">
                       <ImageWithFallback src={member.professional.image} alt={member.professional.name} className="w-full h-full object-cover" />
                     </div>
                     <div className="p-3 space-y-1">
                       <p className="text-sm font-semibold text-foreground truncate">{member.professional.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{member.role} · {member.professional.specialization}</p>
+                      <p className="text-xs text-muted-foreground">{member.professional.specialization}</p>
+                      <Badge variant="outline" className={`text-[11px] ${getRoleAccentByRole(member.role).badgeClass}`}>
+                        {getRoleAccentByRole(member.role).label}
+                      </Badge>
                       <p className="text-xs text-muted-foreground">Includes {member.sessionsIncluded} session(s)</p>
                       <Button
                         size="sm"
