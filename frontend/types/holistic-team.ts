@@ -39,8 +39,8 @@ export type CreateHolisticTeamPayload = {
   scope?: string;
   keywords: string[];
   mode: string;
-  packageType: string;
-  pricingAmount: number;
+  packageType?: string;
+  pricingAmount?: number;
   pricingCurrency?: string;
   members: Array<{
     professionalId: string;

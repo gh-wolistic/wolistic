@@ -9,7 +9,12 @@ import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { listHolisticTeams } from "@/components/public/data/holisticTeamsApi";
+import {
+  buildHolisticTeamListCacheKey,
+  listHolisticTeams,
+  readHolisticTeamListCache,
+  writeHolisticTeamListCache,
+} from "@/components/public/data/holisticTeamsApi";
 import { getRoleAccentByRole } from "@/lib/professionalRoleAccent";
 import type { HolisticTeam } from "@/types/holistic-team";
 
@@ -41,19 +46,28 @@ export default function HolisticTeamPage() {
     let cancelled = false;
 
     async function run() {
-      setIsLoading(true);
+      const requestInput = {
+        q: query,
+        scope,
+        sort,
+        mode: modeFilter || undefined,
+        packageType: packageTypeFilter || undefined,
+        minPrice: minPriceFilter,
+        maxPrice: maxPriceFilter,
+      };
+
+      const cacheKey = buildHolisticTeamListCacheKey(requestInput);
+      const cachedItems = readHolisticTeamListCache(cacheKey);
+
+      setIsLoading(!cachedItems);
       setError(null);
       setHasRelaxedFilters(false);
+      if (cachedItems && !cancelled) {
+        setTeams(cachedItems);
+      }
+
       try {
-        const primaryResponse = await listHolisticTeams({
-          q: query,
-          scope,
-          sort,
-          mode: modeFilter || undefined,
-          packageType: packageTypeFilter || undefined,
-          minPrice: minPriceFilter,
-          maxPrice: maxPriceFilter,
-        });
+        const primaryResponse = await listHolisticTeams(requestInput);
         let nextItems = primaryResponse.items;
 
         const usedStrictAnswerFilters = Boolean(modeFilter || minPriceFilter !== undefined || maxPriceFilter !== undefined);
@@ -72,12 +86,15 @@ export default function HolisticTeamPage() {
 
         if (!cancelled) {
           setTeams(nextItems);
+          writeHolisticTeamListCache(cacheKey, nextItems);
         }
       } catch (err) {
         if (!cancelled) {
           console.error(err);
           setError("Unable to load teams right now.");
-          setTeams([]);
+          if (!cachedItems) {
+            setTeams([]);
+          }
         }
       } finally {
         if (!cancelled) {
@@ -170,7 +187,7 @@ export default function HolisticTeamPage() {
 
         <div className="space-y-5">
           {teams.map((team, index) => (
-            <Link key={team.id} href={buildTeamHref(team.id)} className="block rounded-xl border border-border p-5 lg:p-6 bg-background hover:border-emerald-200 transition-colors">
+            <Link key={team.id} href={buildTeamHref(team.id)} className="block rounded-xl border border-border p-4 sm:p-5 lg:p-6 bg-background hover:border-emerald-200 transition-colors">
               <div className="mb-4">
                 <h3 className="font-semibold text-lg lg:text-xl text-foreground mb-1">{team.name || `Team ${index + 1}`}</h3>
                 <p className="text-xs text-muted-foreground">{team.members.length} members · {team.sourceType === "member_collab" ? "Member collaboration" : "Engine generated"}</p>
@@ -179,11 +196,11 @@ export default function HolisticTeamPage() {
               <div className="lg:grid lg:grid-cols-[1.5fr,1fr] lg:gap-6 space-y-5 lg:space-y-0">
                 <div className="space-y-3">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team members</p>
-                  <div className="flex gap-3 flex-wrap">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                     {team.members.map((member) => (
                       <div
                         key={`${team.id}-${member.professional.id}`}
-                        className={`w-40 sm:w-44 rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/50 dark:border-slate-800 ${getRoleAccentByRole(member.role).cardClass}`}
+                        className={`w-full rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/50 dark:border-slate-800 ${getRoleAccentByRole(member.role).cardClass}`}
                       >
                         <div className="aspect-square">
                           <ImageWithFallback src={member.professional.image} alt={member.professional.name} className="w-full h-full object-cover" />
@@ -193,7 +210,6 @@ export default function HolisticTeamPage() {
                           <Badge variant="outline" className={`mt-1 text-[10px] ${getRoleAccentByRole(member.role).badgeClass}`}>
                             {getRoleAccentByRole(member.role).label}
                           </Badge>
-                          <p className="text-[10px] text-muted-foreground">{member.sessionsIncluded} session(s)</p>
                           <Button
                             size="sm"
                             variant="outline"
@@ -236,7 +252,7 @@ export default function HolisticTeamPage() {
               <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row gap-2.5">
                 <Button
                   size="default"
-                  className="bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700"
+                  className="w-full sm:w-auto bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700"
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

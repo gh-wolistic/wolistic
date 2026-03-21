@@ -16,7 +16,7 @@ export function Benefits({ onNavigate }: BenefitsProps) {
 
   return (
     <div>
-      <section className="py-10 lg:py-16">
+     {/*  <section className="py-10 lg:py-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl border border-border bg-card p-8 shadow-sm transition-shadow hover:shadow-lg dark:hover:shadow-black/30">
             <div className="grid lg:grid-cols-2 gap-16">
@@ -72,15 +72,14 @@ export function Benefits({ onNavigate }: BenefitsProps) {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
       <section className="py-10 lg:py-16 bg-accent/30 dark:bg-accent/20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
             <Shield size={48} className="text-emerald-600 mx-auto mb-6" />
             <h2 className="mb-4 text-3xl lg:text-4xl">Built on Trust and Quality</h2>
             <p className="text-lg text-muted-foreground mb-12">
-              Every professional is verified, every product is curated, and every
-              recommendation is authentic. We believe in transparency, not hype.
+              Every professional is verified. We believe in transparency, not hype.
             </p>
             <div className="grid sm:grid-cols-3 gap-8">
 

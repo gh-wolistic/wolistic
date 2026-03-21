@@ -72,7 +72,7 @@ export function PaymentStep({
       {isInitialConsultationSelected && (
         <div className="rounded-lg border border-emerald-300 bg-emerald-100/50 p-3 text-sm dark:border-emerald-500/30 dark:bg-emerald-500/15">
           <p className="mt-1 text-emerald-800 dark:text-emerald-200/90">
-            You pay ₹50 to confirm your request and avoid spam. You get ₹50 credits after booking, so effective consultation cost is ₹0.
+            You pay ₹250 to confirm your request and avoid spam. You get ₹250 credits after booking, so effective consultation cost is ₹0.
           </p>
         </div>
       )}

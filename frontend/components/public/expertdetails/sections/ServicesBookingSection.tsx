@@ -758,7 +758,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                     <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-100/50 px-3 py-2.5 dark:border-emerald-500/30 dark:bg-emerald-500/15">
                       <div className="mb-1.5 flex items-center gap-2">
                         <Badge className="bg-emerald-600 text-white text-[11px] px-2 py-0.5">Offer</Badge>
-                        <span className="text-sm text-emerald-900 dark:text-emerald-200">Pay ₹50 now • Get ₹50 credits</span>
+                        <span className="text-sm text-emerald-900 dark:text-emerald-200">Pay ₹250 now • Get ₹250 credits</span>
                       </div>
                       <p className="text-sm text-emerald-800 dark:text-emerald-200/90">
                         Consultation charges is to avoid experts getting spammed with requests.

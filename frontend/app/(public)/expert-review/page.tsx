@@ -5,6 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useSessionStore } from "@/store/session";
 import { Sparkles, Send, Loader2, ShieldCheck, Clock } from "lucide-react";
+import {
+  buildHolisticTeamListCacheKey,
+  listHolisticTeams,
+  writeHolisticTeamListCache,
+} from "@/components/public/data/holisticTeamsApi";
 
 const QUESTIONS = [
   {
@@ -168,6 +173,7 @@ export default function ExpertReviewPage() {
       setProcessingMessage("Preparing your team...");
       const normalizedMode = normalizeMode(finalAnswers.preferred_mode);
       const budget = mapBudgetRangeToPrices(finalAnswers.budget_range);
+      const normalizedQuery = query.trim() || finalAnswers.goal || "general wellness";
 
       await fetch(`${apiBase}/api/v1/holistic-teams/prepare`, {
         method: "POST",
@@ -175,7 +181,7 @@ export default function ExpertReviewPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          query: query.trim() || finalAnswers.goal || "general wellness",
+          query: normalizedQuery,
           scope,
           preferred_mode: normalizedMode,
           min_price: budget.minPrice,
@@ -183,12 +189,24 @@ export default function ExpertReviewPage() {
         }),
       });
 
+      setProcessingMessage("Preparing your team...");
+      const cacheInput = {
+        q: normalizedQuery,
+        scope,
+        sort: "recommended",
+        mode: normalizedMode,
+        minPrice: budget.minPrice,
+        maxPrice: budget.maxPrice,
+      };
+      const prefetched = await listHolisticTeams(cacheInput);
+      writeHolisticTeamListCache(buildHolisticTeamListCacheKey(cacheInput), prefetched.items);
+
       setTimeout(() => {
         addBotMessage("Your team is being prepared using your preferences.");
       }, 400);
       setTimeout(() => {
         const next = new URLSearchParams();
-        if (query.trim()) next.set("q", query.trim());
+        if (normalizedQuery) next.set("q", normalizedQuery);
         if (scope) next.set("scope", scope);
         if (normalizedMode) next.set("mode", normalizedMode);
         if (typeof budget.minPrice === "number") next.set("minPrice", String(budget.minPrice));

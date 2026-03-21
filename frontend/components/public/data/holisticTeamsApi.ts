@@ -4,6 +4,8 @@ import type {
   HolisticTeamListResponse,
 } from "@/types/holistic-team";
 
+const HOLISTIC_TEAM_LIST_CACHE_KEY = "holistic-teams:list:v1";
+
 const API_BASE =
   `${(process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000")
     .replace(/\/$/, "")
@@ -42,6 +44,88 @@ function toCamelTeam(raw: Record<string, unknown>): HolisticTeam {
     members,
     createdAt: String(raw.created_at || ""),
   };
+}
+
+function normalizeListInput(input: {
+  q?: string;
+  scope?: string;
+  mode?: string;
+  packageType?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: string;
+}) {
+  return {
+    q: input.q?.trim() || "",
+    scope: input.scope?.trim() || "professionals",
+    mode: input.mode?.trim() || "",
+    packageType: input.packageType?.trim() || "",
+    minPrice: typeof input.minPrice === "number" ? input.minPrice : null,
+    maxPrice: typeof input.maxPrice === "number" ? input.maxPrice : null,
+    sort: input.sort?.trim() || "recommended",
+  };
+}
+
+export function buildHolisticTeamListCacheKey(input: {
+  q?: string;
+  scope?: string;
+  mode?: string;
+  packageType?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  sort?: string;
+}): string {
+  return JSON.stringify(normalizeListInput(input));
+}
+
+export function readHolisticTeamListCache(cacheKey: string, maxAgeMs = 3 * 60 * 1000): HolisticTeam[] | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(HOLISTIC_TEAM_LIST_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as {
+      key?: string;
+      items?: HolisticTeam[];
+      cachedAt?: number;
+    };
+
+    if (!parsed || parsed.key !== cacheKey || !Array.isArray(parsed.items) || typeof parsed.cachedAt !== "number") {
+      return null;
+    }
+
+    if (Date.now() - parsed.cachedAt > maxAgeMs) {
+      return null;
+    }
+
+    return parsed.items;
+  } catch {
+    return null;
+  }
+}
+
+export function writeHolisticTeamListCache(cacheKey: string, items: HolisticTeam[]): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      HOLISTIC_TEAM_LIST_CACHE_KEY,
+      JSON.stringify({
+        key: cacheKey,
+        items,
+        cachedAt: Date.now(),
+      }),
+    );
+  } catch {
+    // Ignore storage failures in private mode/quota cases.
+  }
 }
 
 export async function listHolisticTeams(input: {
@@ -101,8 +185,8 @@ export async function createHolisticTeam(
       scope: payload.scope || "professionals",
       keywords: payload.keywords,
       mode: payload.mode,
-      package_type: payload.packageType,
-      pricing_amount: payload.pricingAmount,
+      package_type: payload.packageType || "consultation_only",
+      pricing_amount: payload.pricingAmount ?? 0,
       pricing_currency: payload.pricingCurrency || "INR",
       members: payload.members.map((member) => ({
         professional_id: member.professionalId,

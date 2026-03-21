@@ -79,7 +79,7 @@ export function LandingHeroSection({ onNavigate, onSearch, isSearching = false }
                 <span className="block mt-2">All in one place.</span>
               </h1>
               <p className="text-xl lg:text-2xl text-muted-foreground leading-relaxed max-w-2xl">
-                <span className="text-emerald-600 dark:text-emerald-300 font-medium">AI-powered wellness guidance from verified professionals</span> — <span className="text-emerald-600 dark:text-emerald-300 font-medium">plus discover wellness services, products, and programs</span>.
+                <span className="text-emerald-600 dark:text-emerald-300 font-medium">Verified experts for fitness, mental wellness, and nutrition</span> — <span className="text-emerald-600 dark:text-emerald-300 font-medium">plus discover wellness services, products, and programs</span>.
               </p>
             </div>
 
