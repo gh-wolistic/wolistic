@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { Crown, Star } from "lucide-react";
 
 import { cn } from "./utils";
 
@@ -10,7 +10,7 @@ type RatingChipProps = {
 
 type StatusChipProps = {
   label: string;
-  tone?: "featured" | "certified";
+  tone?: "featured" | "certified" | "elite";
   className?: string;
 };
 
@@ -37,7 +37,9 @@ export function StatusChip({ label, tone = "featured", className }: StatusChipPr
   const toneClassName =
     tone === "certified"
       ? "border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/12 dark:text-cyan-300"
-      : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/12 dark:text-emerald-300";
+      : tone === "elite"
+        ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-200"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/12 dark:text-emerald-300";
 
   return (
     <span
@@ -47,6 +49,7 @@ export function StatusChip({ label, tone = "featured", className }: StatusChipPr
         className,
       )}
     >
+      {tone === "elite" ? <Crown size={12} aria-hidden="true" /> : null}
       {label}
     </span>
   );

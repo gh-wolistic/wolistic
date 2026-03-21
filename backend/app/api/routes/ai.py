@@ -7,8 +7,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.models.professional import Professional
+from app.models.user import User
 from app.models.wolistic_content import WolisticArticle, WolisticProduct, WolisticService
 from app.schemas.professional import ProfessionalProfileOut
 from app.schemas.wolistic import (
@@ -24,6 +26,7 @@ from app.services.ai.wolistic_search import rank_articles, rank_products, rank_s
 from app.api.routes.professionals import _flatten_professional as _flatten_prof
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+settings = get_settings()
 
 
 # ---------------------------------------------------------------------------
@@ -46,8 +49,56 @@ async def wolistic_search(
     query = q.strip()
 
     # ── Professionals ─────────────────────────────────────────────────────────
-    prof_result = await db.execute(
+    candidate_result = await db.execute(
+        select(
+            Professional.user_id,
+            Professional.username,
+            User.full_name,
+            Professional.specialization,
+            Professional.location,
+            Professional.short_bio,
+            Professional.about,
+            Professional.rating_avg,
+            Professional.rating_count,
+            Professional.experience_years,
+            Professional.membership_tier,
+        )
+        .join(User, User.id == Professional.user_id)
+        .where(
+            User.user_status == "verified",
+            Professional.profile_completeness >= settings.PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY,
+        )
+        .order_by(Professional.rating_avg.desc(), Professional.rating_count.desc())
+        .limit(220)
+    )
+    candidates: list[dict] = []
+    for row in candidate_result.all():
+        candidates.append(
+            {
+                "id": row.user_id,
+                "username": row.username,
+                "name": row.full_name or row.username,
+                "specialization": row.specialization,
+                "category": row.specialization,
+                "location": row.location,
+                "short_bio": row.short_bio,
+                "about": row.about,
+                "approach": None,
+                "subcategories": [],
+                "specializations": [],
+                "rating": float(row.rating_avg) if row.rating_avg is not None else 0,
+                "review_count": int(row.rating_count or 0),
+                "experience_years": int(row.experience_years or 0),
+                "membership_tier": row.membership_tier,
+                "is_online": False,
+            }
+        )
+    ranked_candidates = rank_professional_profiles(candidates, query, limit=max(limit * 3, 24))
+    ranked_ids = [item["id"] for item in ranked_candidates[:limit]]
+
+    detailed_result = await db.execute(
         select(Professional)
+        .join(User, User.id == Professional.user_id)
         .options(
             selectinload(Professional.approaches),
             selectinload(Professional.availability_slots),
@@ -59,12 +110,10 @@ async def wolistic_search(
             selectinload(Professional.session_types),
             selectinload(Professional.subcategories),
         )
-        .order_by(Professional.rating_avg.desc(), Professional.rating_count.desc())
-        .limit(250)
+        .where(Professional.user_id.in_(ranked_ids))
     )
-    professionals_orm = prof_result.scalars().all()
-    flattened = [_flatten_prof(p) for p in professionals_orm]
-    ranked_profs = rank_professional_profiles(flattened, query, limit=limit)
+    by_id = {prof.user_id: prof for prof in detailed_result.scalars().all()}
+    ranked_profs = [_flatten_prof(by_id[prof_id]) for prof_id in ranked_ids if prof_id in by_id]
     professionals_out = [ProfessionalProfileOut(**p) for p in ranked_profs]
 
     # ── Products ──────────────────────────────────────────────────────────────

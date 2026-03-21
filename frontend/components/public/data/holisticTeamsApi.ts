@@ -22,9 +22,14 @@ function toCamelTeam(raw: Record<string, unknown>): HolisticTeam {
         username: String(professional.username || ""),
         name: String(professional.name || ""),
         specialization: String(professional.specialization || ""),
+        category: professional.category ? String(professional.category) : undefined,
+        location: professional.location ? String(professional.location) : undefined,
         image: professional.image ? String(professional.image) : undefined,
         rating: Number(professional.rating || 0),
         reviewCount: Number(professional.review_count || 0),
+        experienceYears: Number(professional.experience_years || 0),
+        membershipTier: professional.membership_tier ? String(professional.membership_tier) : undefined,
+        isOnline: Boolean(professional.is_online),
       },
     };
   });

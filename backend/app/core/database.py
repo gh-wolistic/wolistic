@@ -1,3 +1,7 @@
+import logging
+import time
+
+from sqlalchemy import event
 from sqlalchemy import pool
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -5,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.config import get_settings
 
 settings = get_settings()
+slow_sql_logger = logging.getLogger("app.slow_sql")
 
 
 def _normalize_asyncpg_url(database_url: str) -> tuple[str, dict]:
@@ -35,6 +40,30 @@ engine = create_async_engine(
     # Supabase PgBouncer is incompatible with prepared statement caching.
     connect_args=normalized_connect_args,
 )
+
+
+if settings.SLOW_SQL_LOGGING_ENABLED:
+    threshold_seconds = settings.SLOW_SQL_THRESHOLD_MS / 1000.0
+
+    @event.listens_for(engine.sync_engine, "before_cursor_execute")
+    def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        conn.info.setdefault("query_start_time", []).append(time.perf_counter())
+
+    @event.listens_for(engine.sync_engine, "after_cursor_execute")
+    def _after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        start_times = conn.info.get("query_start_time")
+        if not start_times:
+            return
+        started_at = start_times.pop(-1)
+        elapsed_seconds = time.perf_counter() - started_at
+        if elapsed_seconds < threshold_seconds:
+            return
+
+        slow_sql_logger.warning(
+            "Slow SQL detected (%.1f ms): %s",
+            elapsed_seconds * 1000,
+            " ".join(statement.split())[:1200],
+        )
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AdminStatusFilter = "pending" | "verified" | "suspended" | "all";
+type AdminMembershipTier = "basic" | "premium" | "elite";
 
 type ProfessionalItem = {
   id: string;
@@ -15,8 +16,7 @@ type ProfessionalItem = {
     username: string | null;
     specialization: string | null;
     membership_tier: string | null;
-    rating: number;
-    review_count: number;
+    profile_completeness: number;
     location: string | null;
     has_profile: boolean;
   };
@@ -27,13 +27,28 @@ type ProfessionalListResponse = {
   total: number;
 };
 
+type BulkApproveResponse = {
+  requested: number;
+  approved: number;
+  min_profile_completeness: number;
+};
+
 const FILTERS: AdminStatusFilter[] = ["pending", "verified", "suspended", "all"];
+const TIER_ORDER: AdminMembershipTier[] = ["basic", "premium", "elite"];
 
 function toTitleCase(value: string): string {
   return value
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function normalizeTier(tier: string | null | undefined): AdminMembershipTier {
+  const value = String(tier || "").trim().toLowerCase();
+  if (value === "premium" || value === "elite") {
+    return value;
+  }
+  return "basic";
 }
 
 export default function Home() {
@@ -49,6 +64,8 @@ export default function Home() {
   const [professionals, setProfessionals] = useState<ProfessionalItem[]>([]);
   const [total, setTotal] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
+  const [bulkThreshold, setBulkThreshold] = useState(90);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
   const [activeRowAction, setActiveRowAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -146,6 +163,17 @@ export default function Home() {
     [professionals]
   );
 
+  const eligibleBulkIds = useMemo(
+    () =>
+      visibleProfessionals
+        .filter((item) => {
+          const completeness = Math.max(0, Math.min(100, Number(item.profile.profile_completeness || 0)));
+          return item.user_status === "pending" && item.profile.has_profile && completeness >= bulkThreshold;
+        })
+        .map((item) => item.id),
+    [visibleProfessionals, bulkThreshold]
+  );
+
   const onLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoggingIn(true);
@@ -200,6 +228,62 @@ export default function Home() {
       setError(actionError instanceof Error ? actionError.message : "Failed to update status");
     } finally {
       setActiveRowAction(null);
+    }
+  };
+
+  const updateTier = async (userId: string, nextTier: AdminMembershipTier) => {
+    setActiveRowAction(`tier:${nextTier}:${userId}`);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/professionals/${userId}/tier`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: nextTier }),
+      });
+      const data = (await response.json()) as { detail?: string };
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to update tier");
+      }
+      await loadProfessionals(statusFilter);
+    } catch (tierError) {
+      setError(tierError instanceof Error ? tierError.message : "Failed to update tier");
+    } finally {
+      setActiveRowAction(null);
+    }
+  };
+
+  const bulkApproveByCompletedness = async () => {
+    if (eligibleBulkIds.length === 0) {
+      return;
+    }
+
+    const shouldProceed = window.confirm(
+      `Approve ${eligibleBulkIds.length} professionals with completedness >= ${bulkThreshold}%?`
+    );
+
+    if (!shouldProceed) {
+      return;
+    }
+
+    setIsBulkApproving(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/admin/professionals/bulk-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userIds: eligibleBulkIds, minProfileCompleteness: bulkThreshold }),
+      });
+      const data = (await response.json()) as BulkApproveResponse | { detail?: string };
+      if (!response.ok) {
+        throw new Error(typeof data === "object" && data && "detail" in data ? data.detail || "Bulk approve failed" : "Bulk approve failed");
+      }
+      await loadProfessionals(statusFilter);
+    } catch (bulkError) {
+      setError(bulkError instanceof Error ? bulkError.message : "Failed to bulk approve professionals");
+    } finally {
+      setIsBulkApproving(false);
     }
   };
 
@@ -338,6 +422,42 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="mb-5 flex flex-col gap-2 rounded-xl border border-cyan-300/20 bg-cyan-500/10 p-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-1 text-sm text-cyan-100">
+            <p className="font-medium">Bulk Approve by Completedness</p>
+            <p className="text-xs text-cyan-200/80">
+              Eligible in current view: {eligibleBulkIds.length} pending profiles at or above {bulkThreshold}%.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <label className="flex items-center gap-2 text-sm text-cyan-100">
+              Threshold
+              <input
+                className="w-24 rounded-lg border border-cyan-300/30 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-cyan-300"
+                type="number"
+                min={0}
+                max={100}
+                value={bulkThreshold}
+                onChange={(event) => {
+                  const next = Number(event.target.value);
+                  if (Number.isFinite(next)) {
+                    setBulkThreshold(Math.max(0, Math.min(100, next)));
+                  }
+                }}
+              />
+            </label>
+
+            <button
+              className="rounded-lg bg-cyan-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => void bulkApproveByCompletedness()}
+              disabled={isLoadingList || isBulkApproving || eligibleBulkIds.length === 0}
+            >
+              {isBulkApproving ? "Approving in bulk..." : `Approve all >= ${bulkThreshold}%`}
+            </button>
+          </div>
+        </div>
+
         {error ? <p className="mb-4 rounded-xl border border-rose-300/30 bg-rose-900/20 p-3 text-sm text-rose-200">{error}</p> : null}
 
         <div className="space-y-3">
@@ -347,8 +467,17 @@ export default function Home() {
             <div className="rounded-2xl border border-white/10 bg-slate-900 p-8 text-center text-sm text-slate-400">No professionals found for this filter.</div>
           ) : (
             visibleProfessionals.map((item) => {
+              const currentTier = normalizeTier(item.profile.membership_tier);
+              const currentTierIndex = TIER_ORDER.indexOf(currentTier);
+              const upgradeTier = currentTierIndex < TIER_ORDER.length - 1 ? TIER_ORDER[currentTierIndex + 1] : null;
+              const downgradeTier = currentTierIndex > 0 ? TIER_ORDER[currentTierIndex - 1] : null;
+              const completeness = Math.max(0, Math.min(100, Number(item.profile.profile_completeness || 0)));
+
               const approving = activeRowAction === `approve:${item.id}`;
               const suspending = activeRowAction === `suspend:${item.id}`;
+              const upgrading = upgradeTier ? activeRowAction === `tier:${upgradeTier}:${item.id}` : false;
+              const downgrading = downgradeTier ? activeRowAction === `tier:${downgradeTier}:${item.id}` : false;
+              const rowBusy = approving || suspending || upgrading || downgrading;
 
               return (
                 <article
@@ -376,35 +505,53 @@ export default function Home() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-slate-950/50 p-3 text-center">
+                  <div className="grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-slate-950/50 p-3 text-center">
                     <div>
                       <p className="text-xs uppercase text-slate-500">Tier</p>
-                      <p className="mt-1 text-sm text-slate-200">{item.profile.membership_tier || "basic"}</p>
+                      <p className="mt-1 text-sm text-slate-200">{currentTier}</p>
                     </div>
                     <div>
-                      <p className="text-xs uppercase text-slate-500">Rating</p>
-                      <p className="mt-1 text-sm text-slate-200">{item.profile.rating.toFixed(1)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase text-slate-500">Reviews</p>
-                      <p className="mt-1 text-sm text-slate-200">{item.profile.review_count}</p>
+                      <p className="text-xs uppercase text-slate-500">Completedness</p>
+                      <p className="mt-1 text-sm text-slate-200">{completeness}%</p>
                     </div>
                   </div>
 
                   <div className="flex flex-row gap-2 md:flex-col">
                     <button
                       className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-emerald-300 disabled:opacity-60"
-                      disabled={approving || suspending || item.user_status === "verified"}
+                      disabled={rowBusy || item.user_status === "verified"}
                       onClick={() => void updateStatus(item.id, "approve")}
                     >
                       {approving ? "Approving..." : "Approve"}
                     </button>
                     <button
                       className="rounded-lg border border-rose-400/60 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-60"
-                      disabled={approving || suspending || item.user_status === "suspended"}
+                      disabled={rowBusy || item.user_status === "suspended"}
                       onClick={() => void updateStatus(item.id, "suspend")}
                     >
                       {suspending ? "Suspending..." : "Suspend"}
+                    </button>
+                    <button
+                      className="rounded-lg border border-cyan-300/60 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20 disabled:opacity-60"
+                      disabled={rowBusy || !item.profile.has_profile || !upgradeTier}
+                      onClick={() => {
+                        if (upgradeTier) {
+                          void updateTier(item.id, upgradeTier);
+                        }
+                      }}
+                    >
+                      {upgrading ? "Upgrading..." : upgradeTier ? `Upgrade to ${toTitleCase(upgradeTier)}` : "At highest tier"}
+                    </button>
+                    <button
+                      className="rounded-lg border border-amber-300/60 px-4 py-2 text-sm font-semibold text-amber-100 transition hover:bg-amber-500/20 disabled:opacity-60"
+                      disabled={rowBusy || !item.profile.has_profile || !downgradeTier}
+                      onClick={() => {
+                        if (downgradeTier) {
+                          void updateTier(item.id, downgradeTier);
+                        }
+                      }}
+                    >
+                      {downgrading ? "Downgrading..." : downgradeTier ? `Downgrade to ${toTitleCase(downgradeTier)}` : "At lowest tier"}
                     </button>
                   </div>
                 </article>

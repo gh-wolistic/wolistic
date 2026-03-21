@@ -126,11 +126,6 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
 
   return (
     <div className="w-full">
-      <section className="border-b border-border/60 bg-background">
-        <div className="container mx-auto px-4 py-3 sm:px-6 lg:px-8">
-          <p className="text-sm font-medium text-muted-foreground/90">{summary}</p>
-        </div>
-      </section>
 
       <ResultsStickyBar
         scopeTabs={<ResultsScopeTabs activeScope={scope} query={query} />}

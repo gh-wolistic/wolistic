@@ -36,6 +36,7 @@ export type ProfessionalProfile = {
   shortBio?: string;
   about?: string;
   membershipTier?: string;
+  profileCompleteness: number;
   isOnline: boolean;
   placementLabel?: string;
 

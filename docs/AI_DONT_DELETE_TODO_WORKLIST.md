@@ -1,69 +1,48 @@
-# Todo & Work List
+# Canonical Todo and Worklist
 
-## Immediate (Before First Feature)
-- [ ] Remove duplicate `SUPABASE_DB_PASSWORD` from `backend/.env` (already in `DATABASE_URL`)
-- [ ] Create `backend/.env.local` copy and add to `.gitignore`
-- [ ] Create `frontend/.env.local` copy and add to `.gitignore`
-- [ ] Rotate Supabase anon key and DB password (exposed in chat logs)
-- [ ] Add `.gitignore` for both frontend and backend
-- [x] Add basic `pytest` setup for backend
+Last updated: 2026-03-21
 
-## MVP Phase
-- [x] Add Supabase JWT authentication middleware
-- [ ] Add user CRUD endpoints (`POST /api/v1/users`, `GET /api/v1/users/me`)
-- [ ] Add request ID middleware and structured logging
-- [ ] Add frontend auth UI (Supabase Auth UI or custom)
-- [ ] Add basic error handling and validation schemas
-- [ ] Add environment split (`.env.development`, `.env.production`)
-- [ ] Add CI/CD pipeline (GitHub Actions)
-- [ ] Add mobile UX review checklist for every public page before shipping
+This is the single source of truth for active work tracking in `docs/`.
 
-## Pre-AI Features
-- [ ] Add Redis for caching
-- [ ] Add background job queue (Arq or Celery)
-- [ ] Add rate limiting middleware
-- [ ] Add API versioning strategy docs
-- [ ] Add monitoring (Sentry for errors, Prometheus for metrics)
-- [ ] Add database connection retry logic
-- [ ] Add migration rollback testing
-- [ ] Add integration tests with test database
+## P0 Active Work
+- [ ] Payment production hardening
+	- [ ] Confirm cryptographic signature verification and strict failure handling for verification paths
+	- [ ] Ensure webhook reconciliation paths are fully tested and observable
+	- [ ] Persist and expose provider references needed for support/debug workflows
+- [ ] Holistic intake to team flow hardening
+	- [ ] Validate end-to-end expert-review intake to holistic-team redirect behavior across auth states
+	- [ ] Add route-level tests for `/api/v1/intake/expert-review` and `/api/v1/holistic-teams/*`
+	- [ ] Remove any remaining fallback-only behavior in production paths
+- [ ] Frontend auth state consolidation
+	- [ ] Remove duplicated source-of-truth patterns between store/provider layers
+	- [ ] Keep one canonical session/profile state model
+- [ ] Production security defaults
+	- [ ] Tighten CORS methods/headers/origins for production
+	- [ ] Add or verify request IDs and structured logs for sensitive workflows
 
-## AI/Recommendation Architecture
-- [ ] Design recommendation schema (user preferences, item features)
-- [ ] Add vector embeddings table (pgvector extension in Supabase)
-- [ ] Add async job for embedding generation
-- [ ] Add recommendation endpoint with caching strategy
-- [ ] Add feature store for ML model inputs
-- [ ] Add A/B testing framework for recommendation variants
-- [ ] Add model versioning and rollback strategy
-- [ ] Add batch inference pipeline
-- [ ] Add real-time event tracking for user interactions
+## P1 Near-Term Product and Quality
+- [ ] Increase booking and discovery automated test coverage
+- [ ] Add pagination and query contracts where list endpoints can grow large
+- [ ] Complete mobile UX audit pass for public profile, results, and booking surfaces
+- [ ] Remove dead or placeholder UI actions where behavior is not implemented
+- [ ] Formalize API contracts for holistic-team and intake payloads in docs
 
-## Scalability & Ops
-- [ ] Add Docker multi-stage builds (reduce image size)
-- [ ] Add connection pool monitoring
-- [ ] Add database index strategy review
-- [ ] Add query performance monitoring (pg_stat_statements)
-- [ ] Add backup and restore testing
-- [ ] Add disaster recovery plan
-- [ ] Add horizontal scaling strategy (load balancer config)
-- [ ] Add CDN for frontend static assets
+## P2 Platform and Operations
+- [ ] Monitoring baseline (errors, latency, payment failure alerts)
+- [ ] Index and query plan review for high-traffic foreign keys
+- [ ] Backup/restore and migration rollback drills
+- [ ] Rate limiting and abuse protection strategy for public endpoints
+- [ ] Caching strategy for search/discovery responses
 
-## Security Hardening
-- [ ] Add Supabase service role key for admin operations (never expose to frontend)
-- [ ] Add input sanitization and SQL injection prevention review
-- [ ] Add secrets manager integration (AWS Secrets Manager / Vault)
-- [ ] Add network security group rules
-- [ ] Add HTTPS enforcement
-- [ ] Add security headers middleware
-- [ ] Add dependency vulnerability scanning
-- [ ] Add rate limiting per user/IP
+## Done Recently (Tracked Summary)
+- [x] Backend JWT verification and authenticated identity boundary
+- [x] Booking payment provider abstraction and backend-owned verify contract
+- [x] Booking reference generation moved server-side
+- [x] Booking history shaped for immediate/upcoming/past rendering
+- [x] Professional search endpoint and ranking test coverage
+- [x] Results UX improvements (sticky behavior, category filtering, pagination, loading skeleton)
+- [x] Expert-review intake route and holistic-team route family connected
 
-## Documentation
-- [ ] Add API documentation (OpenAPI/Swagger auto-generation)
-- [ ] Add deployment runbook
-- [ ] Add troubleshooting guide
-- [ ] Add database schema diagram
-- [ ] Add contribution guidelines
-- [ ] Add architecture decision records (ADRs)
-- [ ] Document mobile-first acceptance criteria for profile, onboarding, and booking flows
+## Consolidation Notes
+- Legacy scattered todo files were removed from `docs/` on 2026-03-21.
+- If a new work item appears, add it here instead of creating a new todo markdown file.

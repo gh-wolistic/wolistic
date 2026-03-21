@@ -69,7 +69,7 @@ export function ResultsToolbar({ scope, query, category }: ResultsToolbarProps) 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-[1.75rem] border border-border bg-card/70 p-3 shadow-sm backdrop-blur-sm">
+    <form onSubmit={handleSubmit} className="space-y-4 rounded-[1.75rem] border border-border bg-card/92 p-3 shadow-sm">
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />

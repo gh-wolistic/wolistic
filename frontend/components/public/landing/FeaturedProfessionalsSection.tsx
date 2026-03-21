@@ -1,17 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { getFeaturedProfessionalsNearby } from "@/components/public/data/professionalsApi";
-import { ImageWithFallback } from "@/components/public/ImageWithFallback";
-import { Badge } from "@/components/ui/badge";
+import { ProfessionalFeatureCard } from "@/components/public/cards/ProfessionalFeatureCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
-import { inferMembershipLabel, isProfessionalOnline } from "@/lib/professionalSignals";
-import { getRoleAccentFromProfessional } from "@/lib/professionalRoleAccent";
 import type { ProfessionalProfile } from "@/types/professional";
 import { FeaturedExpertModal } from "./FeaturedExpertModal";
 
@@ -26,84 +22,6 @@ type FeaturedProfessionalsSectionProps = {
   onNavigate?: (destination: PublicDestination) => void;
   initialProfessionals?: ProfessionalProfile[];
 };
-
-function ProfessionalCard({
-  prof,
-  onOpen,
-}: {
-  prof: ProfessionalProfile;
-  onOpen: (id: string) => void;
-}) {
-  const isOnline = isProfessionalOnline(prof);
-  const membershipLabel = inferMembershipLabel(prof);
-  const roleAccent = getRoleAccentFromProfessional(prof);
-
-  return (
-    <div
-      className={`bg-card rounded-xl border border-border overflow-hidden hover:shadow-lg dark:hover:shadow-black/30 transition-shadow cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/40 h-full ${roleAccent.cardClass}`}
-      role="button"
-      tabIndex={0}
-      aria-label={`Open profile preview for ${prof.name}`}
-      onClick={() => onOpen(prof.id)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          onOpen(prof.id);
-        }
-      }}
-    >
-      <div className="aspect-4/3 relative">
-        <ImageWithFallback src={prof.image} alt={prof.name} className="w-full h-full object-cover" />
-        <PresenceChip isOnline={isOnline} className="absolute left-3 top-3" />
-      </div>
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <div className="flex-1">
-            <h3 className="mb-1 text-base">{prof.name}</h3>
-            <p className="text-sm text-muted-foreground line-clamp-1">{prof.specialization}</p>
-          </div>
-          <RatingChip value={prof.rating} />
-        </div>
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className={`text-[11px] ${roleAccent.badgeClass}`}>
-            {roleAccent.label}
-          </Badge>
-          {prof.category ? <Badge variant="secondary" className="text-xs">{prof.category}</Badge> : null}
-        </div>
-        <div className="mb-3 flex flex-wrap gap-2">
-          <StatusChip label="Certified" tone="certified" className="text-[11px]" />
-          {prof.placementLabel === "Boosted" && (
-            <Badge variant="outline" className="text-[11px] border-amber-400/60 text-amber-200">
-              Boosted
-            </Badge>
-          )}
-          {membershipLabel && (
-            <Badge variant="outline" className="text-[11px]">{membershipLabel}</Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-3">
-          <MapPin size={12} />
-          <span className="line-clamp-1">{prof.location}</span>
-        </div>
-        {typeof prof.experienceYears === "number" && prof.experienceYears > 0 && (
-          <p className="mb-3 text-xs text-muted-foreground">{prof.experienceYears}+ years experience</p>
-        )}
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="w-full"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen(prof.id);
-          }}
-        >
-          View Profile
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function FeaturedCardSkeleton() {
   return (
@@ -317,7 +235,12 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
             >
               {professionals.map((prof) => (
                 <div key={prof.id} className="shrink-0 px-3" style={{ width: `${100 / n}%` }}>
-                  <ProfessionalCard prof={prof} onOpen={onOpen} />
+                  <ProfessionalFeatureCard
+                    professional={prof}
+                    onCardClick={onOpen}
+                    onCtaClick={onOpen}
+                    ctaLabel="View Profile"
+                  />
                 </div>
               ))}
             </div>
@@ -345,7 +268,12 @@ export function FeaturedProfessionalsSection({ onNavigate, initialProfessionals 
             >
               {professionals.map((prof) => (
                 <div key={prof.id} className="shrink-0" style={{ width: `${100 / n}%` }}>
-                  <ProfessionalCard prof={prof} onOpen={onOpen} />
+                  <ProfessionalFeatureCard
+                    professional={prof}
+                    onCardClick={onOpen}
+                    onCtaClick={onOpen}
+                    ctaLabel="View Profile"
+                  />
                 </div>
               ))}
             </div>

@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
     FEATURED_INDEX_REFRESH_SECONDS: int = 900
+    PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY: int = 50
+    SLOW_SQL_LOGGING_ENABLED: bool = True
+    SLOW_SQL_THRESHOLD_MS: int = 120
     ADMIN_API_KEY: str = ""
 
     # NoDecode avoids JSON-only parsing so comma-separated env values work.
@@ -60,6 +63,20 @@ class Settings(BaseSettings):
     @classmethod
     def strip_admin_api_key(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY")
+    @classmethod
+    def validate_profile_completeness_threshold(cls, value: int) -> int:
+        if value < 0 or value > 100:
+            raise ValueError("PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY must be between 0 and 100")
+        return value
+
+    @field_validator("SLOW_SQL_THRESHOLD_MS")
+    @classmethod
+    def validate_slow_sql_threshold(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("SLOW_SQL_THRESHOLD_MS must be >= 1")
+        return value
 
 
 @lru_cache

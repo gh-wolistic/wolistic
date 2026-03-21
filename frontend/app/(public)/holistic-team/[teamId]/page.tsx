@@ -6,12 +6,16 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, CalendarClock, Package, Users } from "lucide-react";
 
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
-import { ImageWithFallback } from "@/components/public/ImageWithFallback";
+import { ProfessionalFeatureCard } from "@/components/public/cards/ProfessionalFeatureCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getHolisticTeam } from "@/components/public/data/holisticTeamsApi";
-import { getRoleAccentByRole } from "@/lib/professionalRoleAccent";
+import {
+  buildHolisticTeamListCacheKey,
+  getHolisticTeam,
+  readHolisticTeamListCache,
+} from "@/components/public/data/holisticTeamsApi";
 import type { HolisticTeam } from "@/types/holistic-team";
+import type { ProfessionalProfile } from "@/types/professional";
 
 export default function HolisticTeamDetailPage() {
   const params = useParams<{ teamId: string }>();
@@ -22,6 +26,25 @@ export default function HolisticTeamDetailPage() {
   const teamId = params?.teamId;
   const query = searchParams.get("q") ?? "";
   const scope = searchParams.get("scope") ?? "professionals";
+  const mode = searchParams.get("mode") ?? "";
+  const minPrice = Number.parseFloat(searchParams.get("minPrice") ?? "");
+  const maxPrice = Number.parseFloat(searchParams.get("maxPrice") ?? "");
+
+  const minPriceFilter = Number.isFinite(minPrice) ? minPrice : undefined;
+  const maxPriceFilter = Number.isFinite(maxPrice) ? maxPrice : undefined;
+
+  const cacheKey = useMemo(
+    () =>
+      buildHolisticTeamListCacheKey({
+        q: query,
+        scope,
+        sort: "recommended",
+        mode: mode || undefined,
+        minPrice: minPriceFilter,
+        maxPrice: maxPriceFilter,
+      }),
+    [maxPriceFilter, minPriceFilter, mode, query, scope],
+  );
 
   const [team, setTeam] = useState<HolisticTeam | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +59,17 @@ export default function HolisticTeamDetailPage() {
         setIsLoading(false);
         return;
       }
-      setIsLoading(true);
+
+      const cached = readHolisticTeamListCache(cacheKey);
+      const cachedMatch = cached?.find((item) => item.id === teamId) ?? null;
+
+      if (cachedMatch && !cancelled) {
+        setTeam(cachedMatch);
+        setIsLoading(false);
+      } else {
+        setIsLoading(true);
+      }
+
       setError(null);
       try {
         const payload = await getHolisticTeam(teamId);
@@ -59,7 +92,7 @@ export default function HolisticTeamDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [teamId]);
+  }, [cacheKey, teamId]);
 
   const summaryHref = useMemo(() => {
     const context = new URLSearchParams();
@@ -87,6 +120,44 @@ export default function HolisticTeamDetailPage() {
     }
     requireLogin(`/payment-status?teamId=${team.id}`);
   };
+
+  const buildMemberServicesHref = (member: HolisticTeam["members"][number]) => {
+    const username = member.professional.username?.trim();
+    if (username) {
+      return `/${username}#services`;
+    }
+    const q = encodeURIComponent(member.professional.name || member.professional.specialization || "expert");
+    return `/results?scope=professionals&q=${q}`;
+  };
+
+  const goToMemberServices = (member: HolisticTeam["members"][number]) => {
+    router.push(buildMemberServicesHref(member));
+  };
+
+  const toCardProfile = (teamMember: HolisticTeam["members"][number]): ProfessionalProfile => ({
+    id: teamMember.professional.id,
+    username: teamMember.professional.username,
+    name: teamMember.professional.name,
+    specialization: teamMember.professional.specialization,
+    category: teamMember.professional.category,
+    location: teamMember.professional.location,
+    image: teamMember.professional.image,
+    rating: teamMember.professional.rating,
+    reviewCount: teamMember.professional.reviewCount,
+    experienceYears: teamMember.professional.experienceYears || 0,
+    membershipTier: teamMember.professional.membershipTier,
+    profileCompleteness: 0,
+    isOnline: teamMember.professional.isOnline,
+    certifications: [],
+    specializations: [],
+    education: [],
+    languages: [],
+    sessionTypes: [],
+    subcategories: [],
+    gallery: [],
+    services: [],
+    featuredProducts: [],
+  });
 
   return (
     <div className="w-full bg-background min-h-screen py-10 lg:py-12">
@@ -172,30 +243,13 @@ export default function HolisticTeamDetailPage() {
               </div>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {team.members.map((member) => (
-                  <div
+                  <ProfessionalFeatureCard
                     key={`${team.id}-${member.professional.id}`}
-                    className={`rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/70 dark:border-slate-800 ${getRoleAccentByRole(member.role).cardClass}`}
-                  >
-                    <div className="aspect-square">
-                      <ImageWithFallback src={member.professional.image} alt={member.professional.name} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="p-3 space-y-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{member.professional.name}</p>
-                      <p className="text-xs text-muted-foreground">{member.professional.specialization}</p>
-                      <Badge variant="outline" className={`text-[11px] ${getRoleAccentByRole(member.role).badgeClass}`}>
-                        {getRoleAccentByRole(member.role).label}
-                      </Badge>
-                      <p className="text-xs text-muted-foreground">Includes {member.sessionsIncluded} session(s)</p>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="mt-2"
-                        onClick={() => requireLogin(`/${member.professional.username}`)}
-                      >
-                        Book individual
-                      </Button>
-                    </div>
-                  </div>
+                    professional={toCardProfile(member)}
+                    roleOverride={member.role}
+                    ctaLabel="Book Individual expert"
+                    onCtaClick={() => goToMemberServices(member)}
+                  />
                 ))}
               </div>
             </div>

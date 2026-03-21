@@ -11,9 +11,14 @@ class HolisticTeamProfessionalCard(BaseModel):
     username: str
     name: str
     specialization: str
+    category: str | None = None
+    location: str | None = None
     image: str | None = None
     rating: float = 0
     review_count: int = 0
+    experience_years: int = 0
+    membership_tier: str | None = None
+    is_online: bool = False
 
 
 class HolisticTeamMemberOut(BaseModel):

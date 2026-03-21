@@ -1,103 +1,90 @@
 # Architecture Overview
 
-## Stack
-- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS 4, Radix UI
-- **Backend**: FastAPI, async SQLAlchemy 2, Alembic
-- **Database**: Supabase Postgres with UUID-based user and professional ownership
-- **Auth**: Supabase Auth in frontend, FastAPI bearer-token verification for protected API routes
-- **Infrastructure**: Docker, Docker Compose, Supabase PgBouncer transaction pooler
+Last updated: 2026-03-21
 
-## Current Structure
+## Stack
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS 4
+- Backend: FastAPI, SQLAlchemy 2 async, Alembic
+- Data: Supabase Postgres (UUID-first identity model)
+- Auth: Supabase Auth on frontend, JWT verification in backend
+- Runtime: Docker and Docker Compose for local/containerized runs
+
+## Monorepo Structure
 ```
 wolistic.com/
-├── frontend/
-│   ├── app/
-│   │   ├── (public)/                 # Public marketing, profile, payment, results routes
-│   │   ├── authorized/               # Authenticated booking history page
-│   │   └── layout.tsx                # Root layout and metadata
-│   ├── components/
-│   │   ├── auth/                     # Session provider, auth modal, backend profile resolver
-│   │   ├── public/                   # Public shell, results UI, expert details flow
-│   │   └── ui/                       # Shared UI primitives
-│   ├── lib/
-│   ├── store/
-│   └── types/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── router.py             # API v1 aggregation
-│   │   │   └── routes/
-│   │   │       ├── auth.py           # Authenticated profile endpoint
-│   │   │       ├── booking.py        # Booking questions, payment, history
-│   │   │       ├── health.py         # Liveness/readiness endpoints
-│   │   │       └── professionals.py  # Public professional profile endpoints
-│   │   ├── core/
-│   │   │   ├── auth.py               # Supabase JWT verification helpers
-│   │   │   ├── config.py             # Pydantic settings
-│   │   │   └── database.py           # Async engine/session setup
-│   │   ├── models/
-│   │   └── schemas/
-│   ├── alembic/
-│   └── tests/
-└── docs/
+|- frontend/       # Public app + user-facing authenticated surfaces
+|- backend/        # FastAPI APIs, services, models, migrations, tests
+|- wolistic-admin/ # Internal admin dashboard app
+`- docs/           # Architecture, status, commands, and canonical worklist
 ```
 
-## Backend API Surface
+## Backend Routing Topology
+Aggregated in `backend/app/api/router.py`.
 
-### Public or optionally-authenticated routes
-- `GET /api/v1/healthz`
-- `GET /api/v1/readyz`
-- `GET /api/v1/health` (legacy/deprecated)
-- `GET /api/v1/professionals/by-id/{professional_id}`
-- `GET /api/v1/professionals/{professional_id}/reviews`
-- `GET /api/v1/professionals/{username}`
-- `GET /api/v1/booking/questions/{professional_username}`
-	Optional auth is used here only to determine whether required questions were already answered.
+### Core platform
+- Health: `/api/v1/healthz`, `/api/v1/readyz`, `/api/v1/health` (legacy)
+- Auth: `/api/v1/auth/me`, `/api/v1/auth/onboarding`
+- Professionals:
+	- `/api/v1/professionals/featured`
+	- `/api/v1/professionals/search`
+	- `/api/v1/professionals/by-id/{professional_id}`
+	- `/api/v1/professionals/{professional_id}/reviews`
+	- `/api/v1/professionals/{username}`
+	- `/api/v1/professionals/me/editor` (GET/PUT)
+- Favourites: `/api/v1/favourites/{professional_id}` (GET/POST/DELETE)
 
-### Authenticated routes
-- `GET /api/v1/auth/me`
-- `POST /api/v1/booking/questions/{professional_username}/responses`
-- `POST /api/v1/booking/payments/order`
-- `POST /api/v1/booking/payments/verify`
-- `GET /api/v1/booking/history/me`
+### Booking and payments
+- Questions: `/api/v1/booking/questions/{professional_username}`
+- Question responses: `/api/v1/booking/questions/{professional_username}/responses`
+- Promotions eligibility: `/api/v1/booking/promotions/{professional_username}/eligibility`
+- Payment order and verify: `/api/v1/booking/payments/order`, `/api/v1/booking/payments/verify`
+- Razorpay webhook: `/api/v1/booking/payments/webhooks/razorpay`
+- Booking history: `/api/v1/booking/history/me`
 
-## Auth Boundary
-- Frontend signs users in with Supabase and keeps the access token client-side.
-- FastAPI verifies Supabase bearer tokens in `backend/app/core/auth.py`.
-- Protected backend endpoints derive `current_user.user_id` server-side and do not trust client-supplied user identifiers.
-- The frontend auth session is enriched through `GET /api/v1/auth/me` so UI state can use backend-owned identity fields.
+### Discovery and intake
+- Intake: `/api/v1/intake/expert-review`
+- Holistic teams:
+	- `/api/v1/holistic-teams` (list/create)
+	- `/api/v1/holistic-teams/prepare`
+	- `/api/v1/holistic-teams/{team_id}`
+	- `/api/v1/holistic-teams/backfill`
+- Search parse: `/api/v1/search/parse`
+- AI wolistic search: `/api/v1/ai/wolistic-search`
+- Products featured: `/api/v1/products/featured`
+- Wellness centers featured: `/api/v1/wellness-centers/featured`
 
-## Booking Flow Architecture
-- Question lookup is read-only and can be called before login, but returns richer state when a bearer token is present.
-- Answer submission, order creation, payment verification, and history retrieval all require authenticated backend identity.
-- `create_payment_order` now generates `booking_reference` server-side to prevent client replay/overwrite attacks.
-- Booking history now returns `latest_booking`, `next_booking`, `immediate_bookings`, `upcoming_bookings`, and `past_bookings`.
-- `BookingPayment.amount` is modeled as `Decimal` in Python to match `NUMERIC(10, 2)` in Postgres.
+### Admin
+- Internal admin APIs under `/api/v1/admin/*` (status/tier actions and bulk review operations)
 
-## Frontend Architecture
-- Public routes are wrapped by `PublicLayoutClient`, which composes `AuthSessionProvider` and `AuthModalProvider`.
-- `AuthSessionProvider` enriches the Supabase session with backend profile data from `/api/v1/auth/me`, including onboarding state.
-- Public routes also compose a shared `UserOnboardingProvider` so signup-only onboarding can run outside the booking flow when required.
-- Expert profile pages render a client booking flow with schedule, required questions, auth, user onboarding, and payment steps.
-- A public `/results` route exists as a modular UI shell for future multi-scope search (`professionals`, `products`, `influencers`, and planned scopes).
-- All user-facing pages are expected to be mobile-first and fully usable on small screens before desktop enhancements are layered on.
+## Frontend Routing Topology
+- Public routes in `frontend/app/(public)`:
+	- Landing, results, expert review, username profile page, product/brand/wellness-center/certificate-provider detail routes
+	- `holistic-plan` now acts as a legacy redirect to `holistic-team`
+- Authenticated user surface in `frontend/app/authorized`
+- Dashboard surfaces in `frontend/app/(dashboard)`
+- Internal admin app is isolated in `wolistic-admin`
 
-## Data Model Notes
-- `users.id` is the global UUID identity anchor.
-- `professionals.user_id` reuses the user UUID as its primary key.
-- Booking tables include questions, responses, bookings, and booking payments.
-- Professional detail content is normalized across child tables such as services, certifications, languages, availability, reviews, and gallery items.
+## Identity and Trust Boundaries
+- Frontend uses Supabase session tokens.
+- Backend derives authenticated user identity from bearer JWT and enforces server-side ownership.
+- Privileged workflow transitions (booking responses, payment state, booking history, admin actions) are backend-owned.
+
+## Data Model Principles
+- `users.id` is the global UUID anchor.
+- `professionals.user_id` reuses user UUID ownership.
+- Booking/payment data uses backend-generated references for safer state transitions.
+- Discovery/profile data is normalized across related professional child tables.
 
 ## Operational Notes
-- PgBouncer compatibility is preserved with `statement_cache_size=0`.
-- CORS is currently permissive enough for development and should still be tightened for production.
-- The backend remains stateless and environment-driven.
-- Current tests cover health routes, auth identity lookup, booking auth boundaries, and selected booking-flow behavior.
+- Asyncpg compatibility with pooler mode is handled in runtime settings.
+- Backend remains stateless and environment-driven.
+- Existing automated backend tests currently cover health, auth identity, booking authorization, booking flow behavior, geo city resolution, featured strategy, and professional search ranking.
 
-## Near-Term Gaps
-- Real Razorpay signature verification is still pending.
-- The professionals list/search endpoint does not yet exist.
-- Some docs still need cleanup as onboarding and booking UX continue to evolve.
+## Known Gaps
+- Payment hardening is not fully complete (final webhook/reconciliation depth and production verification controls still need finishing).
+- Documentation was consolidated on 2026-03-21; older scattered todo files were intentionally removed.
 
-## Ownership Matrix
-See `AI_DONT_DELETE_OWNERSHIP_MATRIX.md` for the preferred split between direct Supabase usage and FastAPI-owned privileged logic.
+## Related Docs
+- `docs/AI_DONT_DELETE_PROJECT_STATUS_VISION.md`
+- `docs/AI_DONT_DELETE_TODO_WORKLIST.md`
+- `docs/AI_DONT_DELETE_OWNERSHIP_MATRIX.md`

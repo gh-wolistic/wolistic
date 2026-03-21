@@ -201,18 +201,14 @@ export default function ExpertReviewPage() {
       const prefetched = await listHolisticTeams(cacheInput);
       writeHolisticTeamListCache(buildHolisticTeamListCacheKey(cacheInput), prefetched.items);
 
-      setTimeout(() => {
-        addBotMessage("Your team is being prepared using your preferences.");
-      }, 400);
-      setTimeout(() => {
-        const next = new URLSearchParams();
-        if (normalizedQuery) next.set("q", normalizedQuery);
-        if (scope) next.set("scope", scope);
-        if (normalizedMode) next.set("mode", normalizedMode);
-        if (typeof budget.minPrice === "number") next.set("minPrice", String(budget.minPrice));
-        if (typeof budget.maxPrice === "number") next.set("maxPrice", String(budget.maxPrice));
-        router.replace(`/holistic-team?${next.toString()}`);
-      }, 1800);
+      addBotMessage("Your team is being prepared using your preferences.");
+      const next = new URLSearchParams();
+      if (normalizedQuery) next.set("q", normalizedQuery);
+      if (scope) next.set("scope", scope);
+      if (normalizedMode) next.set("mode", normalizedMode);
+      if (typeof budget.minPrice === "number") next.set("minPrice", String(budget.minPrice));
+      if (typeof budget.maxPrice === "number") next.set("maxPrice", String(budget.maxPrice));
+      router.replace(`/holistic-team?${next.toString()}`);
     } catch (err) {
       console.error(err);
       setError("Could not save your responses. Please try again.");

@@ -1,47 +1,46 @@
-# Project Status & Vision
+# Project Status and Vision
 
-## Current Status (March 13, 2026)
+Last updated: 2026-03-21
 
-### ✅ Completed Foundation
-- [x] FastAPI backend, Docker setup, async SQLAlchemy, and Alembic migrations
-- [x] Supabase Postgres connectivity via PgBouncer-compatible async configuration
-- [x] Public professional profile endpoint and review endpoint
-- [x] Booking question, payment-order, payment-verify, and history endpoints
-- [x] Supabase JWT verification in the backend for protected booking and auth routes
-- [x] Authenticated `GET /api/v1/auth/me` endpoint for frontend session enrichment
-- [x] Public profile page metadata and profile rendering flow
-- [x] Public results route shell for future multi-scope search
-- [x] Backend tests covering health, auth identity lookup, booking auth boundaries, and selected booking-flow behavior
+## Current Status
 
-### 🔧 Current Working State
-- Backend API is structured under `/api/v1`.
-- Frontend public layout uses Supabase session state plus backend profile enrichment and shared signup-only onboarding handling.
-- Public professional pages and authorized booking-history pages are wired end to end.
-- Booking history now separates immediate bookings from scheduled upcoming/past bookings.
-- Public profile and booking surfaces are being standardized around a mobile-first UX baseline.
-- Booking references are generated server-side during payment order creation.
+### Completed and running in codebase
+- FastAPI backend with versioned API routing and modular route groups
+- Async SQLAlchemy + Alembic migration workflow
+- Supabase-backed auth boundary with backend JWT verification
+- Booking flow endpoints: questions, responses, payment order/verify, and booking history
+- Payment provider abstraction in backend services (mock + provider-oriented design)
+- Professional discovery/profile surfaces including featured and search endpoints
+- Expert-review intake endpoint and holistic-team preparation/list/detail endpoints
+- Frontend public route set expanded: results, expert review, holistic team flow, product/brand/wellness center/certificate-provider detail pages
+- Legacy `holistic-plan` route redirected to `holistic-team`
+- Internal admin app and backend admin endpoints are present
+- Backend tests cover health, auth, booking auth/flow, featured card strategy, geo city resolution, and search ranking behavior
 
-### 🚧 Important Open Gaps
-- Razorpay verification is still mock-oriented and not cryptographically validated yet.
-- The professionals list/search API still does not exist.
-- CORS is still broader than production should allow.
-- Some state management remains duplicated between Zustand and the auth context.
+### In-progress platform direction
+- Continue strengthening the listing/search/discovery loop while maintaining booking conversion quality
+- Keep holistic-team journey integrated with intake answers and ranked team generation
+- Maintain mobile-first UX quality across public routes
 
-## Product Summary
-Wolistic is a wellness discovery and booking platform combining:
-- public professional discovery pages,
-- guided booking and payment flows,
-- authenticated session-aware user experiences,
-- future multi-scope search across professionals, products, influencers, and related wellness entities.
+## High Priority Open Work
+- Complete remaining payment hardening and reconciliation depth for production rollout
+- Reduce duplicated auth state ownership on frontend where overlapping stores/providers exist
+- Tighten production CORS and broader security defaults
+- Expand test coverage around intake, holistic-team flows, and payment edge cases
+- Finish doc hygiene by keeping one canonical tracker only
 
-## Near-Term Product Direction
-- Complete payment hardening and remove mock verification paths.
-- Add search/list endpoints and production-grade filtering for professionals.
-- Continue tightening backend ownership of all privileged state and workflow transitions.
-- Keep profile, onboarding, and booking experiences mobile-friendly by default.
+## Product Vision
+Wolistic is a wellness discovery and service coordination platform with:
+- trustworthy professional discovery,
+- guided booking and payment,
+- intake-informed holistic team recommendations,
+- clear user and admin operational surfaces.
 
-## Doc Ownership
-Use the following as the maintained reference set:
-- `AI_DONT_DELETE_ARCHITECTURE.md` for current system design and endpoint boundaries
-- `AI_DONT_DELETE_TODO_WORKLIST.md` for broader roadmap and platform work
-- `critical_todo.md` for active code-review follow-ups and correctness/security gaps
+The vision remains production-first: backend-owned trust boundaries, measurable flow completion, and incremental rollout over speculative breadth.
+
+## Canonical Docs Set
+- `docs/README.md`
+- `docs/AI_DONT_DELETE_ARCHITECTURE.md`
+- `docs/AI_DONT_DELETE_TODO_WORKLIST.md`
+- `docs/AI_DONT_DELETE_COMMANDS.md`
+- `docs/AI_DONT_DELETE_OWNERSHIP_MATRIX.md`

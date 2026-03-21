@@ -47,6 +47,11 @@ class Professional(Base):
     is_online: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     rating_avg: Mapped[float] = mapped_column(Numeric, nullable=False, server_default="0")
     rating_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    profile_completeness: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+        server_default="0",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

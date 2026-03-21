@@ -10,6 +10,10 @@ type ResultsStickyBarProps = {
   toolbar: ReactNode;
 };
 
+const COLLAPSE_SCROLL_Y = 140;
+const EXPAND_SCROLL_Y = 16;
+const MANUAL_CLOSE_DELTA = 12;
+
 export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -18,17 +22,31 @@ export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) 
 
   const handleScroll = useCallback(() => {
     const y = window.scrollY;
-    // Collapse after scrolling past 120px
-    if (y > 120) {
-      setCollapsed(true);
-      // Auto-close manual override when scrolling down further
-      if (y > lastScrollY.current + 10) {
-        setManualOpen(false);
+
+    setCollapsed((previous) => {
+      if (!previous && y >= COLLAPSE_SCROLL_Y) {
+        return true;
       }
-    } else {
-      setCollapsed(false);
-      setManualOpen(false);
-    }
+      // Only auto-expand very close to top to avoid oscillation when sticky height changes.
+      if (previous && y <= EXPAND_SCROLL_Y) {
+        return false;
+      }
+      return previous;
+    });
+
+    setManualOpen((previous) => {
+      if (!previous) {
+        return previous;
+      }
+      if (y <= EXPAND_SCROLL_Y) {
+        return false;
+      }
+      if (y > lastScrollY.current + MANUAL_CLOSE_DELTA) {
+        return false;
+      }
+      return previous;
+    });
+
     lastScrollY.current = y;
   }, []);
 
@@ -52,7 +70,7 @@ export function ResultsStickyBar({ scopeTabs, toolbar }: ResultsStickyBarProps) 
   const showToolbar = !collapsed || manualOpen;
 
   return (
-    <section className="sticky top-20 z-40 border-b border-border bg-background/92 backdrop-blur">
+    <section className="sticky top-20 z-40 border-b border-border bg-background/95">
       <div className="container mx-auto px-4 py-3 sm:px-6 lg:px-8">
         <div className="space-y-2.5">
           {/* Row: scope tabs + (when collapsed) search toggle */}

@@ -149,12 +149,20 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {professionals.map((professional) => {
             const roleAccent = getRoleAccentFromProfessional(professional);
+            const membershipTier = String(professional.membershipTier || "").trim().toLowerCase();
+            const isElite = membershipTier === "elite";
+
             return (
             <Link
               key={professional.id}
               href={`/${professional.username}?returnTo=${encodeURIComponent(returnTo)}`}
-              className={`group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30 ${roleAccent.cardClass}`}
+              className={`group relative overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30 ${roleAccent.cardClass} ${isElite ? "shadow-[0_0_0_1px_rgba(217,119,6,0.25)] dark:shadow-[0_0_0_1px_rgba(251,191,36,0.2)]" : ""}`}
             >
+              {isElite ? (
+                <span className="pointer-events-none absolute -right-12 top-4 z-30 rotate-45 rounded-sm border border-amber-200/40 bg-amber-100/85 px-12 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-900 dark:border-amber-300/35 dark:bg-amber-300/20 dark:text-amber-100">
+                  Elite
+                </span>
+              ) : null}
               <div className="relative aspect-4/3 overflow-hidden">
                 <ImageWithFallback
                   src={professional.image}
@@ -181,7 +189,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                         Boosted
                       </Badge>
                     ) : null}
-                    {professional.membershipTier ? <StatusChip label={professional.membershipTier} tone="featured" /> : null}
+                    {professional.membershipTier ? <StatusChip label={professional.membershipTier} tone={isElite ? "elite" : "featured"} /> : null}
                 </div>
                 <div className="space-y-2 text-sm text-muted-foreground">
                     {professional.certifications.length > 0 ? (

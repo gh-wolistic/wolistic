@@ -52,6 +52,7 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
     shortBio: (raw.short_bio as string) ?? undefined,
     about: (raw.about as string) ?? undefined,
     membershipTier: (raw.membership_tier as string) ?? undefined,
+    profileCompleteness: (raw.profile_completeness as number) ?? 0,
     isOnline: raw.is_online as boolean,
     placementLabel: (raw.placement_label as string) ?? undefined,
     approach: (raw.approach as string) ?? undefined,

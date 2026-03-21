@@ -9,7 +9,9 @@ It combines a Next.js frontend, a FastAPI backend, and Supabase Postgres with UU
 - FastAPI API with versioned routing at `/api/v1`
 - Supabase Auth integration with backend-side token verification
 - Alembic migration workflow for safe, repeatable schema evolution
-- Professional profile + booking flow modules
+- Professional discovery + booking flow modules
+- Expert-review intake and holistic-team recommendation flow
+- Separate internal admin application for operational controls
 - Automated CI tests for backend and frontend
 
 ## Tech Stack
@@ -42,6 +44,7 @@ It combines a Next.js frontend, a FastAPI backend, and Supabase Postgres with UU
 wolistic.com/
 |-- frontend/        # Next.js app (public pages, dashboard, booking UX)
 |-- backend/         # FastAPI app (routes, auth, services, migrations)
+|-- wolistic-admin/  # Internal admin dashboard
 |-- docs/            # Architecture and project planning docs
 `-- .github/         # CI workflows
 ```
@@ -95,6 +98,19 @@ Frontend:
 
 - App: `http://localhost:3000`
 
+### 3) Admin app setup
+
+```powershell
+cd wolistic-admin
+copy .env.example .env.local
+npm install
+npm run dev
+```
+
+Admin app:
+
+- App: `http://localhost:3001` (or next available port)
+
 ## Testing
 
 ### Backend tests
@@ -142,10 +158,13 @@ docker compose run --rm backend alembic current
 Current platform capabilities include:
 
 - Auth profile endpoint (`/api/v1/auth/me`)
-- Professional profile retrieval and editor APIs
+- Professional profile retrieval, featured, and search APIs
 - Booking intake question flow
 - Payment order and verification endpoints
 - Booking history retrieval for authenticated users
+- Expert-review intake (`/api/v1/intake/expert-review`)
+- Holistic-team preparation and listing (`/api/v1/holistic-teams/*`)
+- Admin moderation/status endpoints (`/api/v1/admin/*`)
 
 ## Security and Configuration Notes
 
@@ -158,8 +177,12 @@ Current platform capabilities include:
 
 - [Backend README](backend/README.md)
 - [Frontend README](frontend/README.md)
+- [Admin README](wolistic-admin/README.md)
 - [Architecture Overview](docs/AI_DONT_DELETE_ARCHITECTURE.md)
 - [Commands Reference](docs/AI_DONT_DELETE_COMMANDS.md)
+- [Project Status](docs/AI_DONT_DELETE_PROJECT_STATUS_VISION.md)
+- [Canonical Worklist](docs/AI_DONT_DELETE_TODO_WORKLIST.md)
+- [Docs Index](docs/README.md)
 
 ## Contributing
 

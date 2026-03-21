@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarClock, Package, SlidersHorizontal } from "lucide-react";
 
-import { ImageWithFallback } from "@/components/public/ImageWithFallback";
+import { ProfessionalFeatureCard } from "@/components/public/cards/ProfessionalFeatureCard";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,8 +15,8 @@ import {
   readHolisticTeamListCache,
   writeHolisticTeamListCache,
 } from "@/components/public/data/holisticTeamsApi";
-import { getRoleAccentByRole } from "@/lib/professionalRoleAccent";
 import type { HolisticTeam } from "@/types/holistic-team";
+import type { ProfessionalProfile } from "@/types/professional";
 
 export default function HolisticTeamPage() {
   const router = useRouter();
@@ -41,6 +41,20 @@ export default function HolisticTeamPage() {
 
   const minPriceFilter = Number.isFinite(minPriceFromParams) ? minPriceFromParams : undefined;
   const maxPriceFilter = Number.isFinite(maxPriceFromParams) ? maxPriceFromParams : undefined;
+
+  const matchesPreferences = useCallback((team: HolisticTeam) => {
+    const normalizedMode = modeFilter.trim().toLowerCase();
+    if (normalizedMode && team.mode !== normalizedMode) {
+      return false;
+    }
+    if (typeof minPriceFilter === "number" && team.pricingAmount < minPriceFilter) {
+      return false;
+    }
+    if (typeof maxPriceFilter === "number" && team.pricingAmount > maxPriceFilter) {
+      return false;
+    }
+    return true;
+  }, [maxPriceFilter, minPriceFilter, modeFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,25 +81,15 @@ export default function HolisticTeamPage() {
       }
 
       try {
-        const primaryResponse = await listHolisticTeams(requestInput);
-        let nextItems = primaryResponse.items;
-
         const usedStrictAnswerFilters = Boolean(modeFilter || minPriceFilter !== undefined || maxPriceFilter !== undefined);
-        if (nextItems.length === 0 && usedStrictAnswerFilters) {
-          const relaxedResponse = await listHolisticTeams({
-            q: query,
-            scope,
-            sort,
-            packageType: packageTypeFilter || undefined,
-          });
-          nextItems = relaxedResponse.items;
-          if (!cancelled && nextItems.length > 0) {
-            setHasRelaxedFilters(true);
-          }
-        }
+        const primaryResponse = await listHolisticTeams(requestInput);
+        const nextItems = primaryResponse.items;
 
         if (!cancelled) {
           setTeams(nextItems);
+          if (usedStrictAnswerFilters && nextItems.length > 0 && !nextItems.some(matchesPreferences)) {
+            setHasRelaxedFilters(true);
+          }
           writeHolisticTeamListCache(cacheKey, nextItems);
         }
       } catch (err) {
@@ -107,7 +111,7 @@ export default function HolisticTeamPage() {
     return () => {
       cancelled = true;
     };
-  }, [query, scope, sort, modeFilter, packageTypeFilter, minPriceFilter, maxPriceFilter]);
+  }, [query, scope, sort, modeFilter, packageTypeFilter, minPriceFilter, maxPriceFilter, matchesPreferences]);
 
   const contextSearch = useMemo(() => {
     const params = new URLSearchParams();
@@ -124,6 +128,25 @@ export default function HolisticTeamPage() {
     return `/holistic-team/${teamId}${contextSearch}`;
   };
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const isExactMatch = useCallback((team: HolisticTeam) => {
+    const queryMatches =
+      !normalizedQuery
+      || team.queryTag?.toLowerCase() === normalizedQuery
+      || team.keywords.some((keyword) => keyword.toLowerCase() === normalizedQuery);
+    return queryMatches && matchesPreferences(team);
+  }, [matchesPreferences, normalizedQuery]);
+
+  const exactTeams = useMemo(
+    () => teams.filter(isExactMatch),
+    [isExactMatch, teams],
+  );
+
+  const closestTeams = useMemo(
+    () => teams.filter((team) => !isExactMatch(team)),
+    [isExactMatch, teams],
+  );
+
   const requireLogin = (nextHref: string) => {
     if (isAuthenticated) {
       router.push(nextHref);
@@ -131,6 +154,44 @@ export default function HolisticTeamPage() {
     }
     router.push(`/authorized?next=${encodeURIComponent(nextHref)}`);
   };
+
+  const buildMemberServicesHref = (member: HolisticTeam["members"][number]) => {
+    const username = member.professional.username?.trim();
+    if (username) {
+      return `/${username}#services`;
+    }
+    const q = encodeURIComponent(member.professional.name || member.professional.specialization || "expert");
+    return `/results?scope=professionals&q=${q}`;
+  };
+
+  const goToMemberServices = (member: HolisticTeam["members"][number]) => {
+    router.push(buildMemberServicesHref(member));
+  };
+
+  const toCardProfile = (teamMember: HolisticTeam["members"][number]): ProfessionalProfile => ({
+    id: teamMember.professional.id,
+    username: teamMember.professional.username,
+    name: teamMember.professional.name,
+    specialization: teamMember.professional.specialization,
+    category: teamMember.professional.category,
+    location: teamMember.professional.location,
+    image: teamMember.professional.image,
+    rating: teamMember.professional.rating,
+    reviewCount: teamMember.professional.reviewCount,
+    experienceYears: teamMember.professional.experienceYears || 0,
+    membershipTier: teamMember.professional.membershipTier,
+    profileCompleteness: 0,
+    isOnline: teamMember.professional.isOnline,
+    certifications: [],
+    specializations: [],
+    education: [],
+    languages: [],
+    sessionTypes: [],
+    subcategories: [],
+    gallery: [],
+    services: [],
+    featuredProducts: [],
+  });
 
   return (
     <div className="w-full py-10 lg:py-12 bg-background min-h-screen">
@@ -175,95 +236,163 @@ export default function HolisticTeamPage() {
         {error && <p className="text-sm text-red-600">{error}</p>}
         {hasRelaxedFilters && !error && (
           <p className="text-sm text-amber-700">
-            No exact team matched all answer filters, so we broadened results to show the closest available teams.
+            Showing closest available teams based on your goals. You can refine filters to narrow the list.
           </p>
         )}
 
         {!isLoading && !error && teams.length === 0 && (
           <div className="rounded-xl border border-dashed border-border p-6 text-sm text-muted-foreground">
-            No teams found for this filter combination.
+            We could not find a ready team for this combination yet. Try adjusting mode/budget, or create your own team.
           </div>
         )}
 
-        <div className="space-y-5">
-          {teams.map((team, index) => (
-            <Link key={team.id} href={buildTeamHref(team.id)} className="block rounded-xl border border-border p-4 sm:p-5 lg:p-6 bg-background hover:border-emerald-200 transition-colors">
-              <div className="mb-4">
-                <h3 className="font-semibold text-lg lg:text-xl text-foreground mb-1">{team.name || `Team ${index + 1}`}</h3>
-                <p className="text-xs text-muted-foreground">{team.members.length} members · {team.sourceType === "member_collab" ? "Member collaboration" : "Engine generated"}</p>
+        <div className="space-y-8">
+          {exactTeams.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-emerald-600 text-white">Exact matches</Badge>
+                <p className="text-xs text-muted-foreground">Best fits for your selected query and filters.</p>
               </div>
+              <div className="space-y-5">
+                {exactTeams.map((team, index) => (
+                  <Link key={team.id} href={buildTeamHref(team.id)} className="block rounded-xl border border-border p-4 sm:p-5 lg:p-6 bg-background hover:border-emerald-200 transition-colors">
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-lg lg:text-xl text-foreground mb-1">{team.name || `Team ${index + 1}`}</h3>
+                      <p className="text-xs text-muted-foreground">{team.members.length} members · {team.sourceType === "member_collab" ? "Member collaboration" : "Engine generated"}</p>
+                    </div>
 
-              <div className="lg:grid lg:grid-cols-[1.5fr,1fr] lg:gap-6 space-y-5 lg:space-y-0">
-                <div className="space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team members</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
-                    {team.members.map((member) => (
-                      <div
-                        key={`${team.id}-${member.professional.id}`}
-                        className={`w-full rounded-lg border border-border overflow-hidden bg-white dark:bg-slate-950/50 dark:border-slate-800 ${getRoleAccentByRole(member.role).cardClass}`}
+                    <div className="lg:grid lg:grid-cols-[1.5fr,1fr] lg:gap-6 space-y-5 lg:space-y-0">
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team members</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {team.members.map((member) => (
+                            <div key={`${team.id}-${member.professional.id}`}>
+                              <ProfessionalFeatureCard
+                                professional={toCardProfile(member)}
+                                roleOverride={member.role}
+                                ctaLabel="Book Individual expert"
+                                onCtaClick={() => {
+                                  goToMemberServices(member);
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-border bg-slate-50/50 dark:bg-slate-950/30 p-4 space-y-3">
+                        <div className="space-y-2.5">
+                          <div className="flex items-start gap-2">
+                            <Package size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-0.5">Team price</p>
+                              <p className="text-sm font-semibold text-foreground">{team.pricingCurrency} {team.pricingAmount.toLocaleString()}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2">
+                            <CalendarClock size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-0.5">Mode / Package</p>
+                              <p className="text-xs text-foreground leading-relaxed capitalize">{team.mode} · {team.packageType.replaceAll("_", " ")}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row gap-2.5">
+                      <Button
+                        size="default"
+                        className="w-full sm:w-auto bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          requireLogin(buildTeamHref(team.id));
+                        }}
                       >
-                        <div className="aspect-square">
-                          <ImageWithFallback src={member.professional.image} alt={member.professional.name} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="p-2">
-                          <p className="text-[11px] font-medium leading-tight truncate text-foreground">{member.professional.name}</p>
-                          <Badge variant="outline" className={`mt-1 text-[10px] ${getRoleAccentByRole(member.role).badgeClass}`}>
-                            {getRoleAccentByRole(member.role).label}
-                          </Badge>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="mt-2 h-7 px-2 text-[10px]"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              requireLogin(`/${member.professional.username}`);
-                            }}
-                          >
-                            Book individual
-                          </Button>
+                        {isAuthenticated ? "Select team" : "Login to select team"}
+                      </Button>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {closestTeams.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">Closest available</Badge>
+                <p className="text-xs text-muted-foreground">Strong alternatives based on your goals and nearby relevance.</p>
+              </div>
+              <div className="space-y-5">
+                {closestTeams.map((team, index) => (
+                  <Link key={team.id} href={buildTeamHref(team.id)} className="block rounded-xl border border-border p-4 sm:p-5 lg:p-6 bg-background hover:border-emerald-200 transition-colors">
+                    <div className="mb-4">
+                      <h3 className="font-semibold text-lg lg:text-xl text-foreground mb-1">{team.name || `Team ${index + 1}`}</h3>
+                      <p className="text-xs text-muted-foreground">{team.members.length} members · {team.sourceType === "member_collab" ? "Member collaboration" : "Engine generated"}</p>
+                    </div>
+
+                    <div className="lg:grid lg:grid-cols-[1.5fr,1fr] lg:gap-6 space-y-5 lg:space-y-0">
+                      <div className="space-y-3">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Team members</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                          {team.members.map((member) => (
+                            <div key={`${team.id}-${member.professional.id}`}>
+                              <ProfessionalFeatureCard
+                                professional={toCardProfile(member)}
+                                roleOverride={member.role}
+                                ctaLabel="Book Individual expert"
+                                onCtaClick={() => {
+                                  goToMemberServices(member);
+                                }}
+                              />
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="rounded-lg border border-border bg-slate-50/50 dark:bg-slate-950/30 p-4 space-y-3">
-                  <div className="space-y-2.5">
-                    <div className="flex items-start gap-2">
-                      <Package size={16} className="text-emerald-600 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Team price</p>
-                        <p className="text-sm font-semibold text-foreground">{team.pricingCurrency} {team.pricingAmount.toLocaleString()}</p>
+                      <div className="rounded-lg border border-border bg-slate-50/50 dark:bg-slate-950/30 p-4 space-y-3">
+                        <div className="space-y-2.5">
+                          <div className="flex items-start gap-2">
+                            <Package size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-0.5">Team price</p>
+                              <p className="text-sm font-semibold text-foreground">{team.pricingCurrency} {team.pricingAmount.toLocaleString()}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-2">
+                            <CalendarClock size={16} className="text-emerald-600 mt-0.5 shrink-0" />
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-0.5">Mode / Package</p>
+                              <p className="text-xs text-foreground leading-relaxed capitalize">{team.mode} · {team.packageType.replaceAll("_", " ")}</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-start gap-2">
-                      <CalendarClock size={16} className="text-emerald-600 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-0.5">Mode / Package</p>
-                        <p className="text-xs text-foreground leading-relaxed capitalize">{team.mode} · {team.packageType.replaceAll("_", " ")}</p>
-                      </div>
+                    <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row gap-2.5">
+                      <Button
+                        size="default"
+                        className="w-full sm:w-auto bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          requireLogin(buildTeamHref(team.id));
+                        }}
+                      >
+                        {isAuthenticated ? "Select team" : "Login to select team"}
+                      </Button>
                     </div>
-                  </div>
-                </div>
+                  </Link>
+                ))}
               </div>
+            </div>
+          )}
 
-              <div className="mt-5 pt-4 border-t border-border flex flex-col sm:flex-row gap-2.5">
-                <Button
-                  size="default"
-                  className="w-full sm:w-auto bg-linear-to-r from-emerald-500 to-teal-600 text-white hover:from-emerald-600 hover:to-teal-700"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    requireLogin(buildTeamHref(team.id));
-                  }}
-                >
-                  {isAuthenticated ? "Select team" : "Login to select team"}
-                </Button>
-              </div>
-            </Link>
-          ))}
         </div>
       </div>
     </div>

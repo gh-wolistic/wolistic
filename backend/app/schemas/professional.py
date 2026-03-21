@@ -70,6 +70,7 @@ class ProfessionalProfileOut(BaseModel):
     short_bio: str | None = None
     about: str | None = None
     membership_tier: str | None = None
+    profile_completeness: int = 0
     is_online: bool = False
     placement_label: str | None = None
 

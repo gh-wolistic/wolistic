@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.models.booking import BookingQuestionTemplate
 from app.models.professional import (
@@ -31,6 +32,7 @@ from app.models.professional import (
     ProfessionalSessionType,
     ProfessionalSubcategory,
 )
+from app.models.user import User
 from app.services.ai.professional_search import rank_professional_profiles
 from app.services.geo import extract_known_cities, resolve_city_coordinates
 from app.schemas.professional import (
@@ -45,6 +47,7 @@ from app.schemas.professional import (
 )
 
 router = APIRouter(prefix="/professionals", tags=["professionals"])
+settings = get_settings()
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -60,6 +63,7 @@ _BOOSTED_TOP_OVERRIDE_GAP = 0.05
 _RESULTS_BOOST_WINDOW = 8
 _RESULTS_BOOST_MIN_RELEVANCE = 1
 _RESULTS_BOOST_TOP_GAP = 0.10
+_DISCOVERY_MIN_PROFILE_COMPLETENESS = settings.PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY
 
 
 def _fmt_time(t: time) -> str:
@@ -137,6 +141,7 @@ def _flatten_professional(prof: Professional) -> dict:
         "short_bio": prof.short_bio,
         "about": prof.about,
         "membership_tier": prof.membership_tier,
+        "profile_completeness": int(prof.profile_completeness or 0),
         "is_online": is_online,
         # Flattened children
         "approach": " ".join(
@@ -187,6 +192,32 @@ def _flatten_professional(prof: Professional) -> dict:
         ],
         "featured_products": [],  # table does not exist yet
     }
+
+
+def _compute_profile_completeness(*, professional: Professional) -> int:
+    score_fields: list[bool] = [
+        bool((professional.username or "").strip()),
+        bool((professional.cover_image_url or "").strip()),
+        bool((professional.profile_image_url or "").strip()),
+        bool((professional.specialization or "").strip()),
+        bool((professional.membership_tier or "").strip()),
+        bool((professional.location or "").strip()),
+        professional.experience_years is not None and professional.experience_years > 0,
+        bool((professional.sex or "").strip()) and (professional.sex or "").strip().lower() != "undisclosed",
+        bool((professional.short_bio or "").strip()),
+        bool((professional.about or "").strip()),
+        professional.latitude is not None,
+        professional.longitude is not None,
+    ]
+    filled_count = sum(1 for value in score_fields if value)
+    return int(round((filled_count / len(score_fields)) * 100))
+
+
+def _discovery_filters() -> tuple:
+    return (
+        User.user_status == "verified",
+        Professional.profile_completeness >= _DISCOVERY_MIN_PROFILE_COMPLETENESS,
+    )
 
 
 def _haversine_distance_km_expr(*, latitude: float, longitude: float, lat_expr, lng_expr):
@@ -556,6 +587,9 @@ async def _load_featured_profiles_from_index(
 ) -> list[dict]:
     result = await db.execute(
         select(ProfessionalFeaturedIndex.payload)
+        .join(Professional, Professional.user_id == ProfessionalFeaturedIndex.professional_id)
+        .join(User, User.id == Professional.user_id)
+        .where(*_discovery_filters())
         .order_by(ProfessionalFeaturedIndex.sort_rank.asc())
         .limit(limit)
     )
@@ -588,10 +622,12 @@ async def _rebuild_featured_profiles_index(db: AsyncSession) -> None:
 
     result = await db.execute(
         select(Professional)
+        .join(User, User.id == Professional.user_id)
         .options(*_professional_load_options(include_education=False))
         .where(
             func.lower(func.coalesce(Professional.membership_tier, "")).in_(("premium", "elite")),
             online_or_hybrid_service_exists,
+            *_discovery_filters(),
         )
         .order_by(
             rank_score.desc(),
@@ -991,8 +1027,9 @@ async def get_featured_professionals(
     # Hide profiles that cannot be placed on a map for nearby ranking.
     base_select = (
         select(Professional)
+        .join(User, User.id == Professional.user_id)
         .options(*_professional_load_options(include_education=False))
-        .where(has_usable_coordinates)
+        .where(has_usable_coordinates, *_discovery_filters())
     )
 
     # Attempt nearby-first ranking when coordinates are provided.
@@ -1116,21 +1153,83 @@ async def search_professionals(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[ProfessionalProfileOut]:
     """Search professionals by query across identity, specialization, and expertise signals."""
-    result = await db.execute(
-        select(Professional)
-        .options(*_professional_load_options(include_education=False))
+    trimmed_query = q.strip()
+    candidate_result = await db.execute(
+        select(
+            Professional.user_id,
+            Professional.username,
+            User.full_name,
+            Professional.specialization,
+            Professional.location,
+            Professional.short_bio,
+            Professional.about,
+            Professional.rating_avg,
+            Professional.rating_count,
+            Professional.experience_years,
+            Professional.membership_tier,
+            Professional.profile_completeness,
+        )
+        .join(User, User.id == Professional.user_id)
+        .where(*_discovery_filters())
         .order_by(Professional.rating_avg.desc(), Professional.rating_count.desc())
-        .limit(250)
+        .limit(220)
     )
-    professionals = result.scalars().all()
-    flattened = [_flatten_professional(prof) for prof in professionals]
-    ranked = rank_professional_profiles(flattened, q, limit=limit)
-    ranked = _apply_results_boost_strategy(ranked, query=q, limit=limit)
+
+    candidates: list[dict] = []
+    for row in candidate_result.all():
+        candidates.append(
+            {
+                "id": row.user_id,
+                "username": row.username,
+                "name": row.full_name or row.username,
+                "specialization": row.specialization,
+                "category": row.specialization,
+                "location": row.location,
+                "short_bio": row.short_bio,
+                "about": row.about,
+                "approach": None,
+                "subcategories": [],
+                "specializations": [],
+                "rating": float(row.rating_avg) if row.rating_avg is not None else 0,
+                "review_count": int(row.rating_count or 0),
+                "experience_years": int(row.experience_years or 0),
+                "membership_tier": row.membership_tier,
+                "profile_completeness": int(row.profile_completeness or 0),
+                "is_online": False,
+            }
+        )
+
+    ranked_candidates = rank_professional_profiles(candidates, trimmed_query, limit=max(limit * 3, 30))
+    ranked_candidates = _apply_results_boost_strategy(
+        ranked_candidates,
+        query=trimmed_query,
+        limit=max(limit * 2, 20),
+    )
+    ranked_ids = [item["id"] for item in ranked_candidates[:limit]]
+    if not ranked_ids:
+        return []
+
+    detailed_result = await db.execute(
+        select(Professional)
+        .join(User, User.id == Professional.user_id)
+        .options(*_professional_load_options(include_education=False))
+        .where(Professional.user_id.in_(ranked_ids), *_discovery_filters())
+    )
+    professionals_by_id = {prof.user_id: prof for prof in detailed_result.scalars().all()}
+
+    ranked: list[dict] = []
+    for prof_id in ranked_ids:
+        prof = professionals_by_id.get(prof_id)
+        if prof is None:
+            continue
+        ranked.append(_flatten_professional(prof))
+
+    ranked = _apply_results_boost_strategy(ranked, query=trimmed_query, limit=limit)
     await _record_boost_impressions(
         db=db,
         profiles=ranked,
         surface="results",
-        query_text=q.strip() or None,
+        query_text=trimmed_query or None,
     )
 
     return [ProfessionalProfileOut(**profile) for profile in ranked]
@@ -1141,6 +1240,8 @@ async def get_professional_reviews(
     professional_id: uuid.UUID,
     limit: int = Query(default=3, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
+    cursor_created_at: datetime | None = Query(default=None),
+    cursor_id: int | None = Query(default=None, ge=1),
     db: AsyncSession = Depends(get_db_session),
 ) -> ReviewPageOut:
     """Fetch paginated reviews for a professional."""
@@ -1151,14 +1252,27 @@ async def get_professional_reviews(
     )
     total = count_result.scalar_one()
 
-    items_result = await db.execute(
+    items_query = (
         select(ProfessionalReview)
         .where(ProfessionalReview.professional_id == professional_id)
-        .order_by(ProfessionalReview.created_at.desc())
-        .offset(offset)
+        .order_by(ProfessionalReview.created_at.desc(), ProfessionalReview.id.desc())
         .limit(limit)
         .options(selectinload(ProfessionalReview.reviewer))
     )
+    if cursor_created_at is not None and cursor_id is not None:
+        items_query = items_query.where(
+            or_(
+                ProfessionalReview.created_at < cursor_created_at,
+                and_(
+                    ProfessionalReview.created_at == cursor_created_at,
+                    ProfessionalReview.id < cursor_id,
+                ),
+            )
+        )
+    else:
+        items_query = items_query.offset(offset)
+
+    items_result = await db.execute(items_query)
     reviews = items_result.scalars().all()
 
     return ReviewPageOut(
@@ -1250,6 +1364,7 @@ async def update_my_professional_editor_payload(
     prof.location = primary_area["city_name"] if primary_area else fallback_location
     prof.latitude = primary_area["latitude"] if primary_area else None
     prof.longitude = primary_area["longitude"] if primary_area else None
+    prof.profile_completeness = _compute_profile_completeness(professional=prof)
 
     await _replace_professional_children(
         db=db,
@@ -1301,8 +1416,9 @@ async def get_professional_by_username(
     include_education = await _has_professional_education_table(db)
     result = await db.execute(
         select(Professional)
+        .join(User, User.id == Professional.user_id)
         .options(*_professional_load_options(include_education=include_education))
-        .where(Professional.username == username)
+        .where(Professional.username == username, User.user_status == "verified")
     )
     prof = result.scalar_one_or_none()
     if prof is None:

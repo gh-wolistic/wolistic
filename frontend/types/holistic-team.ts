@@ -3,9 +3,14 @@ export type HolisticTeamProfessionalCard = {
   username: string;
   name: string;
   specialization: string;
+  category?: string;
+  location?: string;
   image?: string;
   rating: number;
   reviewCount: number;
+  experienceYears: number;
+  membershipTier?: string;
+  isOnline: boolean;
 };
 
 export type HolisticTeamMember = {

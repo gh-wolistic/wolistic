@@ -8,9 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.auth import AuthenticatedUser, get_current_user
+from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.models.holistic_team import HolisticTeam, HolisticTeamMember
 from app.models.professional import Professional
+from app.models.user import User
 from app.schemas.holistic_team import (
     CreateHolisticTeamIn,
     HolisticTeamBackfillResponse,
@@ -25,6 +27,7 @@ from app.services.ai.professional_search import rank_professional_profiles
 from app.api.routes.professionals import _flatten_professional
 
 router = APIRouter(prefix="/holistic-teams", tags=["holistic-teams"])
+settings = get_settings()
 _TEAM_ROLES = ("body", "mind", "diet")
 
 
@@ -69,6 +72,14 @@ def _member_mode(profile: dict) -> str:
 def _is_strict_team_composition(members: list[HolisticTeamMember]) -> bool:
     if len(members) != 3:
         return False
+    for member in members:
+        professional = member.professional
+        if professional is None:
+            return False
+        if (professional.user.user_status if professional.user else None) != "verified":
+            return False
+        if int(professional.profile_completeness or 0) < settings.PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY:
+            return False
     roles = [str(member.role or "").strip().lower() for member in members]
     return sorted(roles) == sorted(_TEAM_ROLES)
 
@@ -182,9 +193,14 @@ def _to_out(team: HolisticTeam) -> HolisticTeamOut:
             username=prof.username,
             name=prof.user.full_name or prof.username,
             specialization=prof.specialization,
+            category=prof.subcategories[0].name if prof.subcategories else None,
+            location=prof.location,
             image=prof.profile_image_url,
             rating=float(prof.rating_avg) if prof.rating_avg is not None else 0,
             review_count=prof.rating_count,
+            experience_years=prof.experience_years,
+            membership_tier=prof.membership_tier,
+            is_online=prof.is_online,
         )
         members.append(
             HolisticTeamMemberOut(
@@ -228,7 +244,6 @@ async def _generate_engine_team_if_needed(
         select(HolisticTeam)
         .options(selectinload(HolisticTeam.members))
         .where(
-            HolisticTeam.is_active.is_(True),
             HolisticTeam.source_type == "engine_generated",
             HolisticTeam.scope == scope,
             HolisticTeam.query_tag == normalized_query,
@@ -239,25 +254,69 @@ async def _generate_engine_team_if_needed(
     if any(_is_strict_team_composition(team.members) for team in existing_teams):
         return
 
-    for existing_team in existing_teams:
-        existing_team.is_active = False
+    candidate_result = await db.execute(
+        select(
+            Professional.user_id,
+            Professional.username,
+            User.full_name,
+            Professional.specialization,
+            Professional.location,
+            Professional.short_bio,
+            Professional.about,
+            Professional.rating_avg,
+            Professional.rating_count,
+            Professional.experience_years,
+            Professional.membership_tier,
+        )
+        .join(User, User.id == Professional.user_id)
+        .where(
+            User.user_status == "verified",
+            Professional.profile_completeness >= settings.PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY,
+        )
+        .order_by(Professional.rating_avg.desc(), Professional.rating_count.desc())
+        .limit(220)
+    )
+    candidate_profiles: list[dict] = []
+    for row in candidate_result.all():
+        candidate_profiles.append(
+            {
+                "id": row.user_id,
+                "username": row.username,
+                "name": row.full_name or row.username,
+                "specialization": row.specialization,
+                "category": row.specialization,
+                "location": row.location,
+                "short_bio": row.short_bio,
+                "about": row.about,
+                "approach": None,
+                "subcategories": [],
+                "specializations": [],
+                "rating": float(row.rating_avg) if row.rating_avg is not None else 0,
+                "review_count": int(row.rating_count or 0),
+                "experience_years": int(row.experience_years or 0),
+                "membership_tier": row.membership_tier,
+                "is_online": False,
+            }
+        )
 
-    if existing_teams:
-        await db.flush()
+    ranked_candidates = rank_professional_profiles(candidate_profiles, normalized_query, limit=90)
+    ranked_ids = [item["id"] for item in ranked_candidates]
+    if not ranked_ids:
+        return
 
     prof_result = await db.execute(
         select(Professional)
+        .join(User, User.id == Professional.user_id)
         .options(
             selectinload(Professional.user),
             selectinload(Professional.services),
             selectinload(Professional.subcategories),
             selectinload(Professional.expertise_areas),
         )
-        .order_by(Professional.rating_avg.desc(), Professional.rating_count.desc())
-        .limit(250)
+        .where(Professional.user_id.in_(ranked_ids))
     )
-    professionals = prof_result.scalars().all()
-    flattened = [_flatten_professional(p) for p in professionals]
+    by_id = {p.user_id: p for p in prof_result.scalars().all()}
+    flattened = [_flatten_professional(by_id[prof_id]) for prof_id in ranked_ids if prof_id in by_id]
     ranked = rank_professional_profiles(flattened, normalized_query, limit=60)
     if not ranked:
         return
@@ -312,10 +371,63 @@ def _base_query() -> Select[tuple[HolisticTeam]]:
     return (
         select(HolisticTeam)
         .options(
-            selectinload(HolisticTeam.members).selectinload(HolisticTeamMember.professional).selectinload(Professional.user)
+            selectinload(HolisticTeam.members).selectinload(HolisticTeamMember.professional).selectinload(Professional.user),
+            selectinload(HolisticTeam.members).selectinload(HolisticTeamMember.professional).selectinload(Professional.subcategories),
         )
         .where(HolisticTeam.is_active.is_(True))
     )
+
+
+def _matches_user_preferences(
+    team: HolisticTeam,
+    *,
+    mode: str | None,
+    min_price: float | None,
+    max_price: float | None,
+) -> bool:
+    normalized_mode = (mode or "").strip().lower()
+    if normalized_mode and team.mode != normalized_mode:
+        return False
+
+    pricing = float(team.pricing_amount)
+    if min_price is not None and pricing < min_price:
+        return False
+    if max_price is not None and pricing > max_price:
+        return False
+    return True
+
+
+def _recommended_sort_key(
+    team: HolisticTeam,
+    *,
+    normalized_query: str | None,
+    mode: str | None,
+    min_price: float | None,
+    max_price: float | None,
+) -> tuple[float, float, float, float, float]:
+    pricing = float(team.pricing_amount)
+
+    price_distance = 0.0
+    if min_price is not None and pricing < min_price:
+        price_distance += min_price - pricing
+    if max_price is not None and pricing > max_price:
+        price_distance += pricing - max_price
+
+    mode_penalty = 0.0
+    normalized_mode = (mode or "").strip().lower()
+    if normalized_mode and team.mode != normalized_mode:
+        mode_penalty = 1.0
+
+    is_query_match = 0.0
+    if normalized_query:
+        if team.query_tag == normalized_query or normalized_query in (team.keywords or []):
+            is_query_match = -1.0
+
+    strict_match_penalty = 0.0 if _matches_user_preferences(team, mode=mode, min_price=min_price, max_price=max_price) else 1.0
+    source_penalty = 0.0 if team.source_type == "engine_generated" else 1.0
+    recency_score = -team.created_at.timestamp()
+
+    return (is_query_match, strict_match_penalty + mode_penalty, price_distance, source_penalty, recency_score)
 
 
 @router.get("", response_model=HolisticTeamListResponse)
@@ -329,6 +441,8 @@ async def list_holistic_teams(
     sort: str = Query(default="recommended"),
     db: AsyncSession = Depends(get_db_session),
 ) -> HolisticTeamListResponse:
+    target_min_results = 6
+
     await _generate_engine_team_if_needed(
         db=db,
         query=q,
@@ -339,31 +453,57 @@ async def list_holistic_teams(
     )
 
     query = _base_query().where(HolisticTeam.scope == scope)
+    normalized_query = q.strip().lower() if q.strip() else None
     if q.strip():
-        normalized = q.strip().lower()
         query = query.where(
-            (HolisticTeam.query_tag == normalized)
-            | HolisticTeam.keywords.contains([normalized])
+            (HolisticTeam.query_tag == normalized_query)
+            | HolisticTeam.keywords.contains([normalized_query])
         )
-    if mode:
-        query = query.where(HolisticTeam.mode == mode)
     if package_type:
         query = query.where(HolisticTeam.package_type == package_type)
-    if min_price is not None:
-        query = query.where(HolisticTeam.pricing_amount >= min_price)
-    if max_price is not None:
-        query = query.where(HolisticTeam.pricing_amount <= max_price)
 
-    if sort == "price_asc":
-        query = query.order_by(HolisticTeam.pricing_amount.asc(), HolisticTeam.created_at.desc())
-    elif sort == "price_desc":
-        query = query.order_by(HolisticTeam.pricing_amount.desc(), HolisticTeam.created_at.desc())
-    else:
-        query = query.order_by(HolisticTeam.source_type.asc(), HolisticTeam.created_at.desc())
+    query = query.order_by(HolisticTeam.source_type.asc(), HolisticTeam.created_at.desc())
 
-    result = await db.execute(query.limit(50))
+    result = await db.execute(query.limit(80))
     teams = result.scalars().unique().all()
     valid_teams = [team for team in teams if _is_strict_team_composition(team.members)]
+
+    # If query-specific teams are unavailable or too few, immediately backfill
+    # with additional scope-level teams to avoid sparse/empty funnel results.
+    if normalized_query and len(valid_teams) < target_min_results:
+        fallback_query = _base_query().where(HolisticTeam.scope == scope)
+        if package_type:
+            fallback_query = fallback_query.where(HolisticTeam.package_type == package_type)
+        fallback_query = fallback_query.order_by(HolisticTeam.source_type.asc(), HolisticTeam.created_at.desc())
+        fallback_result = await db.execute(fallback_query.limit(80))
+        fallback_teams = fallback_result.scalars().unique().all()
+        fallback_valid_teams = [team for team in fallback_teams if _is_strict_team_composition(team.members)]
+
+        existing_ids = {str(team.id) for team in valid_teams}
+        for fallback_team in fallback_valid_teams:
+            fallback_id = str(fallback_team.id)
+            if fallback_id in existing_ids:
+                continue
+            valid_teams.append(fallback_team)
+            existing_ids.add(fallback_id)
+            if len(valid_teams) >= target_min_results:
+                break
+
+    if sort == "price_asc":
+        valid_teams.sort(key=lambda team: (float(team.pricing_amount), -team.created_at.timestamp()))
+    elif sort == "price_desc":
+        valid_teams.sort(key=lambda team: (-float(team.pricing_amount), -team.created_at.timestamp()))
+    else:
+        valid_teams.sort(
+            key=lambda team: _recommended_sort_key(
+                team,
+                normalized_query=normalized_query,
+                mode=mode,
+                min_price=min_price,
+                max_price=max_price,
+            )
+        )
+
     return HolisticTeamListResponse(items=[_to_out(team) for team in valid_teams])
 
 
