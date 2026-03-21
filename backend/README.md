@@ -47,6 +47,16 @@ This creates only one table:
 
 - `users` (UUID primary key)
 
+### Migration reset (v1.1 baseline)
+
+If you need to squash historical migration history and keep only a new baseline, follow:
+
+- `backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md`
+- `backend/alembic/MIGRATION_V1_1_MANIFEST.md`
+
+Do not delete `backend/alembic/versions` directly on active environments.
+Use a controlled `baseline + stamp` rollout.
+
 ## 3) Start API
 
 ```bash

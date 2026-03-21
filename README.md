@@ -183,6 +183,8 @@ Current platform capabilities include:
 - [Project Status](docs/AI_DONT_DELETE_PROJECT_STATUS_VISION.md)
 - [Canonical Worklist](docs/AI_DONT_DELETE_TODO_WORKLIST.md)
 - [Docs Index](docs/README.md)
+- [Migration v1.1 Runbook](backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md)
+- [Migration v1.1 Manifest](backend/alembic/MIGRATION_V1_1_MANIFEST.md)
 
 ## Contributing
 

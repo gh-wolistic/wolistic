@@ -5,6 +5,12 @@ Last updated: 2026-03-21
 This is the single source of truth for active work tracking in `docs/`.
 
 ## P0 Active Work
+- [ ] Migration history reset (v1.1 baseline)
+	- [x] Generate and review baseline migration from current schema
+	- [x] Archive pre-v1.1 migration files after baseline approval
+	- [x] Stamp existing environments to v1.1 revision
+	- [x] Validate fresh-db `upgrade head` path and existing-db stamped path
+	- [ ] Tag release and update status docs
 - [ ] Payment production hardening
 	- [ ] Confirm cryptographic signature verification and strict failure handling for verification paths
 	- [ ] Ensure webhook reconciliation paths are fully tested and observable

@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "1"
     container_name: backend
     env_file:
       - .env
@@ -22,6 +24,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        INSTALL_DEV_DEPS: "1"
     container_name: featured-index-worker
     env_file:
       - .env

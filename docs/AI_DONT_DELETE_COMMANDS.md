@@ -40,7 +40,29 @@ docker compose run --rm backend alembic history
 
 # View current migration
 docker compose run --rm backend alembic current
+
+# View current heads
+docker compose run --rm backend alembic heads
+
+# Stamp an existing database to a target revision (no DDL replay)
+docker compose run --rm backend alembic stamp <revision_id>
 ```
+
+### Migration Baseline Reset (v1.1)
+```powershell
+cd backend
+
+# Generate a new baseline candidate from current schema
+docker compose run --rm backend alembic revision --autogenerate -m "v1_1_baseline_schema"
+
+# Validate migration graph after cleanup
+docker compose run --rm backend alembic history
+docker compose run --rm backend alembic heads
+```
+
+Runbook:
+
+- `backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md`
 
 ### Testing & Debugging
 ```powershell

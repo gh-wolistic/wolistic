@@ -70,9 +70,21 @@ class SequenceSession:
 class PaymentOrderSession:
     def __init__(self) -> None:
         self.added: list[object] = []
+        self._execute_call_count = 0
 
     async def execute(self, _query: object) -> ScalarResult:
-        return ScalarResult((PROFESSIONAL_ID, "dr-sarah-chen"))
+        self._execute_call_count += 1
+        if self._execute_call_count == 1:
+            # Professional lookup by username.
+            return ScalarResult(PROFESSIONAL_ID)
+        if self._execute_call_count == 2:
+            # Service pricing lookup tuple: price, offers, offer_type, offer_value.
+            return ScalarResult((Decimal("1499"), None, None, None))
+        if self._execute_call_count == 4:
+            # Payment service does its own professional lookup returning id + username.
+            return ScalarResult((PROFESSIONAL_ID, "dr-sarah-chen"))
+        # Promotional eligibility lookup returns no prior claimed row.
+        return ScalarResult(None)
 
     def add(self, obj: object) -> None:
         self.added.append(obj)

@@ -18,6 +18,17 @@ This folder contains architecture and execution documents for the Wolistic monor
 - `AI_DONT_DELETE_HOLISTIC_PLAN_MVP_V1.md`
 - `AI_DONT_DELETE_PIVOT_TO_MIN_MVP.md`
 
+## Migration Runbooks
+
+- `../backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md`
+- `../backend/alembic/MIGRATION_V1_1_MANIFEST.md`
+
+## Migration Scripts
+
+- `../backend/alembic/scripts/v1_1_archive_legacy_versions.ps1`
+- `../backend/alembic/scripts/v1_1_stamp_existing_db.ps1`
+- `../backend/alembic/scripts/v1_1_preflight_check.ps1`
+
 ## Conventions
 
 - Do not create new ad-hoc todo files in this folder.

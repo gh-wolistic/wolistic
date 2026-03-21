@@ -5,6 +5,7 @@ Last updated: 2026-03-21
 ## Current Status
 
 ### Completed and running in codebase
+- Migration history reset complete to v1.1 baseline (`f577acd2eef7`) with archived pre-v1.1 revisions
 - FastAPI backend with versioned API routing and modular route groups
 - Async SQLAlchemy + Alembic migration workflow
 - Supabase-backed auth boundary with backend JWT verification
@@ -16,6 +17,7 @@ Last updated: 2026-03-21
 - Legacy `holistic-plan` route redirected to `holistic-team`
 - Internal admin app and backend admin endpoints are present
 - Backend tests cover health, auth, booking auth/flow, featured card strategy, geo city resolution, and search ranking behavior
+- Docker backend images support optional dev dependencies at build time, and pytest runs in fresh containers without ad-hoc installs
 
 ### In-progress platform direction
 - Continue strengthening the listing/search/discovery loop while maintaining booking conversion quality
