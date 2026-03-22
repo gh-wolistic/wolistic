@@ -115,38 +115,6 @@ export function usePaymentFlow({
         token ?? undefined,
       );
 
-      if (order.mode === "free") {
-        setPaymentSubmitting(false);
-        onStatusResolved("success", "/authorized");
-        return;
-      }
-
-      if (order.mode === "mock") {
-        const verifyResult = await verifyPaymentWithToken(
-          {
-            razorpay_order_id: order.orderId,
-            razorpay_payment_id: `pay_demo_${Date.now()}`,
-            razorpay_signature: "mock_signature",
-            booking_reference: order.bookingReference,
-            next_route: "/authorized",
-            professional_username: professionalUsername,
-            service_name: serviceName,
-            booking_at: bookingAt,
-            is_immediate: Boolean(isImmediate),
-          },
-          token ?? undefined,
-        );
-
-        const mockStatus: PaymentStatus =
-          verifyResult.status === "success" || verifyResult.status === "failure" || verifyResult.status === "pending"
-            ? verifyResult.status
-            : "pending";
-
-        setPaymentSubmitting(false);
-        onStatusResolved(mockStatus, verifyResult.nextRoute || "/authorized");
-        return;
-      }
-
       const scriptLoaded = await loadRazorpayScript();
       if (!scriptLoaded || !window.Razorpay) {
         throw new Error("Unable to load Razorpay checkout script.");

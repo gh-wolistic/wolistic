@@ -1,4 +1,4 @@
-export type PaymentMode = "mock" | "live" | "free";
+export type PaymentMode = "live";
 
 export type PaymentStatus = "success" | "failure" | "pending";
 

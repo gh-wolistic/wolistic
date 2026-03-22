@@ -8,8 +8,8 @@ from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from app.core.config import get_settings
+import app.models  # noqa: F401
 from app.models.base import Base
-from app.models.user import User  # noqa: F401
 
 config = context.config
 settings = get_settings()

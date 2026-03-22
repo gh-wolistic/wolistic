@@ -58,8 +58,8 @@ def _generate_booking_reference() -> str:
     return f"bk_{uuid.uuid4().hex}"
 
 
-def _is_promotional_service(service_name: str, amount: Decimal) -> bool:
-    return service_name.strip().lower() == "initial consultation" or amount <= Decimal("0")
+def _is_promotional_service(service_name: str, _amount: Decimal) -> bool:
+    return service_name.strip().lower() == "initial consultation"
 
 
 def _compute_discounted_amount(
@@ -153,10 +153,7 @@ async def _has_claimed_promotional_service(
         .where(
             Booking.professional_id == professional_id,
             Booking.client_user_id == user_id,
-            or_(
-                func.lower(func.trim(Booking.service_name)) == "initial consultation",
-                BookingPayment.provider == "free",
-            ),
+            func.lower(func.trim(Booking.service_name)) == "initial consultation",
             or_(
                 Booking.status == "confirmed",
                 BookingPayment.status == "success",

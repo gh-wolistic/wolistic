@@ -89,76 +89,6 @@ function toCamelReview(raw: Record<string, unknown>): ProfessionalReview {
   };
 }
 
-function tokenize(value: string): string[] {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function filterAndRankProfilesLocally(items: ProfessionalProfile[], query: string, limit: number): ProfessionalProfile[] {
-  const q = query.trim().toLowerCase();
-  if (!q) {
-    return items.slice(0, limit);
-  }
-
-  const queryTokens = tokenize(q);
-  const aliases = new Set(queryTokens);
-  if (aliases.has("sara")) aliases.add("sarah");
-  if (aliases.has("sarah")) aliases.add("sara");
-  if (aliases.has("diet")) aliases.add("nutrition");
-  if (aliases.has("nutrition")) aliases.add("diet");
-  if (aliases.has("strength")) {
-    aliases.add("conditioning");
-    aliases.add("fitness");
-    aliases.add("training");
-  }
-
-  const scored = items
-    .map((profile) => {
-      const haystack = [
-        profile.name,
-        profile.username,
-        profile.specialization,
-        profile.category,
-        profile.shortBio,
-        profile.about,
-        profile.approach,
-        ...(profile.subcategories ?? []),
-        ...(profile.specializations ?? []),
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-
-      let score = 0;
-      for (const token of aliases) {
-        if (token.length < 3) {
-          continue;
-        }
-        if (haystack.includes(token)) {
-          score += 1;
-        }
-      }
-
-      if (score < 1) {
-        return null;
-      }
-
-      return {
-        profile,
-        score: score + (profile.rating || 0) * 0.05,
-      };
-    })
-    .filter((value): value is { profile: ProfessionalProfile; score: number } => value !== null)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, limit)
-    .map((item) => item.profile);
-
-  return scored;
-}
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -258,22 +188,6 @@ export async function searchProfessionals(query: string, limit = 24): Promise<Pr
   if (res.ok) {
     const items = (await res.json()) as Record<string, unknown>[];
     return items.map(toCamelProfile);
-  }
-
-  // Compatibility fallback while /professionals/search is not deployed.
-  if (res.status === 404) {
-    const featuredLimit = Math.min(Math.max(safeLimit, 8), 20);
-    const fallback = await fetch(
-      `${API_BASE}/professionals/featured?limit=${encodeURIComponent(String(featuredLimit))}`,
-      { cache: "force-cache", next: { revalidate: 60 } },
-    );
-    if (!fallback.ok) {
-      return [];
-    }
-
-    const items = (await fallback.json()) as Record<string, unknown>[];
-    const profiles = items.map(toCamelProfile);
-    return filterAndRankProfilesLocally(profiles, query, safeLimit);
   }
 
   throw new Error(`API error ${res.status}`);

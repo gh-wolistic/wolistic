@@ -21,9 +21,7 @@ from app.schemas.wolistic import (
 )
 from app.services.ai.professional_search import rank_professional_profiles
 from app.services.ai.wolistic_search import rank_articles, rank_products, rank_services
-
-# Re-use the flatten helper from professionals.py to avoid duplication
-from app.api.routes.professionals import _flatten_professional as _flatten_prof
+from app.api.serializers.professional import flatten_professional
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 settings = get_settings()
@@ -113,7 +111,7 @@ async def wolistic_search(
         .where(Professional.user_id.in_(ranked_ids))
     )
     by_id = {prof.user_id: prof for prof in detailed_result.scalars().all()}
-    ranked_profs = [_flatten_prof(by_id[prof_id]) for prof_id in ranked_ids if prof_id in by_id]
+    ranked_profs = [flatten_professional(by_id[prof_id]) for prof_id in ranked_ids if prof_id in by_id]
     professionals_out = [ProfessionalProfileOut(**p) for p in ranked_profs]
 
     # ── Products ──────────────────────────────────────────────────────────────

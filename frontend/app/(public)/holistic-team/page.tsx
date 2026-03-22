@@ -7,6 +7,7 @@ import { CalendarClock, Package, SlidersHorizontal } from "lucide-react";
 
 import { ProfessionalFeatureCard } from "@/components/public/cards/ProfessionalFeatureCard";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { useAuthModal } from "@/components/auth/AuthModalProvider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +22,8 @@ import type { ProfessionalProfile } from "@/types/professional";
 export default function HolisticTeamPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated } = useAuthSession();
+  const { isAuthenticated, status } = useAuthSession();
+  const { openAuthSidebar } = useAuthModal();
 
   const query = searchParams.get("q") ?? "";
   const scope = searchParams.get("scope") ?? "professionals";
@@ -148,11 +150,22 @@ export default function HolisticTeamPage() {
   );
 
   const requireLogin = (nextHref: string) => {
+    if (status === "loading") {
+      return;
+    }
+
     if (isAuthenticated) {
       router.push(nextHref);
       return;
     }
-    router.push(`/authorized?next=${encodeURIComponent(nextHref)}`);
+    openAuthSidebar({
+      redirectNextPath: nextHref,
+      title: "Sign in to continue",
+      description: "Your selected team context is preserved.",
+      onAuthenticated: () => {
+        router.push(nextHref);
+      },
+    });
   };
 
   const buildMemberServicesHref = (member: HolisticTeam["members"][number]) => {
@@ -203,7 +216,7 @@ export default function HolisticTeamPage() {
             {query.trim() && <Badge variant="secondary">Query: {query.trim()}</Badge>}
           </div>
           <div className="flex gap-3 flex-wrap">
-            <Button variant="outline" onClick={() => requireLogin(`/holistic-team/create${contextSearch}`)}>
+            <Button variant="outline" disabled={status === "loading"} onClick={() => requireLogin(`/holistic-team/create${contextSearch}`)}>
               I want to create my own team
             </Button>
           </div>

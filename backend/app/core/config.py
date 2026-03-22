@@ -15,8 +15,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SUPABASE_URL: AnyHttpUrl
     SUPABASE_ANON_KEY: str = ""
-    PAYMENT_PROVIDER: str = "mock"
-    PAYMENT_MOCK_DEFAULT_STATUS: str = "success"
+    PAYMENT_PROVIDER: str = "razorpay"
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
@@ -40,18 +39,8 @@ class Settings(BaseSettings):
     @classmethod
     def validate_payment_provider(cls, value: str) -> str:
         normalized = value.strip().lower()
-        if normalized not in {"mock", "razorpay"}:
-            raise ValueError("PAYMENT_PROVIDER must be either 'mock' or 'razorpay'")
-        return normalized
-
-    @field_validator("PAYMENT_MOCK_DEFAULT_STATUS")
-    @classmethod
-    def validate_payment_mock_default_status(cls, value: str) -> str:
-        normalized = value.strip().lower()
-        if normalized not in {"success", "failure", "pending"}:
-            raise ValueError(
-                "PAYMENT_MOCK_DEFAULT_STATUS must be one of 'success', 'failure', or 'pending'"
-            )
+        if normalized != "razorpay":
+            raise ValueError("PAYMENT_PROVIDER must be 'razorpay'")
         return normalized
 
     @field_validator("RAZORPAY_KEY_ID", "RAZORPAY_KEY_SECRET", "RAZORPAY_WEBHOOK_SECRET")

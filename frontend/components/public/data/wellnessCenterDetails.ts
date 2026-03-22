@@ -1,5 +1,8 @@
-import { getFeaturedWellnessCenters } from "@/components/public/data/wellnessCentersApi";
 import type { WolisticService } from "@/types/wolistic";
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+  "http://localhost:8000/api/v1";
 
 export type WellnessCenterDetail = WolisticService & {
   timings: string[];
@@ -10,43 +13,6 @@ export type WellnessCenterDetail = WolisticService & {
   testimonials: Array<{ name: string; quote: string }>;
   gallery: string[];
 };
-
-const DEFAULT_TIMINGS = [
-  "Mon-Fri: 6:00 AM - 9:30 PM",
-  "Saturday: 7:00 AM - 8:00 PM",
-  "Sunday: 8:00 AM - 6:00 PM",
-];
-
-const DEFAULT_FACILITIES = [
-  "Shower and changing rooms",
-  "Filtered hydration station",
-  "Clean equipment and sanitization protocol",
-  "Beginner-friendly onboarding",
-];
-
-const DEFAULT_PROGRAMS = [
-  "Guided mobility and recovery",
-  "Mind-body wellness sessions",
-  "Strength and posture routines",
-  "Lifestyle and routine coaching",
-];
-
-const DEFAULT_SPECIALISTS = [
-  "Certified movement coach",
-  "Functional nutrition advisor",
-  "Mindfulness facilitator",
-];
-
-const DEFAULT_TESTIMONIALS = [
-  {
-    name: "Ananya R.",
-    quote: "The team made wellness feel practical and sustainable in my work schedule.",
-  },
-  {
-    name: "Rohit M.",
-    quote: "Clear guidance, consistent follow-up, and a welcoming center environment.",
-  },
-];
 
 function buildPricingRange(tags: string[]): string {
   const normalized = tags.join(" ").toLowerCase();
@@ -60,26 +26,41 @@ function buildPricingRange(tags: string[]): string {
 }
 
 export async function getWellnessCenterDetailById(centerId: string): Promise<WellnessCenterDetail | null> {
-  const centers = await getFeaturedWellnessCenters(8);
-  const center = centers.find((item) => item.id === centerId);
+  const response = await fetch(`${API_BASE}/wellness-centers/${encodeURIComponent(centerId)}`, {
+    cache: "force-cache",
+    next: { revalidate: 300 },
+  });
 
-  if (!center) {
+  if (response.status === 404) {
     return null;
   }
+  if (!response.ok) {
+    throw new Error(`Unable to load wellness center (${response.status})`);
+  }
+
+  const raw = (await response.json()) as Record<string, unknown>;
+  const center: WolisticService = {
+    id: String(raw.id || ""),
+    title: String(raw.title || ""),
+    type: String(raw.type || ""),
+    location: String(raw.location || ""),
+    imageUrl: raw.image_url ? String(raw.image_url) : undefined,
+    websiteName: raw.website_name ? String(raw.website_name) : undefined,
+    websiteUrl: raw.website_url ? String(raw.website_url) : undefined,
+    tags: Array.isArray(raw.tags) ? raw.tags.map((item) => String(item)) : [],
+  };
 
   const normalizedTags = center.tags.map((tag) => tag.trim()).filter(Boolean);
-  const programs = normalizedTags.length > 0
-    ? Array.from(new Set([...normalizedTags.map((tag) => `${tag} program`), ...DEFAULT_PROGRAMS])).slice(0, 6)
-    : DEFAULT_PROGRAMS;
+  const programs = Array.from(new Set(normalizedTags.map((tag) => `${tag} program`))).slice(0, 6);
 
   return {
     ...center,
-    timings: DEFAULT_TIMINGS,
-    facilities: DEFAULT_FACILITIES,
+    timings: [],
+    facilities: [],
     programs,
-    specialists: DEFAULT_SPECIALISTS,
+    specialists: [],
     pricingRange: buildPricingRange(normalizedTags),
-    testimonials: DEFAULT_TESTIMONIALS,
-    gallery: [center.imageUrl, center.imageUrl, center.imageUrl].filter((value): value is string => Boolean(value)),
+    testimonials: [],
+    gallery: [center.imageUrl].filter((value): value is string => Boolean(value)),
   };
 }

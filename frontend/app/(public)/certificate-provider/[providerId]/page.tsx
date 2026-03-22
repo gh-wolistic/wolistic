@@ -4,7 +4,7 @@ import { ArrowLeft, ExternalLink, ShieldCheck } from "lucide-react";
 import { notFound } from "next/navigation";
 
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
-import { certificateProviderResults } from "@/components/public/results/results-data";
+import { getCatalogServiceById } from "@/components/public/data/catalogApi";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,24 +16,20 @@ type CertificateProviderDetailsPageProps = {
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
 
-function findProvider(providerId: string) {
-  return certificateProviderResults.find((provider) => provider.id === providerId);
-}
-
 function getProviderDescription(providerName: string, accreditationBody: string) {
   return `${providerName} offers certification tracks aligned with ${accreditationBody}, with clear verification and eligibility guidance.`;
 }
 
 export async function generateMetadata({ params }: CertificateProviderDetailsPageProps): Promise<Metadata> {
   const { providerId } = await params;
-  const provider = findProvider(providerId);
+  const provider = await getCatalogServiceById(providerId);
 
   if (!provider) {
     return { title: "Certificate Provider Not Found", robots: { index: false, follow: true } };
   }
 
-  const title = `${provider.name} | Certificate Provider`;
-  const description = getProviderDescription(provider.name, provider.accreditationBody);
+  const title = `${provider.name} | Service Provider`;
+  const description = getProviderDescription(provider.name, provider.accreditationBody || provider.serviceType || "accreditation standards");
   const canonicalPath = `/certificate-provider/${provider.id}`;
 
   return {
@@ -44,7 +40,7 @@ export async function generateMetadata({ params }: CertificateProviderDetailsPag
       title,
       description,
       url: `${siteUrl}${canonicalPath}`,
-      images: provider.image ? [{ url: provider.image }] : undefined,
+      images: provider.imageUrl ? [{ url: provider.imageUrl }] : undefined,
       type: "website",
     },
     twitter: {
@@ -58,7 +54,7 @@ export async function generateMetadata({ params }: CertificateProviderDetailsPag
 export default async function CertificateProviderDetailsPage({ params, searchParams }: CertificateProviderDetailsPageProps) {
   const { providerId } = await params;
   const query = searchParams ? await searchParams : undefined;
-  const provider = findProvider(providerId);
+  const provider = await getCatalogServiceById(providerId);
 
   if (!provider) {
     notFound();
@@ -85,7 +81,7 @@ export default async function CertificateProviderDetailsPage({ params, searchPar
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
             <div className="relative aspect-square sm:aspect-5/4">
-              <ImageWithFallback src={provider.image} alt={provider.name} className="h-full w-full object-cover" />
+              <ImageWithFallback src={provider.imageUrl} alt={provider.name} className="h-full w-full object-cover" />
             </div>
           </Card>
 
@@ -93,21 +89,21 @@ export default async function CertificateProviderDetailsPage({ params, searchPar
             <div className="space-y-3">
               <h1 className="text-3xl font-semibold tracking-tight lg:text-4xl">{provider.name}</h1>
               <p className="text-base leading-relaxed text-muted-foreground">
-                {getProviderDescription(provider.name, provider.accreditationBody)}
+                {getProviderDescription(provider.name, provider.accreditationBody || provider.serviceType || "accreditation standards")}
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">{provider.accreditationBody}</Badge>
-              <Badge variant="outline">{provider.format}</Badge>
-              <Badge variant="outline">{provider.duration}</Badge>
+              {provider.accreditationBody ? <Badge variant="secondary">{provider.accreditationBody}</Badge> : null}
+              {provider.deliveryFormat ? <Badge variant="outline">{provider.deliveryFormat}</Badge> : null}
+              {provider.duration ? <Badge variant="outline">{provider.duration}</Badge> : null}
               <Badge variant="outline" className="gap-1.5"><ShieldCheck size={12} /> Verifiable certificate</Badge>
             </div>
 
             <Card className="space-y-2 rounded-2xl p-4 text-sm text-muted-foreground">
-              <p><span className="font-medium text-foreground">Eligibility:</span> {provider.eligibility}</p>
-              <p><span className="font-medium text-foreground">Fees:</span> {provider.fees}</p>
-              <p><span className="font-medium text-foreground">Verification:</span> {provider.verificationMethod}</p>
+              {provider.eligibility ? <p><span className="font-medium text-foreground">Eligibility:</span> {provider.eligibility}</p> : null}
+              {provider.fees ? <p><span className="font-medium text-foreground">Fees:</span> {provider.fees}</p> : null}
+              {provider.verificationMethod ? <p><span className="font-medium text-foreground">Verification:</span> {provider.verificationMethod}</p> : null}
             </Card>
 
             <div className="space-y-3">

@@ -8,10 +8,28 @@ import { AuthAppProvider } from "@/components/auth/AuthAppProvider";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { DASHBOARD_V1_PATHS, getDashboardV1Path } from "@/components/dashboard/v1/routing";
 
+function getSafeNextPath(rawNext: string | null): string | null {
+  if (!rawNext) {
+    return null;
+  }
+
+  const value = rawNext.trim();
+  if (!value.startsWith("/") || value.startsWith("//")) {
+    return null;
+  }
+
+  if (value === "/authorized" || value.startsWith("/authorized?")) {
+    return null;
+  }
+
+  return value;
+}
+
 function AuthorizedGate() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paymentStatus = searchParams.get("payment_status");
+  const nextPath = getSafeNextPath(searchParams.get("next"));
   const { status, user } = useAuthSession();
 
   useEffect(() => {
@@ -49,8 +67,13 @@ function AuthorizedGate() {
       return;
     }
 
+    if (nextPath) {
+      router.replace(nextPath);
+      return;
+    }
+
     router.replace(dashboardPath);
-  }, [paymentStatus, router, status, user]);
+  }, [nextPath, paymentStatus, router, status, user]);
 
   return <Loading />;
 }

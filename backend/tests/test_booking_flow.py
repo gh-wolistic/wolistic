@@ -12,16 +12,22 @@ os.environ.setdefault(
     "postgresql+asyncpg://postgres:postgres@localhost:5432/postgres?sslmode=disable",
 )
 os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
-os.environ["PAYMENT_PROVIDER"] = "mock"
-os.environ["PAYMENT_MOCK_DEFAULT_STATUS"] = "success"
-os.environ.pop("RAZORPAY_KEY_ID", None)
-os.environ.pop("RAZORPAY_KEY_SECRET", None)
-os.environ.pop("RAZORPAY_WEBHOOK_SECRET", None)
+os.environ["PAYMENT_PROVIDER"] = "razorpay"
+os.environ["RAZORPAY_KEY_ID"] = "rzp_test_example"
+os.environ["RAZORPAY_KEY_SECRET"] = "secret_123"
+os.environ["RAZORPAY_WEBHOOK_SECRET"] = "webhook_secret_123"
 
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.config import get_settings
 from app.models.booking import Booking, BookingPayment
-from app.services.payments.providers.base import PaymentVerificationRequest
+from app.services.payments import service as payment_service
+from app.services.payments.providers.base import (
+    PaymentOrderRequest,
+    PaymentOrderResult,
+    PaymentVerificationRequest,
+    PaymentVerificationResult,
+    PaymentWebhookEvent,
+)
 from app.services.payments.providers.razorpay import RazorpayPaymentProvider
 
 get_settings.cache_clear()
@@ -32,6 +38,34 @@ from app.main import app
 
 USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 PROFESSIONAL_ID = uuid.UUID("00000000-0000-0000-0000-000000000002")
+
+
+class DeterministicTestProvider:
+    def create_order(self, request: PaymentOrderRequest) -> PaymentOrderResult:
+        return PaymentOrderResult(
+            provider="razorpay",
+            mode="live",
+            key_id="rzp_test_example",
+            order_id="order_test_1",
+            amount_subunits=int(round(request.amount * 100)),
+            currency=request.currency,
+            provider_payload={"id": "order_test_1"},
+        )
+
+    def verify_payment(self, request: PaymentVerificationRequest) -> PaymentVerificationResult:
+        return PaymentVerificationResult(
+            status="success",
+            provider_payment_id=request.payment_id,
+            provider_signature=request.signature,
+            provider_payload={
+                "razorpay_order_id": request.order_id,
+                "razorpay_payment_id": request.payment_id,
+                "razorpay_signature": request.signature,
+            },
+        )
+
+    def parse_webhook(self, payload: bytes, signature: str) -> PaymentWebhookEvent | None:
+        return None
 
 
 class ScalarListResult:
@@ -145,6 +179,8 @@ def test_create_payment_order_generates_booking_reference() -> None:
 
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_db_session] = override_get_db_session
+    original_get_payment_provider = payment_service.get_payment_provider
+    payment_service.get_payment_provider = lambda _settings: DeterministicTestProvider()
     client = TestClient(app)
 
     try:
@@ -161,6 +197,7 @@ def test_create_payment_order_generates_booking_reference() -> None:
         )
     finally:
         app.dependency_overrides.clear()
+        payment_service.get_payment_provider = original_get_payment_provider
 
     assert response.status_code == 200
     payload = response.json()
@@ -238,7 +275,7 @@ def test_booking_history_surfaces_immediate_bookings() -> None:
     assert payload["past_bookings"] == []
 
 
-def test_verify_payment_uses_backend_owned_mock_resolution() -> None:
+def test_verify_payment_uses_backend_owned_resolution() -> None:
     created_at = datetime(2026, 3, 13, 10, 0, tzinfo=timezone.utc)
     booking = Booking(
         id=7,
@@ -269,6 +306,8 @@ def test_verify_payment_uses_backend_owned_mock_resolution() -> None:
 
     app.dependency_overrides[get_current_user] = override_get_current_user
     app.dependency_overrides[get_db_session] = override_get_db_session
+    original_get_payment_provider = payment_service.get_payment_provider
+    payment_service.get_payment_provider = lambda _settings: DeterministicTestProvider()
     client = TestClient(app)
 
     try:
@@ -277,7 +316,7 @@ def test_verify_payment_uses_backend_owned_mock_resolution() -> None:
             json={
                 "razorpay_order_id": "order_mock_1",
                 "razorpay_payment_id": "pay_demo_1",
-                "razorpay_signature": "mock_signature",
+                "razorpay_signature": "signature_demo_1",
                 "booking_reference": "bk_verify_001",
                 "next_route": "/authorized",
                 "professional_username": "dr-sarah-chen",
@@ -287,6 +326,7 @@ def test_verify_payment_uses_backend_owned_mock_resolution() -> None:
         )
     finally:
         app.dependency_overrides.clear()
+        payment_service.get_payment_provider = original_get_payment_provider
 
     assert response.status_code == 200
     payload = response.json()
@@ -294,7 +334,7 @@ def test_verify_payment_uses_backend_owned_mock_resolution() -> None:
     assert booking.status == "confirmed"
     assert payment.status == "success"
     assert payment.provider_payment_id == "pay_demo_1"
-    assert payment.provider_signature == "mock_signature"
+    assert payment.provider_signature == "signature_demo_1"
     assert payment.verified_at is not None
     assert session.commit_count == 1
 

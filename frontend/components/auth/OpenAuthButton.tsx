@@ -12,10 +12,17 @@ type OpenAuthButtonProps = Omit<ButtonProps, "onClick"> & {
 };
 
 export function OpenAuthButton({ children, ...props }: OpenAuthButtonProps) {
-  const { openAuthModal } = useAuthModal();
+  const { openAuthSidebar } = useAuthModal();
+
+  const handleOpen = () => {
+    openAuthSidebar({
+      title: "Sign in to continue",
+      description: "Pick up right where you left off.",
+    });
+  };
 
   return (
-    <Button {...props} onClick={openAuthModal}>
+    <Button {...props} onClick={handleOpen}>
       {children}
     </Button>
   );

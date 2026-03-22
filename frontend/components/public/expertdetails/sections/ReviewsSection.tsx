@@ -150,7 +150,7 @@ export function ReviewsSection({ professionalId }: ReviewsSectionProps) {
                   {getRelativeTimeLabel(review.createdAt)}
                 </span>
               </div>
-              <p className="break-words text-sm text-muted-foreground sm:text-base">{review.comment}</p>
+              <p className="wrap-break-word text-sm text-muted-foreground sm:text-base">{review.comment}</p>
               </div>
             ))}
 

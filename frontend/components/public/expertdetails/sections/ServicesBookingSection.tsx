@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { useAuthModal } from "@/components/auth/AuthModalProvider";
 import { UserOnboardingFlow } from "@/components/onboarding/UserOnboardingFlow";
 import { BookingOnboardingStep } from "@/components/onboarding/booking/BookingOnboardingStep";
 import {
@@ -17,18 +18,15 @@ import {
   type PersistedBookingDraft,
 } from "@/components/onboarding/booking/storage";
 import { useBookingOnboarding } from "@/components/onboarding/booking/useBookingOnboarding";
-import { markBookingFlowAutoClientSelection } from "@/components/onboarding/storage";
 import { mapUserProfileToDashboardRole, type OnboardingSelection } from "@/components/onboarding/types";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { usePaymentFlow } from "@/components/payment/hooks/usePaymentFlow";
 import type { PaymentStatus } from "@/components/payment/types";
-import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import { useSessionStore } from "@/store/session";
 import type { ProfessionalProfile } from "@/types/professional";
-import { login, signup, updateUserOnboardingSelection } from "@/components/public/data/authApi";
+import { updateUserOnboardingSelection } from "@/components/public/data/authApi";
 import { getPromotionalEligibility } from "@/components/public/data/bookingApi";
 import { ScheduleStep } from "./booking-steps/ScheduleStep";
-import { AuthStep } from "./booking-steps/AuthStep";
 import { useBookingSchedule } from "./booking-hooks/useBookingSchedule";
 
 type ServicesBookingSectionProps = {
@@ -52,7 +50,8 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const router = useRouter();
   const user = useSessionStore((state) => state.user);
   const token = useSessionStore((state) => state.token);
-  const { user: authSessionUser, accessToken: authSessionToken } = useAuthSession();
+  const { user: authSessionUser, accessToken: authSessionToken, status: authStatus } = useAuthSession();
+  const { openAuthSidebar } = useAuthModal();
   const setAuthSession = useSessionStore((state) => state.setAuthSession);
   const setRole = useSessionStore((state) => state.setRole);
 
@@ -91,15 +90,13 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const [selectedServiceIndex, setSelectedServiceIndex] = useState(initialConsultationIndex);
 
   const [authMode, setAuthMode] = useState<AuthMode>("signup");
-  const [authForm, setAuthForm] = useState({ name: "", email: "", password: "" });
-  const [authError, setAuthError] = useState<string | null>(null);
-  const [authSubmitting, setAuthSubmitting] = useState(false);
   const [promotionalAlreadyClaimed, setPromotionalAlreadyClaimed] = useState(false);
   const [userOnboardingError, setUserOnboardingError] = useState<string | null>(null);
   const [userOnboardingSubmitting, setUserOnboardingSubmitting] = useState(false);
   const restoredDraftRef = useRef(false);
   const resumeAfterAuthRef = useRef<PersistedBookingDraft | null>(null);
   const isAutoResumingAfterAuthRef = useRef(false);
+  const authSidebarOpenedForStepRef = useRef(false);
   const bookingFlowRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -257,8 +254,8 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     professionalUsername: professional.username,
     professionalName: professional.name,
     serviceName: selectedService.name,
-    customerName: effectiveUser?.name || authForm.name || undefined,
-    customerEmail: effectiveUser?.email || authForm.email || undefined,
+    customerName: effectiveUser?.name || undefined,
+    customerEmail: effectiveUser?.email || undefined,
     bookingAt: selectedSchedule.bookingAtIso || undefined,
     isImmediate: isImmediateBooking,
     token: effectiveToken ?? undefined,
@@ -484,11 +481,53 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     setBookingStep("payment");
   };
 
+  function openBookingAuthSidebar() {
+    const draft: PersistedBookingDraft = {
+      professionalUsername: professional.username,
+      serviceIndex: selectedServiceIndex,
+      bookingStep: bookingStep === "user-onboarding" ? "user-onboarding" : "auth",
+      authMode,
+      preferredTiming,
+      selectedDateIso: selectedDate ? selectedDate.toISOString() : null,
+      selectedTimeSlot,
+      isImmediateBooking,
+      questionForm,
+      questionAnswers,
+    };
+
+    resumeAfterAuthRef.current = draft;
+    isAutoResumingAfterAuthRef.current = false;
+    persistBookingFlowDraft(draft);
+
+    const nextPath = `${window.location.pathname}${window.location.search}`;
+    openAuthSidebar({
+      redirectNextPath: `${nextPath}#services`,
+      defaultMode: authMode,
+      title: "Sign in to continue booking",
+      description: "Your selected slot and answers are saved.",
+    });
+  }
+
+  useEffect(() => {
+    if (bookingStep !== "auth") {
+      authSidebarOpenedForStepRef.current = false;
+      return;
+    }
+
+    if (authStatus === "loading" || effectiveUser || authSidebarOpenedForStepRef.current) {
+      return;
+    }
+
+    authSidebarOpenedForStepRef.current = true;
+    openBookingAuthSidebar();
+  }, [authStatus, bookingStep, effectiveUser, openBookingAuthSidebar]);
+
   const handleQuestionsSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     if (!effectiveUser) {
       setBookingStep("auth");
+      openBookingAuthSidebar();
       return;
     }
 
@@ -511,97 +550,16 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const isPromotionalService = (serviceName: string, price: number) =>
     serviceName.trim().toLowerCase() === "initial consultation" || price === 0;
 
-  const handleAuthSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAuthSubmitting(true);
-    setAuthError(null);
-
-    try {
-      const authResult =
-        authMode === "signup"
-          ? await signup({
-              email: authForm.email,
-              password: authForm.password,
-              full_name: authForm.name,
-              user_type: "client",
-            })
-          : await login({
-              email: authForm.email,
-              password: authForm.password,
-            });
-
-      const resolvedUser =
-        authMode === "signup"
-          ? await updateUserOnboardingSelection(
-              { userType: "client", userSubtype: "client" },
-              authResult.access_token,
-            )
-          : authResult.user;
-
-      setAuthSession({
-        user: {
-          id: resolvedUser.id,
-          email: resolvedUser.email,
-          name: resolvedUser.full_name,
-          type: resolvedUser.user_type ?? undefined,
-          userSubtype: resolvedUser.user_subtype,
-          userRole: resolvedUser.user_role,
-          onboardingRequired: resolvedUser.onboarding_required,
-        },
-        token: authResult.access_token,
-      });
-      setRole(mapUserProfileToDashboardRole(resolvedUser.user_type, resolvedUser.user_subtype));
-
-      setBookingStep(resolvedUser.onboarding_required ? "user-onboarding" : "payment");
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unable to authenticate. Please try again.";
-      setAuthError(message);
-    } finally {
-      setAuthSubmitting(false);
-    }
-  };
-
   const handlePaymentSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    await submitPayment();
-  };
 
-  const handleGoogleAuth = async () => {
-    try {
-      setAuthSubmitting(true);
-      setAuthError(null);
-      markBookingFlowAutoClientSelection();
-      persistBookingFlowDraft({
-        professionalUsername: professional.username,
-        serviceIndex: selectedServiceIndex,
-        bookingStep: "auth",
-        authMode,
-        preferredTiming,
-        selectedDateIso: selectedDate ? selectedDate.toISOString() : null,
-        selectedTimeSlot,
-        isImmediateBooking,
-        questionForm,
-        questionAnswers,
-      });
-
-      const supabase = getSupabaseBrowserClient();
-      const redirectTo = window.location.href;
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-        },
-      });
-
-      if (error) {
-        setAuthError(error.message);
-        clearBookingFlowDraft();
-      }
-    } catch (error) {
-      clearBookingFlowDraft();
-      setAuthError(error instanceof Error ? error.message : "Unable to continue with Google.");
-      setAuthSubmitting(false);
+    if (!effectiveUser) {
+      setBookingStep("auth");
+      openBookingAuthSidebar();
+      return;
     }
+
+    await submitPayment();
   };
 
   const handleUserOnboardingSubmit = async (selection: OnboardingSelection) => {
@@ -899,16 +857,19 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
             )}
 
             {bookingStep === "auth" && (
-              <AuthStep
-                authMode={authMode}
-                authForm={authForm}
-                authError={authError}
-                authSubmitting={authSubmitting}
-                onSubmit={handleAuthSubmit}
-                onGoogleAuth={() => void handleGoogleAuth()}
-                onModeToggle={() => setAuthMode((previous) => (previous === "signup" ? "login" : "signup"))}
-                onChange={(field, value) => setAuthForm((previous) => ({ ...previous, [field]: value }))}
-              />
+              <div className="mt-5 space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-500/30 dark:bg-emerald-500/10">
+                <h4 className="text-base font-semibold">Sign in to continue</h4>
+                <p className="text-sm text-muted-foreground">
+                  We saved your booking progress. Continue securely from the auth sidebar.
+                </p>
+                <Button
+                  type="button"
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                  onClick={openBookingAuthSidebar}
+                >
+                  Open auth sidebar
+                </Button>
+              </div>
             )}
 
             {bookingStep === "user-onboarding" && (

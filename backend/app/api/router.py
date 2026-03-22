@@ -4,6 +4,7 @@ from app.api.routes.admin import router as admin_router
 from app.api.routes.ai import router as ai_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.booking import router as booking_router
+from app.api.routes.catalog import router as catalog_router
 from app.api.routes.favourites import router as favourites_router
 from app.api.routes.health import router as health_router
 from app.api.routes.holistic_teams import router as holistic_teams_router
@@ -22,6 +23,7 @@ api_router.include_router(booking_router)
 api_router.include_router(favourites_router)
 api_router.include_router(professionals_router)
 api_router.include_router(products_router)
+api_router.include_router(catalog_router)
 api_router.include_router(wellness_centers_router)
 api_router.include_router(intake_router)
 api_router.include_router(search_router)

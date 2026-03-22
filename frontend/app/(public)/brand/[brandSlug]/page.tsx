@@ -4,9 +4,9 @@ import { ArrowLeft, BadgeCheck, ExternalLink, ShieldCheck, Sparkles, Star } from
 import { notFound } from "next/navigation";
 
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
+import { getCatalogBrandBySlug } from "@/components/public/data/catalogApi";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { getBrandBySlug, slugifyBrandName } from "@/components/public/results/brand-utils";
 
 type BrandDetailsPageProps = {
   params: Promise<{ brandSlug: string }>;
@@ -39,7 +39,7 @@ function sortProducts<T extends { rating: number; price: number; name: string }>
 
 export async function generateMetadata({ params }: BrandDetailsPageProps): Promise<Metadata> {
   const { brandSlug } = await params;
-  const brand = getBrandBySlug(brandSlug);
+  const brand = await getCatalogBrandBySlug(brandSlug);
 
   if (!brand) {
     return { title: "Brand Not Found", robots: { index: false, follow: true } };
@@ -57,7 +57,7 @@ export async function generateMetadata({ params }: BrandDetailsPageProps): Promi
       title,
       description,
       url: `${siteUrl}${canonicalPath}`,
-      images: brand.heroImage ? [{ url: brand.heroImage }] : undefined,
+      images: brand.heroImageUrl ? [{ url: brand.heroImageUrl }] : undefined,
       type: "website",
     },
     twitter: {
@@ -71,7 +71,7 @@ export async function generateMetadata({ params }: BrandDetailsPageProps): Promi
 export default async function BrandDetailsPage({ params, searchParams }: BrandDetailsPageProps) {
   const { brandSlug } = await params;
   const query = searchParams ? await searchParams : undefined;
-  const brand = getBrandBySlug(brandSlug);
+  const brand = await getCatalogBrandBySlug(brandSlug);
 
   if (!brand) {
     notFound();
@@ -116,8 +116,8 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
             <div className="relative aspect-square sm:aspect-5/4">
-              {brand.heroImage ? (
-                <ImageWithFallback src={brand.heroImage} alt={brand.name} className="h-full w-full object-cover" />
+              {brand.heroImageUrl ? (
+                <ImageWithFallback src={brand.heroImageUrl} alt={brand.name} className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full bg-muted" />
               )}
@@ -147,13 +147,11 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
               <Badge variant="outline" className="gap-1.5"><Sparkles size={12} /> Curated for wellness</Badge>
             </div>
 
-            {brand.websiteDomains.length > 0 ? (
+            {brand.websiteUrl ? (
               <div className="space-y-2">
                 <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Official domains</p>
                 <div className="flex flex-wrap gap-2">
-                  {brand.websiteDomains.map((domain) => (
-                    <Badge key={domain} variant="secondary">{domain}</Badge>
-                  ))}
+                  {brand.websiteUrl ? <Badge variant="secondary">{new URL(brand.websiteUrl).hostname}</Badge> : null}
                 </div>
               </div>
             ) : null}
@@ -207,14 +205,14 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
                 <Card key={product.id} className="overflow-hidden rounded-2xl border border-border/80">
                   <div className="aspect-4/3 overflow-hidden">
                     <ImageWithFallback
-                      src={product.image}
+                      src={product.imageUrl}
                       alt={product.name}
                       className="h-full w-full object-cover"
                     />
                   </div>
                   <div className="space-y-2 p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge variant="secondary">{product.category}</Badge>
+                      {product.category ? <Badge variant="secondary">{product.category}</Badge> : null}
                       <span className="text-xs text-muted-foreground">{product.rating.toFixed(1)} rating</span>
                     </div>
                     <h3 className="line-clamp-2 text-sm font-semibold">{product.name}</h3>
@@ -252,7 +250,7 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
         <section id="services" className="space-y-4">
           <h2 className="text-2xl font-semibold tracking-tight">Services</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {brand.services.map((service) => (
+            {brand.categories.map((service) => (
               <Card key={service} className="rounded-2xl p-4 text-sm text-muted-foreground">
                 {service}
               </Card>

@@ -1,9 +1,21 @@
+import {
+  getCatalogBrands,
+  getCatalogInfluencers,
+  getCatalogProducts,
+  getCatalogServices,
+} from "@/components/public/data/catalogApi";
 import { searchProfessionals } from "@/components/public/data/professionalsApi";
 import { getFeaturedWellnessCenters } from "@/components/public/data/wellnessCentersApi";
 import type { ProfessionalProfile } from "@/types/professional";
+import type {
+  CatalogBrandSummary,
+  CatalogInfluencer,
+  CatalogProduct,
+  CatalogService,
+} from "@/types/catalog";
 import type { WolisticService } from "@/types/wolistic";
 
-import { scopeOptions } from "./results-data";
+import { scopeOptions } from "@/components/public/results/results-data";
 import { ResultsGrid } from "./ResultsGrid";
 import { ResultsScopeTabs } from "./ResultsScopeTabs";
 import { ResultsStickyBar } from "./ResultsStickyBar";
@@ -89,6 +101,10 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
 
   let professionals: ProfessionalProfile[] = [];
   let wellnessCenters: WolisticService[] = [];
+  let products: CatalogProduct[] = [];
+  let brands: CatalogBrandSummary[] = [];
+  let services: CatalogService[] = [];
+  let influencers: CatalogInfluencer[] = [];
   let totalPages = 1;
   let safePage = 1;
 
@@ -122,6 +138,22 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
       : allCenters;
   }
 
+  if (scope === "products") {
+    products = await getCatalogProducts({ query, category, limit: 60 });
+  }
+
+  if (scope === "brands") {
+    brands = await getCatalogBrands({ query, limit: 60 });
+  }
+
+  if (scope === "services") {
+    services = await getCatalogServices({ query, limit: 60 });
+  }
+
+  if (scope === "influencers") {
+    influencers = await getCatalogInfluencers({ query, limit: 60 });
+  }
+
   const returnTo = safePage > 1 ? `${baseHref}&page=${safePage}` : baseHref;
 
   return (
@@ -140,6 +172,10 @@ export async function ResultsPage({ scope, query, category, currentPage }: Resul
             returnTo={returnTo}
             professionals={professionals}
             wellnessCenters={wellnessCenters}
+            products={products}
+            brands={brands}
+            services={services}
+            influencers={influencers}
             pagination={scope === "professionals" ? { currentPage: safePage, totalPages, baseHref } : undefined}
           />
         </div>

@@ -68,6 +68,11 @@ class HolisticTeamBackfillResponse(BaseModel):
     created: int
 
 
+class HolisticTeamBackfillIn(BaseModel):
+    queries: list[str] = Field(default_factory=list)
+    scope: str = Field(default="professionals", max_length=50)
+
+
 class PrepareHolisticTeamIn(BaseModel):
     query: str = Field(min_length=1, max_length=300)
     scope: str = Field(default="professionals", max_length=50)

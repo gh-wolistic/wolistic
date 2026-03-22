@@ -4,7 +4,7 @@ import { Building2, MapPin, ShoppingBag, Stethoscope, Users } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui/utils";
 
-import { scopeOptions } from "./results-data";
+import { scopeOptions } from "@/components/public/results/results-data";
 import type { ResultsScope } from "./results-types";
 
 const scopeIcons = {

@@ -20,17 +20,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PresenceChip, RatingChip, StatusChip } from "@/components/ui";
 import { getRoleAccentFromProfessional } from "@/lib/professionalRoleAccent";
-
-import {
-  certificateProviderResults,
-  influencerResults,
-  productResults,
-  scopeOptions,
-} from "./results-data";
-import { slugifyBrandName } from "./brand-utils";
-import type { ResultsScope } from "./results-types";
+import type {
+  CatalogBrandSummary,
+  CatalogInfluencer,
+  CatalogProduct,
+  CatalogService,
+} from "@/types/catalog";
 import type { ProfessionalProfile } from "@/types/professional";
 import type { WolisticService } from "@/types/wolistic";
+
+import {
+  scopeOptions,
+} from "@/components/public/results/results-data";
+import type { ResultsScope } from "./results-types";
 
 type ResultsGridProps = {
   scope: ResultsScope;
@@ -38,6 +40,10 @@ type ResultsGridProps = {
   returnTo: string;
   professionals: ProfessionalProfile[];
   wellnessCenters: WolisticService[];
+  products: CatalogProduct[];
+  brands: CatalogBrandSummary[];
+  services: CatalogService[];
+  influencers: CatalogInfluencer[];
   pagination?: {
     currentPage: number;
     totalPages: number;
@@ -122,7 +128,18 @@ function buildPageItems(currentPage: number, totalPages: number): Array<number |
   return items;
 }
 
-export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCenters, pagination }: ResultsGridProps) {
+export function ResultsGrid({
+  scope,
+  query,
+  returnTo,
+  professionals,
+  wellnessCenters,
+  products,
+  brands,
+  services,
+  influencers,
+  pagination,
+}: ResultsGridProps) {
   if (scope === "professionals") {
     if (professionals.length < 1) {
       return (
@@ -338,9 +355,20 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
   }
 
   if (scope === "products") {
+    if (products.length < 1) {
+      return (
+        <div className="rounded-3xl border border-dashed border-border p-10 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">No matching products found</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Try changing your query or filters.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {productResults.map((product) => {
+        {products.map((product) => {
           let destinationDomain: string | null = null;
 
           if (product.externalUrl) {
@@ -374,15 +402,17 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                   <RatingChip value={product.rating} textClassName="text-sm" />
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{product.category}</Badge>
+                  {product.category ? <Badge variant="secondary">{product.category}</Badge> : null}
                   {product.isFeatured ? <StatusChip label="Featured" tone="featured" /> : null}
                 </div>
-                <p className="text-sm leading-relaxed text-muted-foreground">{product.description}</p>
+                {product.description ? (
+                  <p className="text-sm leading-relaxed text-muted-foreground">{product.description}</p>
+                ) : null}
                 <div className="flex items-end justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Brand</p>
                     <Link
-                      href={`/brand/${slugifyBrandName(product.brandName)}?returnTo=${encodeURIComponent(returnTo)}`}
+                      href={`/brand/${product.brandSlug}?returnTo=${encodeURIComponent(returnTo)}`}
                       className="relative z-30 text-sm font-semibold tracking-tight hover:underline"
                     >
                       {product.brandName}
@@ -403,7 +433,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                 <p className="text-xs text-muted-foreground">
                   {destinationDomain
                     ? `Opens brand site: ${destinationDomain}`
-                    : "Static product card preview for future marketplace results."}
+                    : "Catalog product listing from backend."}
                 </p>
               </div>
             </article>
@@ -414,71 +444,12 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
   }
 
   if (scope === "brands") {
-    const brandCards = Array.from(
-      productResults.reduce((map, product) => {
-        const slug = slugifyBrandName(product.brandName);
-        const existing = map.get(slug);
-
-        if (!existing) {
-          map.set(slug, {
-            slug,
-            name: product.brandName,
-            image: product.image,
-            categories: new Set<string>([product.category]),
-            productNames: new Set<string>([product.name]),
-            productCount: 1,
-            totalRating: product.rating,
-            minPrice: product.price,
-            maxPrice: product.price,
-          });
-          return map;
-        }
-
-        existing.categories.add(product.category);
-  existing.productNames.add(product.name);
-        existing.productCount += 1;
-        existing.totalRating += product.rating;
-        existing.minPrice = Math.min(existing.minPrice, product.price);
-        existing.maxPrice = Math.max(existing.maxPrice, product.price);
-        if (!existing.image && product.image) {
-          existing.image = product.image;
-        }
-
-        return map;
-      }, new Map<string, {
-        slug: string;
-        name: string;
-        image?: string;
-        categories: Set<string>;
-        productNames: Set<string>;
-        productCount: number;
-        totalRating: number;
-        minPrice: number;
-        maxPrice: number;
-      }>()).values(),
-    );
-
-    const normalizedQuery = query.trim().toLowerCase();
-    const filteredBrandCards = normalizedQuery
-      ? brandCards.filter((brand) => {
-        const searchable = [
-          brand.name,
-          ...Array.from(brand.categories),
-          ...Array.from(brand.productNames),
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return searchable.includes(normalizedQuery);
-      })
-      : brandCards;
-
-    if (filteredBrandCards.length < 1) {
+    if (brands.length < 1) {
       return (
         <div className="rounded-3xl border border-dashed border-border p-10 text-center">
           <h2 className="text-2xl font-semibold tracking-tight">No matching brands found</h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            Try searching by brand name, category, or a product keyword.
+             Try searching by name or brand keyword.
           </p>
         </div>
       );
@@ -486,9 +457,8 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
 
     return (
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {filteredBrandCards.map((brand) => {
-          const averageRating = brand.totalRating / brand.productCount;
-          const categoriesLabel = Array.from(brand.categories).slice(0, 2).join(" • ");
+        {brands.map((brand) => {
+          const categoriesLabel = brand.categories.slice(0, 2).join(" • ");
 
           return (
             <Link
@@ -497,9 +467,9 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
               className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
               <div className="aspect-5/3 overflow-hidden bg-muted">
-                {brand.image ? (
+                {brand.heroImageUrl ? (
                   <ImageWithFallback
-                    src={brand.image}
+                    src={brand.heroImageUrl}
                     alt={brand.name}
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                   />
@@ -518,7 +488,7 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
 
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">{brand.productCount} products</Badge>
-                  <Badge variant="outline">{averageRating.toFixed(1)} rating</Badge>
+                  <Badge variant="outline">{brand.avgRating.toFixed(1)} rating</Badge>
                 </div>
 
                 <div className="text-sm text-muted-foreground">
@@ -607,32 +577,12 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
   }
 
   if (scope === "services") {
-    const normalizedQuery = query.trim().toLowerCase();
-    const filteredProviders = normalizedQuery
-      ? certificateProviderResults.filter((provider) => {
-        const searchable = [
-          provider.name,
-          provider.accreditationBody,
-          provider.eligibility,
-          provider.duration,
-          provider.format,
-          provider.fees,
-          provider.verificationMethod,
-          ...provider.focusAreas,
-        ]
-          .join(" ")
-          .toLowerCase();
-
-        return searchable.includes(normalizedQuery);
-      })
-      : certificateProviderResults;
-
-    if (filteredProviders.length < 1) {
+    if (services.length < 1) {
       return (
         <div className="rounded-3xl border border-dashed border-border p-10 text-center">
-          <h2 className="text-2xl font-semibold tracking-tight">No matching certificate providers found</h2>
+          <h2 className="text-2xl font-semibold tracking-tight">No matching services found</h2>
           <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
-            Try searching by provider, accreditation body, format, or certification focus area.
+            Try searching by provider, accreditation, format, or focus area.
           </p>
         </div>
       );
@@ -640,44 +590,44 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
 
     return (
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {filteredProviders.map((provider) => (
+        {services.map((service) => (
           <article
-            key={provider.id}
+            key={service.id}
             className="group relative overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
           >
             <Link
-              href={`/certificate-provider/${provider.id}?returnTo=${encodeURIComponent(returnTo)}`}
-              aria-label={`Open details for ${provider.name}`}
+              href={`/certificate-provider/${service.id}?returnTo=${encodeURIComponent(returnTo)}`}
+              aria-label={`Open details for ${service.name}`}
               className="absolute inset-0 z-10"
             />
 
             <div className="aspect-5/3 overflow-hidden bg-muted">
               <ImageWithFallback
-                src={provider.image}
-                alt={provider.name}
+                src={service.imageUrl}
+                alt={service.name}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               />
             </div>
 
             <div className="relative z-20 space-y-4 p-6">
               <div className="space-y-1">
-                <h3 className="text-lg font-semibold tracking-tight">{provider.name}</h3>
-                <p className="text-sm text-muted-foreground">{provider.accreditationBody}</p>
+                <h3 className="text-lg font-semibold tracking-tight">{service.name}</h3>
+                <p className="text-sm text-muted-foreground">{service.accreditationBody || service.serviceType}</p>
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{provider.format}</Badge>
-                <Badge variant="outline">{provider.duration}</Badge>
+                {service.deliveryFormat ? <Badge variant="secondary">{service.deliveryFormat}</Badge> : null}
+                {service.duration ? <Badge variant="outline">{service.duration}</Badge> : null}
               </div>
 
               <div className="space-y-1 text-sm text-muted-foreground">
-                <p>Eligibility: {provider.eligibility}</p>
-                <p>Fees: {provider.fees}</p>
+                {service.eligibility ? <p>Eligibility: {service.eligibility}</p> : null}
+                {service.fees ? <p>Fees: {service.fees}</p> : null}
               </div>
 
               <div className="flex flex-wrap gap-1.5">
-                {provider.focusAreas.slice(0, 3).map((area) => (
-                  <Badge key={`${provider.id}-${area}`} variant="outline" className="text-[11px]">
+                {service.focusAreas.slice(0, 3).map((area) => (
+                  <Badge key={`${service.id}-${area}`} variant="outline" className="text-[11px]">
                     {area}
                   </Badge>
                 ))}
@@ -694,17 +644,28 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
   }
 
   if (scope === "influencers") {
+    if (influencers.length < 1) {
+      return (
+        <div className="rounded-3xl border border-dashed border-border p-10 text-center">
+          <h2 className="text-2xl font-semibold tracking-tight">No matching influencers found</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-muted-foreground">
+            Try a different query.
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="space-y-12">
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-          {influencerResults.map((influencer) => (
+          {influencers.map((influencer) => (
             <article
               key={influencer.id}
               className="group overflow-hidden rounded-3xl border border-border bg-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg dark:hover:shadow-black/30"
             >
               <div className="aspect-square overflow-hidden">
                 <ImageWithFallback
-                  src={influencer.image}
+                  src={influencer.imageUrl}
                   alt={influencer.name}
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
@@ -713,16 +674,24 @@ export function ResultsGrid({ scope, query, returnTo, professionals, wellnessCen
                 <div>
                   <h3 className="text-lg font-semibold tracking-tight">{influencer.name}</h3>
                 </div>
-                <Badge variant="secondary">{influencer.focus}</Badge>
+                {influencer.focus ? <Badge variant="secondary">{influencer.focus}</Badge> : null}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Users size={16} />
                   <span>
                     {new Intl.NumberFormat("en-US", { notation: "compact" }).format(influencer.followerCount)} followers
                   </span>
                 </div>
-                <p className="text-sm leading-relaxed text-muted-foreground">{influencer.content}</p>
-                <Button className="w-full" variant="outline">
-                  Profile coming soon
+                {influencer.contentSummary ? (
+                  <p className="text-sm leading-relaxed text-muted-foreground">{influencer.contentSummary}</p>
+                ) : null}
+                <Button className="w-full" variant="outline" asChild={Boolean(influencer.profileUrl)}>
+                  {influencer.profileUrl ? (
+                    <a href={influencer.profileUrl} target="_blank" rel="noopener noreferrer nofollow">
+                      Open profile
+                    </a>
+                  ) : (
+                    <span>Profile coming soon</span>
+                  )}
                 </Button>
               </div>
             </article>

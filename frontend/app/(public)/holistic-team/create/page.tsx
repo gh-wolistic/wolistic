@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Check, Mail, Search, UserPlus } from "lucide-react";
 
 import { createHolisticTeam } from "@/components/public/data/holisticTeamsApi";
 import { searchProfessionals } from "@/components/public/data/professionalsApi";
-import { useSessionStore } from "@/store/session";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { useAuthModal } from "@/components/auth/AuthModalProvider";
 import { Button } from "@/components/ui/button";
 
 type TeamRole = "body" | "mind" | "diet";
@@ -27,7 +28,8 @@ type MemberRow = {
 export default function CreateHolisticTeamPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const authToken = useSessionStore((state) => state.token);
+  const { accessToken, isAuthenticated, status } = useAuthSession();
+  const { openAuthSidebar } = useAuthModal();
 
   const query = searchParams.get("q") ?? "";
   const scope = searchParams.get("scope") ?? "professionals";
@@ -48,8 +50,6 @@ export default function CreateHolisticTeamPage() {
   const [submitting, setSubmitting] = useState(false);
   const latestSearchRunByIndex = useRef<Record<number, number>>({});
 
-  const isLoggedIn = !!authToken;
-
   const parsedKeywords = useMemo(
     () => keywords.split(",").map((item) => item.trim()).filter(Boolean),
     [keywords],
@@ -68,6 +68,24 @@ export default function CreateHolisticTeamPage() {
   }, [query, scope]);
 
   const roleLabel = (role: TeamRole) => role.charAt(0).toUpperCase() + role.slice(1);
+
+  useEffect(() => {
+    if (status === "loading") {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      const nextPath = `/holistic-team/create${contextSearch}`;
+      openAuthSidebar({
+        redirectNextPath: nextPath,
+        title: "Sign in to create a team",
+        description: "You need an account before inviting experts.",
+        onAuthenticated: () => {
+          router.replace(nextPath);
+        },
+      });
+    }
+  }, [contextSearch, isAuthenticated, openAuthSidebar, router, status]);
 
   const updateRow = (index: number, patch: Partial<MemberRow>) => {
     setMemberRows((previous) => {
@@ -147,9 +165,16 @@ export default function CreateHolisticTeamPage() {
     event.preventDefault();
     setError(null);
 
-    if (!isLoggedIn || !authToken) {
-      const nextPath = `/holistic-team/create?q=${encodeURIComponent(query)}&scope=${encodeURIComponent(scope)}`;
-      router.push(`/authorized?next=${encodeURIComponent(nextPath)}`);
+    if (!isAuthenticated || !accessToken) {
+      const nextPath = `/holistic-team/create${contextSearch}`;
+      openAuthSidebar({
+        redirectNextPath: nextPath,
+        title: "Sign in to create a team",
+        description: "You need an account before inviting experts.",
+        onAuthenticated: () => {
+          router.replace(nextPath);
+        },
+      });
       return;
     }
 
@@ -189,7 +214,7 @@ export default function CreateHolisticTeamPage() {
           pricingCurrency: "INR",
           members,
         },
-        authToken,
+        accessToken,
       );
       router.replace(`/holistic-team/${team.id}?q=${encodeURIComponent(query)}&scope=${encodeURIComponent(scope)}`);
     } catch (err) {

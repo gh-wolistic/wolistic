@@ -243,7 +243,7 @@ export default function ExpertReviewPage() {
               <Sparkles size={16} />
               We&apos;ll ask you 4 quick questions (takes about 60 seconds).
             </div>
-            <h1 className="text-3xl md:text-4xl font-semibold">Let&apos;s create your expert-backed plan.</h1>
+            <h1 className="text-3xl md:text-4xl font-semibold">Let&apos;s us help you with your journey.</h1>
             <p className="text-slate-300 max-w-2xl">
               We&apos;ll keep it light and focused. Preview the questions below.
             </p>
@@ -273,7 +273,7 @@ export default function ExpertReviewPage() {
 
             <div className="rounded-2xl border border-white/10 bg-emerald-900/30 backdrop-blur-sm p-6 flex flex-col justify-between shadow-lg shadow-emerald-900/30">
               <div className="space-y-2">
-                <p className="text-sm text-emerald-100/80">How this fast-tracks your plan</p>
+                <p className="text-sm text-emerald-100/80">How this fast-tracks your journey</p>
                 <ul className="text-slate-100 text-sm space-y-2">
                   <li className="flex gap-2">• We can find the right expert for you</li>
                   <li className="flex gap-2">• Experts can start planning your personalized plan immediately</li>
@@ -375,7 +375,7 @@ export default function ExpertReviewPage() {
                 <p className="text-sm text-emerald-100/80">What happens next?</p>
                 <ul className="text-sm text-slate-100 space-y-2">
                   <li className="flex gap-2">• Experts review your answers</li>
-                  <li className="flex gap-2">• We tailor a balanced Wolistic plan</li>
+                  <li className="flex gap-2">• Initial consultation</li>
                   <li className="flex gap-2">• You get a clear, actionable plan to follow</li>
                   <li className="flex gap-2">• You won&apos;t have to do this alone.</li>
                 </ul>

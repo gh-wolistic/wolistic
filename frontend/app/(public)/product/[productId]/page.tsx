@@ -3,12 +3,14 @@ import Link from "next/link";
 import { ArrowLeft, ExternalLink, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { notFound } from "next/navigation";
 
+import {
+  getCatalogProductById,
+  getCatalogProducts,
+} from "@/components/public/data/catalogApi";
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { slugifyBrandName } from "@/components/public/results/brand-utils";
-import { productResults } from "@/components/public/results/results-data";
 
 type ProductDetailsPageProps = {
   params: Promise<{ productId: string }>;
@@ -16,10 +18,6 @@ type ProductDetailsPageProps = {
 };
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
-
-function findProduct(productId: string) {
-  return productResults.find((product) => product.id === productId);
-}
 
 function getOverview(productName: string, brandName: string) {
   return `${productName} by ${brandName} is curated for practical wellness routines and long-term consistency.`;
@@ -60,7 +58,7 @@ function getFaq(productName: string) {
 
 export async function generateMetadata({ params }: ProductDetailsPageProps): Promise<Metadata> {
   const { productId } = await params;
-  const product = findProduct(productId);
+  const product = await getCatalogProductById(productId);
 
   if (!product) {
     return { title: "Product Not Found", robots: { index: false, follow: true } };
@@ -78,7 +76,7 @@ export async function generateMetadata({ params }: ProductDetailsPageProps): Pro
       title,
       description,
       url: `${siteUrl}${canonicalPath}`,
-      images: product.image ? [{ url: product.image }] : undefined,
+      images: product.imageUrl ? [{ url: product.imageUrl }] : undefined,
       type: "website",
     },
     twitter: {
@@ -92,7 +90,7 @@ export async function generateMetadata({ params }: ProductDetailsPageProps): Pro
 export default async function ProductDetailsPage({ params, searchParams }: ProductDetailsPageProps) {
   const { productId } = await params;
   const query = searchParams ? await searchParams : undefined;
-  const product = findProduct(productId);
+  const product = await getCatalogProductById(productId);
 
   if (!product) {
     notFound();
@@ -106,10 +104,17 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
   const usage = getUsage(product.name);
   const safetyNotes = getSafetyNotes();
   const faqItems = getFaq(product.name);
-  const relatedProducts = productResults
-    .filter((item) => item.id !== product.id && item.category === product.category)
+  const relatedProducts = (
+    await getCatalogProducts({
+      query: "",
+      category: product.category,
+      brandSlug: product.brandSlug,
+      limit: 12,
+    })
+  )
+    .filter((item) => item.id !== product.id)
     .slice(0, 3);
-  const brandHref = `/brand/${slugifyBrandName(product.brandName)}?returnTo=${encodeURIComponent(returnTo)}`;
+  const brandHref = `/brand/${product.brandSlug}?returnTo=${encodeURIComponent(returnTo)}`;
   const destinationDomain = product.externalUrl
     ? (() => {
       try {
@@ -139,7 +144,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
             <div className="relative aspect-square sm:aspect-5/4">
               <ImageWithFallback src={product.image} alt={product.name} className="h-full w-full object-cover" />
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                <Badge variant="secondary">{product.category}</Badge>
+                {product.category ? <Badge variant="secondary">{product.category}</Badge> : null}
                 {product.isFeatured ? <Badge>Featured</Badge> : null}
               </div>
             </div>
@@ -239,7 +244,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
                 >
                   <div className="aspect-4/3 overflow-hidden">
                     <ImageWithFallback
-                      src={related.image}
+                      src={related.imageUrl}
                       alt={related.name}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />

@@ -29,7 +29,7 @@ export async function createPaymentOrderWithToken(
   }
 
   const payload = (await response.json()) as {
-    mode: "mock" | "live" | "free";
+    mode: "live";
     key_id: string;
     order_id: string;
     booking_reference: string;

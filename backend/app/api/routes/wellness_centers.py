@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,3 +42,30 @@ async def get_featured_wellness_centers(
         )
         for center in centers
     ]
+
+
+@router.get("/{center_id}", response_model=WolisticServiceOut)
+async def get_wellness_center_by_id(
+    center_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db_session),
+) -> WolisticServiceOut:
+    """Return a single active wellness center by UUID."""
+    result = await db.execute(
+        select(WolisticService)
+        .where(WolisticService.id == center_id, WolisticService.is_active.is_(True))
+        .limit(1)
+    )
+    center = result.scalar_one_or_none()
+    if center is None:
+        raise HTTPException(status_code=404, detail="Wellness center not found")
+
+    return WolisticServiceOut(
+        id=center.id,
+        title=center.title,
+        type=center.type,
+        location=center.location,
+        image_url=center.image_url,
+        website_name=center.website_name,
+        website_url=center.website_url,
+        tags=center.tags or [],
+    )

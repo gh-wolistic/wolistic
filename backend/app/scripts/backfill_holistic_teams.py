@@ -1,15 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
 from app.api.routes.holistic_teams import _generate_engine_team_if_needed
-
-
-DEFAULT_QUERIES = ["diet", "stress", "sleep", "pcos", "weight loss"]
 
 
 async def run_backfill(session: AsyncSession, queries: list[str], scope: str = "professionals") -> int:
@@ -37,8 +35,12 @@ async def run_backfill(session: AsyncSession, queries: list[str], scope: str = "
 
 
 async def main() -> None:
+    cli_queries = [item.strip() for item in sys.argv[1:] if item.strip()]
+    if not cli_queries:
+        raise SystemExit("Provide one or more queries, e.g.: python -m app.scripts.backfill_holistic_teams diet stress")
+
     async with AsyncSessionLocal() as session:
-        created = await run_backfill(session=session, queries=DEFAULT_QUERIES)
+        created = await run_backfill(session=session, queries=cli_queries)
         print(f"Holistic team backfill complete. Created: {created}")
 
 

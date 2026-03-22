@@ -16,7 +16,6 @@ from app.services.payments.providers.base import (
     PaymentProvider,
     PaymentVerificationRequest,
 )
-from app.services.payments.providers.mock import MockPaymentProvider
 from app.services.payments.providers.razorpay import RazorpayPaymentProvider
 
 
@@ -35,9 +34,6 @@ def _resolve_booking_status(payment_status: str) -> str:
 
 
 def get_payment_provider(settings: Settings) -> PaymentProvider:
-    if settings.PAYMENT_PROVIDER == "mock":
-        return MockPaymentProvider(settings)
-
     if settings.PAYMENT_PROVIDER == "razorpay":
         return RazorpayPaymentProvider(settings)
 
@@ -115,25 +111,7 @@ async def create_payment_order(
 
     amount_decimal = Decimal(str(payload.amount))
     if amount_decimal <= 0:
-        booking.status = "confirmed"
-        free_payment = BookingPayment(
-            booking_id=booking.id,
-            provider="free",
-            provider_order_id=f"free_{booking.booking_reference}",
-            amount=Decimal("0"),
-            currency=payload.currency,
-            status="success",
-        )
-        db.add(free_payment)
-        await db.commit()
-        return CreatePaymentOrderOut(
-            mode="free",
-            key_id="",
-            order_id=f"free_{booking.booking_reference}",
-            booking_reference=booking.booking_reference,
-            amount_subunits=0,
-            currency=payload.currency,
-        )
+        raise HTTPException(status_code=422, detail="Amount must be greater than zero for Razorpay checkout")
 
     provider = get_payment_provider(settings)
     provider_order = provider.create_order(

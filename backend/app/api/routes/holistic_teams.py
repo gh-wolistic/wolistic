@@ -10,10 +10,12 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.config import get_settings
 from app.core.database import get_db_session
+from app.api.serializers.professional import flatten_professional
 from app.models.holistic_team import HolisticTeam, HolisticTeamMember
 from app.models.professional import Professional
 from app.models.user import User
 from app.schemas.holistic_team import (
+    HolisticTeamBackfillIn,
     CreateHolisticTeamIn,
     HolisticTeamBackfillResponse,
     HolisticTeamListResponse,
@@ -24,7 +26,6 @@ from app.schemas.holistic_team import (
     PrepareHolisticTeamOut,
 )
 from app.services.ai.professional_search import rank_professional_profiles
-from app.api.routes.professionals import _flatten_professional
 
 router = APIRouter(prefix="/holistic-teams", tags=["holistic-teams"])
 settings = get_settings()
@@ -316,7 +317,7 @@ async def _generate_engine_team_if_needed(
         .where(Professional.user_id.in_(ranked_ids))
     )
     by_id = {p.user_id: p for p in prof_result.scalars().all()}
-    flattened = [_flatten_professional(by_id[prof_id]) for prof_id in ranked_ids if prof_id in by_id]
+    flattened = [flatten_professional(by_id[prof_id]) for prof_id in ranked_ids if prof_id in by_id]
     ranked = rank_professional_profiles(flattened, normalized_query, limit=60)
     if not ranked:
         return
@@ -567,10 +568,33 @@ async def create_member_collab_team(
         )
 
     professional_ids = [item.professional_id for item in payload.members]
-    prof_result = await db.execute(select(Professional.user_id).where(Professional.user_id.in_(professional_ids)))
-    found_ids = {item for item in prof_result.scalars().all()}
+    profile_result = await db.execute(
+        select(Professional.user_id, Professional.username, User.user_status)
+        .join(User, User.id == Professional.user_id)
+        .where(Professional.user_id.in_(professional_ids))
+    )
+    profile_rows = profile_result.all()
+    found_ids = {row.user_id for row in profile_rows}
     if len(found_ids) != len(set(professional_ids)):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="One or more selected professionals were not found")
+
+    pending_or_unverified = [
+        {
+            "id": str(row.user_id),
+            "username": row.username,
+            "user_status": row.user_status or "pending",
+        }
+        for row in profile_rows
+        if (row.user_status or "pending") != "verified"
+    ]
+    if pending_or_unverified:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "message": "Only verified professionals can be added to a collaboration team.",
+                "pending_professionals": pending_or_unverified,
+            },
+        )
 
     total_sessions = sum(item.sessions_included for item in payload.members)
     team = HolisticTeam(
@@ -608,13 +632,20 @@ async def create_member_collab_team(
 
 @router.post("/backfill", response_model=HolisticTeamBackfillResponse)
 async def backfill_engine_teams(
-    scope: str = Query(default="professionals", max_length=50),
+    payload: HolisticTeamBackfillIn,
     db: AsyncSession = Depends(get_db_session),
     _current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> HolisticTeamBackfillResponse:
-    seed_queries = ["diet", "stress", "weight loss", "sleep", "pcos"]
+    queries = [item.strip().lower() for item in payload.queries if item.strip()]
+    if not queries:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one query is required for backfill",
+        )
+
+    scope = payload.scope.strip() or "professionals"
     created = 0
-    for item in seed_queries:
+    for item in queries:
         before = await db.execute(
             select(HolisticTeam.id).where(
                 HolisticTeam.source_type == "engine_generated",

@@ -4,6 +4,7 @@ from app.models.booking import (
     BookingQuestionResponse,
     BookingQuestionTemplate,
 )
+from app.models.catalog import CatalogBrand, CatalogInfluencer, CatalogProduct, CatalogService
 from app.models.holistic_team import HolisticTeam, HolisticTeamMember
 from app.models.professional import (
     Professional,
@@ -29,6 +30,10 @@ __all__ = [
     "BookingQuestionTemplate",
     "BookingQuestionResponse",
     "BookingPayment",
+    "CatalogBrand",
+    "CatalogProduct",
+    "CatalogService",
+    "CatalogInfluencer",
     "HolisticTeam",
     "HolisticTeamMember",
     "Professional",

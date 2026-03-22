@@ -6,6 +6,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, CalendarClock, Package, Users } from "lucide-react";
 
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { useAuthModal } from "@/components/auth/AuthModalProvider";
 import { ProfessionalFeatureCard } from "@/components/public/cards/ProfessionalFeatureCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export default function HolisticTeamDetailPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated } = useAuthSession();
+  const { openAuthSidebar } = useAuthModal();
 
   const teamId = params?.teamId;
   const query = searchParams.get("q") ?? "";
@@ -111,7 +113,14 @@ export default function HolisticTeamDetailPage() {
       router.push(nextHref);
       return;
     }
-    router.push(`/authorized?next=${encodeURIComponent(nextHref)}`);
+    openAuthSidebar({
+      redirectNextPath: nextHref,
+      title: "Sign in to continue",
+      description: "Your team selection is ready and waiting.",
+      onAuthenticated: () => {
+        router.push(nextHref);
+      },
+    });
   };
 
   const handleBookTeam = () => {

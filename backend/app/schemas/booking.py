@@ -37,7 +37,7 @@ class SubmitBookingAnswersOut(BaseModel):
 
 
 class CreatePaymentOrderIn(BaseModel):
-    amount: float = Field(ge=0)
+    amount: float = Field(gt=0)
     currency: str = Field(default="INR", min_length=3, max_length=8)
     professional_username: str = Field(min_length=2, max_length=100)
     service_name: str = Field(min_length=1, max_length=255)
@@ -48,8 +48,8 @@ class CreatePaymentOrderIn(BaseModel):
 
 
 class CreatePaymentOrderOut(BaseModel):
-    mode: str = "mock"  # "mock" | "live" | "free"
-    key_id: str = "rzp_test_mock"
+    mode: str
+    key_id: str
     order_id: str
     booking_reference: str
     amount_subunits: int
