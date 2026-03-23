@@ -5,6 +5,12 @@ import Link from "next/link";
 
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { getProfessionalEditorPayload, updateProfessionalEditorPayload } from "@/components/dashboard/profile/profileEditorApi";
+import {
+  deleteDashboardMedia,
+  listMyMediaAssets,
+  uploadDashboardImage,
+  type MediaAsset,
+} from "@/components/dashboard/profile/profileMediaApi";
 import { ProfileBasicsSection } from "@/components/dashboard/profile/sections/ProfileBasicsSection";
 import { ProfileBookingSection } from "@/components/dashboard/profile/sections/ProfileBookingSection";
 import { ProfilePracticeSection } from "@/components/dashboard/profile/sections/ProfilePracticeSection";
@@ -55,8 +61,10 @@ function parseObjectRows(field: "approaches" | "expertise_areas" | "certificatio
 export default function ExpertProfileEditPage() {
   const { user, accessToken } = useAuthSession();
   const [editorData, setEditorData] = useState<ProfessionalEditorPayload | null>(null);
+  const [mediaBySurface, setMediaBySurface] = useState<Record<string, MediaAsset>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isMediaBusy, setIsMediaBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -73,8 +81,18 @@ export default function ExpertProfileEditPage() {
     void (async () => {
       try {
         const payload = await getProfessionalEditorPayload(accessToken);
+        const mediaAssets = await listMyMediaAssets(accessToken);
         if (!active) return;
         setEditorData(payload);
+        const nextBySurface: Record<string, MediaAsset> = {};
+        for (const asset of mediaAssets) {
+          if (asset.surface === "profile" || asset.surface === "cover") {
+            if (!nextBySurface[asset.surface]) {
+              nextBySurface[asset.surface] = asset;
+            }
+          }
+        }
+        setMediaBySurface(nextBySurface);
       } catch (caughtError) {
         if (!active) return;
         setError(caughtError instanceof Error ? caughtError.message : "Unable to load profile editor data.");
@@ -123,6 +141,73 @@ export default function ExpertProfileEditPage() {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to save profile right now.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleImageUpload = async (surface: "profile" | "cover", file: File) => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsMediaBusy(true);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const uploaded = await uploadDashboardImage(accessToken, file, surface);
+      setMediaBySurface((current) => ({ ...current, [surface]: uploaded.media }));
+      setEditorData((current) => {
+        if (!current) {
+          return current;
+        }
+        if (surface === "profile") {
+          return { ...current, profile_image_url: uploaded.signedUrl };
+        }
+        return { ...current, cover_image_url: uploaded.signedUrl };
+      });
+      setSaveMessage(`${surface === "profile" ? "Profile" : "Cover"} image uploaded.`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to upload image right now.");
+    } finally {
+      setIsMediaBusy(false);
+    }
+  };
+
+  const handleImageRemove = async (surface: "profile" | "cover") => {
+    if (!accessToken) {
+      return;
+    }
+
+    setIsMediaBusy(true);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const media = mediaBySurface[surface];
+      if (media) {
+        await deleteDashboardMedia(accessToken, media);
+      }
+
+      setMediaBySurface((current) => {
+        const next = { ...current };
+        delete next[surface];
+        return next;
+      });
+
+      setEditorData((current) => {
+        if (!current) {
+          return current;
+        }
+        if (surface === "profile") {
+          return { ...current, profile_image_url: "" };
+        }
+        return { ...current, cover_image_url: "" };
+      });
+      setSaveMessage(`${surface === "profile" ? "Profile" : "Cover"} image removed.`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to remove image right now.");
+    } finally {
+      setIsMediaBusy(false);
     }
   };
 
@@ -176,6 +261,9 @@ export default function ExpertProfileEditPage() {
             onFieldChange={(field, nextValue) =>
               setEditorData((current) => (current ? { ...current, [field]: nextValue } : current))
             }
+            onUploadImage={handleImageUpload}
+            onRemoveImage={handleImageRemove}
+            isMediaBusy={isMediaBusy}
           />
         </TabsContent>
 

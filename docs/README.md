@@ -1,8 +1,17 @@
 # Docs Index
 
-Last updated: 2026-03-21
+Last updated: 2026-03-22
 
 This folder contains architecture and execution documents for the Wolistic monorepo.
+
+## Current Platform Notes
+
+- Auth UX baseline:
+	- Header Sign In/Get Started uses modal auth.
+	- Non-header protected flows use sidebar auth.
+- Holistic-team and booking flows are configured to preserve navigation context across auth.
+- Expert-review intake persistence is part of the active migration chain via:
+	- `../backend/alembic/versions/c3d9f0a4e8b2_add_expert_review_requests_table.py`
 
 ## Canonical Docs
 
@@ -21,7 +30,6 @@ This folder contains architecture and execution documents for the Wolistic monor
 ## Migration Runbooks
 
 - `../backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md`
-- `../backend/alembic/MIGRATION_V1_1_MANIFEST.md`
 
 ## Migration Scripts
 

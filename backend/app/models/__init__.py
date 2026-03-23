@@ -6,6 +6,7 @@ from app.models.booking import (
 )
 from app.models.catalog import CatalogBrand, CatalogInfluencer, CatalogProduct, CatalogService
 from app.models.holistic_team import HolisticTeam, HolisticTeamMember
+from app.models.media import MediaAsset
 from app.models.professional import (
     Professional,
     ProfessionalApproach,
@@ -36,6 +37,7 @@ __all__ = [
     "CatalogInfluencer",
     "HolisticTeam",
     "HolisticTeamMember",
+    "MediaAsset",
     "Professional",
     "ProfessionalApproach",
     "ProfessionalAvailability",

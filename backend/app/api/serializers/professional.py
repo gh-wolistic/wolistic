@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta, timezone
 
 from app.models.professional import Professional
 from app.schemas.professional import CertificationOut, ServiceOut
+from app.services.media_urls import to_public_profile_media_url
 
 _DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -51,8 +52,8 @@ def flatten_professional(prof: Professional) -> dict:
         "specialization": prof.specialization,
         "category": prof.subcategories[0].name if prof.subcategories else prof.specialization,
         "location": prof.location,
-        "image": prof.profile_image_url,
-        "cover_image": prof.cover_image_url,
+        "image": to_public_profile_media_url(prof.profile_image_url),
+        "cover_image": to_public_profile_media_url(prof.cover_image_url),
         "rating": float(prof.rating_avg) if prof.rating_avg is not None else 0,
         "review_count": prof.rating_count,
         "experience": f"{yrs}+ years" if yrs else None,

@@ -184,6 +184,7 @@ export function ResultsGrid({
                 <ImageWithFallback
                   src={professional.image}
                   alt={professional.name}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
                 <PresenceChip isOnline={professional.isOnline} className="absolute left-3 top-3" />
@@ -391,8 +392,10 @@ export function ResultsGrid({
               />
               <div className="aspect-5/5 overflow-hidden">
                 <ImageWithFallback
-                  src={product.image}
+                  src={product.imageUrl}
                   alt={product.name}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               </div>
@@ -471,6 +474,7 @@ export function ResultsGrid({
                   <ImageWithFallback
                     src={brand.heroImageUrl}
                     alt={brand.name}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                   />
                 ) : (
@@ -536,6 +540,7 @@ export function ResultsGrid({
                 <ImageWithFallback
                   src={center.imageUrl}
                   alt={center.title}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               ) : (
@@ -605,6 +610,7 @@ export function ResultsGrid({
               <ImageWithFallback
                 src={service.imageUrl}
                 alt={service.name}
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
               />
             </div>
@@ -667,6 +673,7 @@ export function ResultsGrid({
                 <ImageWithFallback
                   src={influencer.imageUrl}
                   alt={influencer.name}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               </div>

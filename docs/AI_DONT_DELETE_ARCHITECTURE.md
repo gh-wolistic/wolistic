@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Last updated: 2026-03-21
+Last updated: 2026-03-22
 
 ## Stack
 - Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS 4
@@ -64,6 +64,11 @@ Aggregated in `backend/app/api/router.py`.
 - Dashboard surfaces in `frontend/app/(dashboard)`
 - Internal admin app is isolated in `wolistic-admin`
 
+### Auth UX Surfaces
+- Header-triggered auth actions (Sign In/Get Started) use modal auth.
+- Non-header protected flows use right-side sidebar auth as the default surface.
+- Shared trigger components (for example, `OpenAuthButton`) open sidebar auth by default.
+
 ## Identity and Trust Boundaries
 - Frontend uses Supabase session tokens.
 - Backend derives authenticated user identity from bearer JWT and enforces server-side ownership.
@@ -79,6 +84,7 @@ Aggregated in `backend/app/api/router.py`.
 - Asyncpg compatibility with pooler mode is handled in runtime settings.
 - Backend remains stateless and environment-driven.
 - Existing automated backend tests currently cover health, auth identity, booking authorization, booking flow behavior, geo city resolution, featured strategy, and professional search ranking.
+- Active migration chain includes expert-review persistence table setup via `backend/alembic/versions/c3d9f0a4e8b2_add_expert_review_requests_table.py`.
 
 ## Known Gaps
 - Payment hardening is not fully complete (final webhook/reconciliation depth and production verification controls still need finishing).

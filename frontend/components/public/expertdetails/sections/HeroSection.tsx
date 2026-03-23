@@ -31,6 +31,8 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
           <ImageWithFallback
             src={professional.coverImage}
             alt={`${professional.name} cover`}
+            sizes="100vw"
+            loading="eager"
             className="h-full w-full object-cover"
           />
         </div>
@@ -47,6 +49,8 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
                       <ImageWithFallback
                         src={professional.image}
                         alt={professional.name}
+                        sizes="100vw"
+                        loading="eager"
                         className="h-full w-full object-cover"
                       />
                       <PresenceChip isOnline={isOnline} className="absolute left-3 top-3" />

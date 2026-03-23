@@ -26,6 +26,7 @@ function ProductCard({ product }: { product: Product }) {
           <ImageWithFallback
             src={product.image}
             alt={product.name}
+            sizes="(max-width: 768px) 82vw, 25vw"
             className="h-full w-full object-cover"
           />
         ) : (

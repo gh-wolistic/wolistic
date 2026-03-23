@@ -5,9 +5,14 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 import type { OnboardingSelection, UserSubtype, UserType } from "@/components/onboarding/types";
 
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:8000/api/v1";
+const rawApiBase =
+  process.env.NEXT_PUBLIC_API_URL?.trim() ||
+  process.env.NEXT_PUBLIC_API_BASE_URL?.trim() ||
+  "http://localhost:8000";
+
+const API_BASE = rawApiBase.replace(/\/$/, "").endsWith("/api/v1")
+  ? rawApiBase.replace(/\/$/, "")
+  : `${rawApiBase.replace(/\/$/, "")}/api/v1`;
 
 type AuthProfileResponse = {
   id: string;

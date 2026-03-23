@@ -143,6 +143,8 @@ export function LandingHeroSection({ onNavigate, onSearch, isSearching = false }
                   src={heroMain.src}
                   alt="Wolistic Wellness"
                   className="w-full h-full object-cover"
+                  priority
+                  sizes="(max-width: 1023px) 100vw, (max-width: 1279px) 45vw, 40vw"
                 />
               </div>
 

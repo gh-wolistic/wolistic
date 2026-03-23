@@ -134,7 +134,8 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     token: effectiveToken ?? undefined,
   });
 
-  const selectedService = servicesToDisplay[selectedServiceIndex] ?? servicesToDisplay[0];
+  const selectedService = servicesToDisplay[selectedServiceIndex] ?? servicesToDisplay[0] ?? null;
+  const selectedServiceName = selectedService?.name ?? "Consultation";
   const activeStepIndex = BOOKING_FLOW_STEPS.findIndex((item) => item.step === bookingStep);
   const isInitialConsultationSelected =
     selectedService?.name?.trim().toLowerCase() === "initial consultation";
@@ -240,7 +241,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
       status,
       next: safeNextRoute,
       username: professional.username,
-      service: selectedService.name,
+      service: selectedServiceName,
       booking_date: selectedSchedule.date,
       booking_slot: selectedSchedule.slot,
       booking_summary: selectedSchedule.summary,
@@ -253,7 +254,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     amount: grandTotal,
     professionalUsername: professional.username,
     professionalName: professional.name,
-    serviceName: selectedService.name,
+    serviceName: selectedServiceName,
     customerName: effectiveUser?.name || undefined,
     customerEmail: effectiveUser?.email || undefined,
     bookingAt: selectedSchedule.bookingAtIso || undefined,
@@ -796,7 +797,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
             <div className="mt-3 rounded-lg border border-emerald-200 bg-background p-4 shadow-sm dark:border-emerald-500/25">
               <p className="text-sm text-muted-foreground">Selected service</p>
               <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p>{selectedService.name}</p>
+                          <p>{selectedServiceName}</p>
                 <p className="font-semibold text-emerald-600">
                   {selectedService.price === 0 ? "Free" : `₹${selectedService.price}`}
                 </p>

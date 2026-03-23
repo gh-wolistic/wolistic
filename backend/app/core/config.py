@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SUPABASE_URL: AnyHttpUrl
     SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_STORAGE_SIGNED_URL_TTL_SECONDS: int = 86400
     PAYMENT_PROVIDER: str = "razorpay"
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
@@ -52,6 +54,18 @@ class Settings(BaseSettings):
     @classmethod
     def strip_admin_api_key(cls, value: str) -> str:
         return value.strip()
+
+    @field_validator("SUPABASE_SERVICE_ROLE_KEY")
+    @classmethod
+    def strip_supabase_service_role_key(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("SUPABASE_STORAGE_SIGNED_URL_TTL_SECONDS")
+    @classmethod
+    def validate_signed_url_ttl(cls, value: int) -> int:
+        if value < 60:
+            raise ValueError("SUPABASE_STORAGE_SIGNED_URL_TTL_SECONDS must be >= 60")
+        return value
 
     @field_validator("PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY")
     @classmethod

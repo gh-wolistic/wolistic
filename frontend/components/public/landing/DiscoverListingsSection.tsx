@@ -23,7 +23,7 @@ function ProductCard({ product }: { product: Product }) {
     <article className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-background">
       <div className="relative h-44 w-full shrink-0 bg-linear-to-br from-slate-800/60 to-slate-900/40">
         {product.image ? (
-          <ImageWithFallback src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          <ImageWithFallback src={product.image} alt={product.name} className="h-full w-full object-cover"  sizes="(max-width: 768px) 82vw, 25vw"/>
         ) : (
           <div className="flex h-full items-center justify-center">
             <ShoppingBag size={28} className="text-emerald-500/30" />
@@ -71,7 +71,7 @@ function WellnessCenterCard({ center }: { center: WolisticService }) {
       <Link href={detailsHref} aria-label={`Open details for ${center.title}`} className="absolute inset-0 z-10" />
       <div className="relative h-44 w-full shrink-0 bg-linear-to-br from-slate-800/60 to-slate-900/40">
         {center.imageUrl ? (
-          <ImageWithFallback src={center.imageUrl} alt={center.title} className="h-full w-full object-cover" />
+          <ImageWithFallback src={center.imageUrl} alt={center.title} className="h-full w-full object-cover" sizes="(max-width: 768px) 82vw, 25vw" />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Stethoscope size={28} className="text-emerald-500/30" />

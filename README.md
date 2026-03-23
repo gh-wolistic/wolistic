@@ -8,11 +8,22 @@ It combines a Next.js frontend, a FastAPI backend, and Supabase Postgres with UU
 - Monorepo architecture with clear frontend and backend boundaries
 - FastAPI API with versioned routing at `/api/v1`
 - Supabase Auth integration with backend-side token verification
+- Dual auth UX: header uses modal, non-header protected flows use right-side auth sidebar
 - Alembic migration workflow for safe, repeatable schema evolution
 - Professional discovery + booking flow modules
 - Expert-review intake and holistic-team recommendation flow
 - Separate internal admin application for operational controls
 - Automated CI tests for backend and frontend
+
+## Recent Updates (2026-03-22)
+
+- Auth UX policy is now explicit:
+	- Header Sign In/Get Started keeps modal auth.
+	- Default auth surface for protected flows is sidebar auth.
+	- Shared triggers such as `OpenAuthButton` now open the sidebar.
+- Holistic-team and booking auth-required journeys now preserve context and continue after authentication.
+- Added active migration `c3d9f0a4e8b2_add_expert_review_requests_table.py` to ensure expert-review submissions persist on v1.1 migration chain.
+- Updated frontend catalog typing to align with current mapped API shape.
 
 ## Tech Stack
 
@@ -184,7 +195,7 @@ Current platform capabilities include:
 - [Canonical Worklist](docs/AI_DONT_DELETE_TODO_WORKLIST.md)
 - [Docs Index](docs/README.md)
 - [Migration v1.1 Runbook](backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md)
-- [Migration v1.1 Manifest](backend/alembic/MIGRATION_V1_1_MANIFEST.md)
+- [Expert Review Migration](backend/alembic/versions/c3d9f0a4e8b2_add_expert_review_requests_table.py)
 
 ## Contributing
 

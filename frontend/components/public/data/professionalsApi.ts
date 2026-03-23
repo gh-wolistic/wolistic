@@ -97,8 +97,7 @@ export async function getProfessionalByUsername(
   username: string,
 ): Promise<ProfessionalProfile | null> {
   const res = await fetch(`${API_BASE}/professionals/${encodeURIComponent(username)}`, {
-    cache: "force-cache",
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`API error ${res.status}`);
@@ -110,8 +109,7 @@ export async function getProfessionalById(
 ): Promise<ProfessionalProfile | null> {
   // Step 1: resolve UUID → username
   const usernameRes = await fetch(`${API_BASE}/professionals/by-id/${id}`, {
-    cache: "force-cache",
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
   if (usernameRes.status === 404) return null;
   if (!usernameRes.ok) throw new Error(`API error ${usernameRes.status}`);
@@ -143,8 +141,7 @@ export async function getProfessionalReviews(
 export async function getFeaturedProfessionals(limit = 8): Promise<ProfessionalProfile[]> {
   const safeLimit = Math.min(limit, 8);
   const res = await fetch(`${API_BASE}/professionals/featured?limit=${encodeURIComponent(String(safeLimit))}`, {
-    cache: "force-cache",
-    next: { revalidate: 300 },
+    cache: "no-store",
   });
   if (!res.ok) throw new Error(`API error ${res.status}`);
   const items = (await res.json()) as Record<string, unknown>[];
@@ -182,8 +179,7 @@ export async function searchProfessionals(query: string, limit = 24): Promise<Pr
   });
 
   const res = await fetch(`${API_BASE}/professionals/search?${params.toString()}`, {
-    cache: "force-cache",
-    next: { revalidate: 60 },
+    cache: "no-store",
   });
   if (res.ok) {
     const items = (await res.json()) as Record<string, unknown>[];

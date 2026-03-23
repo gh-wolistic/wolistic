@@ -9,6 +9,7 @@ from app.api.routes.favourites import router as favourites_router
 from app.api.routes.health import router as health_router
 from app.api.routes.holistic_teams import router as holistic_teams_router
 from app.api.routes.intake import router as intake_router
+from app.api.routes.media import router as media_router
 from app.api.routes.products import router as products_router
 from app.api.routes.professionals import router as professionals_router
 from app.api.routes.search import router as search_router
@@ -21,6 +22,7 @@ api_router.include_router(health_router, tags=["health"])
 api_router.include_router(holistic_teams_router)
 api_router.include_router(booking_router)
 api_router.include_router(favourites_router)
+api_router.include_router(media_router)
 api_router.include_router(professionals_router)
 api_router.include_router(products_router)
 api_router.include_router(catalog_router)

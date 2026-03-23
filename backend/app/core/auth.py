@@ -25,6 +25,37 @@ class AuthenticatedUser:
     user_id: uuid.UUID
     email: str | None = None
     role: str | None = None
+    full_name: str | None = None
+
+
+def _extract_full_name(payload: dict[str, Any]) -> str | None:
+    """Best-effort full name extraction across JWT claims and Supabase /user payload."""
+    candidate_values: list[Any] = [
+        payload.get("full_name"),
+        payload.get("name"),
+    ]
+
+    user_metadata = payload.get("user_metadata")
+    if isinstance(user_metadata, dict):
+        candidate_values.extend([
+            user_metadata.get("full_name"),
+            user_metadata.get("name"),
+        ])
+
+    raw_user_meta_data = payload.get("raw_user_meta_data")
+    if isinstance(raw_user_meta_data, dict):
+        candidate_values.extend([
+            raw_user_meta_data.get("full_name"),
+            raw_user_meta_data.get("name"),
+        ])
+
+    for value in candidate_values:
+        if isinstance(value, str):
+            normalized = value.strip()
+            if normalized:
+                return normalized
+
+    return None
 
 
 def _supabase_issuer() -> str:
@@ -115,8 +146,9 @@ def _resolve_current_user(token: str) -> AuthenticatedUser:
 
     email = payload.get("email") if isinstance(payload.get("email"), str) else None
     role = payload.get("role") if isinstance(payload.get("role"), str) else None
+    full_name = _extract_full_name(payload)
 
-    return AuthenticatedUser(user_id=user_id, email=email, role=role)
+    return AuthenticatedUser(user_id=user_id, email=email, role=role, full_name=full_name)
 
 
 def get_current_user(

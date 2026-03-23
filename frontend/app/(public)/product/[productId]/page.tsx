@@ -142,7 +142,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
         <section className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
           <Card className="overflow-hidden rounded-3xl border border-border/80">
             <div className="relative aspect-square sm:aspect-5/4">
-              <ImageWithFallback src={product.image} alt={product.name} className="h-full w-full object-cover" />
+              <ImageWithFallback src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw" />
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                 {product.category ? <Badge variant="secondary">{product.category}</Badge> : null}
                 {product.isFeatured ? <Badge>Featured</Badge> : null}
@@ -246,6 +246,7 @@ export default async function ProductDetailsPage({ params, searchParams }: Produ
                     <ImageWithFallback
                       src={related.imageUrl}
                       alt={related.name}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     />
                   </div>

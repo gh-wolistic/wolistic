@@ -63,6 +63,7 @@ export function FeaturedExpertModal({
               <ImageWithFallback
                 src={professional.image}
                 alt={professional.name}
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                 className="w-full h-full object-cover"
               />
             </div>

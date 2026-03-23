@@ -12,6 +12,7 @@ os.environ.setdefault("SUPABASE_URL", "https://example.supabase.co")
 
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.config import get_settings
+from app.models.professional import Professional, ProfessionalService
 from app.models.user import User
 
 get_settings.cache_clear()
@@ -31,6 +32,14 @@ class DummyAuthMeResult:
         return self._row
 
 
+class DummyScalarResult:
+    def __init__(self, value: object) -> None:
+        self._value = value
+
+    def scalar_one_or_none(self) -> object:
+        return self._value
+
+
 class DummySession:
     def __init__(self) -> None:
         self.user = User(
@@ -44,6 +53,45 @@ class DummySession:
 
     async def execute(self, _query: object) -> DummyAuthMeResult:
         return DummyAuthMeResult(self.user)
+
+    async def commit(self) -> None:
+        return None
+
+    async def refresh(self, _user: User) -> None:
+        return None
+
+
+class PartnerOnboardingSession:
+    def __init__(self) -> None:
+        self.user = User(
+            id=USER_ID,
+            email="member@example.com",
+            full_name="Morgan Lee",
+            user_type=None,
+            user_subtype=None,
+            user_status=None,
+        )
+        self.added: list[object] = []
+        self._execute_call_count = 0
+
+    async def execute(self, _query: object) -> DummyScalarResult:
+        self._execute_call_count += 1
+        if self._execute_call_count == 1:
+            # _get_or_create_user -> existing public.users row lookup by id
+            return DummyScalarResult(self.user)
+        if self._execute_call_count == 2:
+            # _ensure_professional_row_for_partner -> check professionals by user_id
+            return DummyScalarResult(None)
+        if self._execute_call_count == 3:
+            # _build_unique_professional_username -> check username conflict
+            return DummyScalarResult(None)
+        if self._execute_call_count == 4:
+            # _ensure_default_initial_consultation_service -> check initial consultation exists
+            return DummyScalarResult(None)
+        return DummyScalarResult(None)
+
+    def add(self, obj: object) -> None:
+        self.added.append(obj)
 
     async def commit(self) -> None:
         return None
@@ -130,3 +178,33 @@ def test_auth_onboarding_rejects_invalid_selection() -> None:
         app.dependency_overrides.clear()
 
     assert response.status_code == 422
+
+
+def test_partner_onboarding_creates_professional_and_initial_service() -> None:
+    session = PartnerOnboardingSession()
+
+    async def override_get_db_session() -> AsyncGenerator[PartnerOnboardingSession, None]:
+        yield session
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    client = TestClient(app)
+
+    try:
+        response = client.patch(
+            "/api/v1/auth/onboarding",
+            json={"user_type": "partner", "user_subtype": "mind_expert"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+
+    professional = next(item for item in session.added if isinstance(item, Professional))
+    initial_service = next(item for item in session.added if isinstance(item, ProfessionalService))
+
+    assert professional.user_id == USER_ID
+    assert professional.specialization == "Mind Wellness"
+    assert initial_service.professional_id == USER_ID
+    assert initial_service.name == "Initial Consultation"
+    assert float(initial_service.price) == 250.0

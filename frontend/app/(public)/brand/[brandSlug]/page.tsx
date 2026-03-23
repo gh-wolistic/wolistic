@@ -117,7 +117,7 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
           <Card className="overflow-hidden rounded-3xl border border-border/80">
             <div className="relative aspect-square sm:aspect-5/4">
               {brand.heroImageUrl ? (
-                <ImageWithFallback src={brand.heroImageUrl} alt={brand.name} className="h-full w-full object-cover" />
+                <ImageWithFallback src={brand.heroImageUrl} alt={brand.name} className="h-full w-full object-cover" sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw" />
               ) : (
                 <div className="h-full w-full bg-muted" />
               )}
@@ -208,6 +208,7 @@ export default async function BrandDetailsPage({ params, searchParams }: BrandDe
                       src={product.imageUrl}
                       alt={product.name}
                       className="h-full w-full object-cover"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   </div>
                   <div className="space-y-2 p-4">

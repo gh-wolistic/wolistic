@@ -1,14 +1,24 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import type { ProfessionalEditorPayload } from "@/types/professional-editor";
 
 type ProfileBasicsSectionProps = {
   value: ProfessionalEditorPayload;
   onFieldChange: (field: keyof ProfessionalEditorPayload, nextValue: string | number) => void;
+  onUploadImage: (surface: "profile" | "cover", file: File) => Promise<void>;
+  onRemoveImage: (surface: "profile" | "cover") => Promise<void>;
+  isMediaBusy?: boolean;
 };
 
-export function ProfileBasicsSection({ value, onFieldChange }: ProfileBasicsSectionProps) {
+export function ProfileBasicsSection({
+  value,
+  onFieldChange,
+  onUploadImage,
+  onRemoveImage,
+  isMediaBusy = false,
+}: ProfileBasicsSectionProps) {
   return (
     <section className="rounded-xl border border-zinc-200 bg-white p-4">
       <h2 className="text-lg font-semibold text-zinc-900">Basic Profile</h2>
@@ -67,20 +77,66 @@ export function ProfileBasicsSection({ value, onFieldChange }: ProfileBasicsSect
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="editor-profile-image">Profile Image URL</Label>
+          <Label htmlFor="editor-profile-image">Profile Image</Label>
           <Input
             id="editor-profile-image"
-            value={value.profile_image_url}
-            onChange={(event) => onFieldChange("profile_image_url", event.target.value)}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            disabled={isMediaBusy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file) {
+                return;
+              }
+              void onUploadImage("profile", file);
+              event.currentTarget.value = "";
+            }}
           />
+          <div className="flex items-center gap-2 text-xs text-zinc-600">
+            <span className="truncate">{value.profile_image_url || "No profile image uploaded"}</span>
+            {value.profile_image_url ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isMediaBusy}
+                onClick={() => void onRemoveImage("profile")}
+              >
+                Remove
+              </Button>
+            ) : null}
+          </div>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="editor-cover-image">Cover Image URL</Label>
+          <Label htmlFor="editor-cover-image">Cover Image</Label>
           <Input
             id="editor-cover-image"
-            value={value.cover_image_url}
-            onChange={(event) => onFieldChange("cover_image_url", event.target.value)}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif"
+            disabled={isMediaBusy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (!file) {
+                return;
+              }
+              void onUploadImage("cover", file);
+              event.currentTarget.value = "";
+            }}
           />
+          <div className="flex items-center gap-2 text-xs text-zinc-600">
+            <span className="truncate">{value.cover_image_url || "No cover image uploaded"}</span>
+            {value.cover_image_url ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={isMediaBusy}
+                onClick={() => void onRemoveImage("cover")}
+              >
+                Remove
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
 

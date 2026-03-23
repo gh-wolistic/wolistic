@@ -5,6 +5,8 @@ import type { ProfessionalProfile } from "@/types/professional";
 import type { Product, WolisticService } from "@/types/wolistic";
 import { LandingPageClient } from "./LandingPageClient";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [
     featuredProfessionalsResult,

@@ -52,6 +52,7 @@ export function GalleryProductsSection({ professional }: GalleryProductsSectionP
                     <ImageWithFallback
                       src={product.image}
                       alt={product.name}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
                     />
                   </div>

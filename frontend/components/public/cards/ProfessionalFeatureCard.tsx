@@ -51,7 +51,12 @@ export function ProfessionalFeatureCard({
       }}
     >
       <div className="aspect-4/3 relative">
-        <ImageWithFallback src={professional.image} alt={professional.name} className="w-full h-full object-cover" />
+        <ImageWithFallback
+          src={professional.image}
+          alt={professional.name}
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 25vw"
+          className="w-full h-full object-cover"
+        />
         <PresenceChip isOnline={isOnline} className="absolute left-3 top-3" />
       </div>
       <div className="p-4">

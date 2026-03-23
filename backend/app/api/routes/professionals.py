@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -34,6 +35,7 @@ from app.models.professional import (
     ProfessionalSubcategory,
 )
 from app.models.user import User
+from app.services.media_urls import normalize_profile_media_path, to_public_profile_media_url
 from app.services.ai.professional_search import rank_professional_profiles
 from app.services.geo import extract_known_cities, resolve_city_coordinates
 from app.schemas.professional import (
@@ -62,6 +64,114 @@ _RESULTS_BOOST_WINDOW = 8
 _RESULTS_BOOST_MIN_RELEVANCE = 1
 _RESULTS_BOOST_TOP_GAP = 0.10
 _DISCOVERY_MIN_PROFILE_COMPLETENESS = settings.PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY
+_DEFAULT_INITIAL_CONSULTATION_NAME = "Initial Consultation"
+_DEFAULT_INITIAL_CONSULTATION_PRICE = 250
+
+
+def _build_default_initial_consultation_service(*, professional_id: uuid.UUID) -> ProfessionalService:
+    return ProfessionalService(
+        professional_id=professional_id,
+        name=_DEFAULT_INITIAL_CONSULTATION_NAME,
+        short_brief="Intro consultation to understand your goals and next steps.",
+        price=250,
+        offers="100% refund as credits",
+        negotiable=False,
+        offer_type="cashback",
+        offer_value=250,
+        offer_label="100% refund as credits",
+        mode="online",
+        duration_value=15,
+        duration_unit="mins",
+        is_active=True,
+    )
+
+
+async def _ensure_default_initial_consultation_service(
+    *,
+    db: AsyncSession,
+    professional_id: uuid.UUID,
+) -> None:
+    existing_service_result = await db.execute(
+        select(ProfessionalService.id)
+        .where(
+            ProfessionalService.professional_id == professional_id,
+            func.lower(func.trim(ProfessionalService.name))
+            == func.lower(func.trim(_DEFAULT_INITIAL_CONSULTATION_NAME)),
+        )
+        .limit(1)
+    )
+    if existing_service_result.scalar_one_or_none() is not None:
+        return
+
+    db.add(_build_default_initial_consultation_service(professional_id=professional_id))
+
+
+def _slugify_username_seed(value: str) -> str:
+    normalized = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")
+    return normalized[:40] if normalized else "expert"
+
+
+async def _build_unique_professional_username(*, db: AsyncSession, seed: str) -> str:
+    base = _slugify_username_seed(seed)
+    candidate = base
+    attempt = 1
+
+    while True:
+        exists_result = await db.execute(
+            select(Professional.user_id).where(Professional.username == candidate)
+        )
+        if exists_result.scalar_one_or_none() is None:
+            return candidate
+        attempt += 1
+        candidate = f"{base}-{attempt}"
+
+
+async def _ensure_professional_for_current_user(
+    *,
+    db: AsyncSession,
+    current_user: AuthenticatedUser,
+) -> Professional:
+    existing_result = await db.execute(
+        select(Professional).where(Professional.user_id == current_user.user_id)
+    )
+    existing = existing_result.scalar_one_or_none()
+    if existing is not None:
+        await _ensure_default_initial_consultation_service(
+            db=db,
+            professional_id=existing.user_id,
+        )
+        return existing
+
+    user_result = await db.execute(select(User).where(User.id == current_user.user_id))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Authenticated user not found",
+        )
+
+    if user.user_type != "partner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only partner users can access professional editor",
+        )
+
+    username_seed = user.full_name or user.email.split("@")[0]
+    username = await _build_unique_professional_username(db=db, seed=username_seed)
+
+    professional = Professional(
+        user_id=current_user.user_id,
+        username=username,
+        specialization="Wellness Professional",
+    )
+    db.add(professional)
+    await _ensure_default_initial_consultation_service(
+        db=db,
+        professional_id=current_user.user_id,
+    )
+    await db.commit()
+    await db.refresh(professional)
+    return professional
 
 async def _has_professional_education_table(db: AsyncSession) -> bool:
     result = await db.execute(select(func.to_regclass("public.professional_education")))
@@ -131,6 +241,10 @@ def _sanitize_string_list(items: list[str]) -> list[str]:
         if value:
             cleaned.append(value)
     return cleaned
+
+
+def _is_initial_consultation_name(value: str) -> bool:
+    return value.strip().lower() == _DEFAULT_INITIAL_CONSULTATION_NAME.lower()
 
 
 def _normalize_duration_unit(value: str) -> str:
@@ -620,8 +734,8 @@ def _to_editor_payload(prof: Professional) -> dict:
     return {
         "professional_id": prof.user_id,
         "username": prof.username,
-        "cover_image_url": prof.cover_image_url,
-        "profile_image_url": prof.profile_image_url,
+        "cover_image_url": to_public_profile_media_url(prof.cover_image_url),
+        "profile_image_url": to_public_profile_media_url(prof.profile_image_url),
         "specialization": prof.specialization,
         "membership_tier": prof.membership_tier,
         "experience_years": prof.experience_years,
@@ -797,26 +911,59 @@ async def _replace_professional_children(
     for subcategory in _sanitize_string_list(payload.subcategories):
         db.add(ProfessionalSubcategory(professional_id=professional_id, name=subcategory))
 
-    for service in payload.services:
-        db.add(
-            ProfessionalService(
-                professional_id=professional_id,
-                name=service.name.strip(),
-                short_brief=service.short_brief.strip() if service.short_brief else None,
-                price=service.price,
-                offers=service.offers.strip() if service.offers else None,
-                negotiable=service.negotiable,
-                offer_type=service.offer_type.strip().lower(),
-                offer_value=service.offer_value,
-                offer_label=service.offer_label.strip() if service.offer_label else None,
-                offer_starts_at=service.offer_starts_at,
-                offer_ends_at=service.offer_ends_at,
-                mode=service.mode.strip(),
-                duration_value=service.duration_value,
-                duration_unit=_normalize_duration_unit(service.duration_unit),
-                is_active=service.is_active,
+    if payload.services:
+        initial_service_seen = False
+        for service in payload.services:
+            raw_name = service.name.strip()
+            is_initial_service = _is_initial_consultation_name(raw_name)
+            if is_initial_service and initial_service_seen:
+                continue
+
+            if is_initial_service:
+                initial_service_seen = True
+
+            price_value = float(service.price)
+            offer_type = service.offer_type.strip().lower()
+            offers_text = service.offers.strip() if service.offers else None
+            offer_value = service.offer_value
+            offer_label = service.offer_label.strip() if service.offer_label else None
+
+            if is_initial_service:
+                if price_value != _DEFAULT_INITIAL_CONSULTATION_PRICE:
+                    offer_type = "none"
+                    offers_text = None
+                    offer_value = None
+                    offer_label = None
+                elif offer_type in {"", "none"} and offer_value is None and offer_label is None and offers_text is None:
+                    offer_type = "cashback"
+                    offers_text = "100% refund as credits"
+                    offer_value = _DEFAULT_INITIAL_CONSULTATION_PRICE
+                    offer_label = "100% refund as credits"
+
+            db.add(
+                ProfessionalService(
+                    professional_id=professional_id,
+                    name=_DEFAULT_INITIAL_CONSULTATION_NAME if is_initial_service else raw_name,
+                    short_brief=service.short_brief.strip() if service.short_brief else None,
+                    price=service.price,
+                    offers=offers_text,
+                    negotiable=service.negotiable,
+                    offer_type=offer_type,
+                    offer_value=offer_value,
+                    offer_label=offer_label,
+                    offer_starts_at=service.offer_starts_at,
+                    offer_ends_at=service.offer_ends_at,
+                    mode=service.mode.strip(),
+                    duration_value=service.duration_value,
+                    duration_unit=_normalize_duration_unit(service.duration_unit),
+                    is_active=service.is_active,
+                )
             )
-        )
+
+        if not initial_service_seen:
+            db.add(_build_default_initial_consultation_service(professional_id=professional_id))
+    else:
+        db.add(_build_default_initial_consultation_service(professional_id=professional_id))
 
     for area in service_areas:
         db.add(
@@ -1188,6 +1335,7 @@ async def get_my_professional_editor_payload(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> ProfessionalEditorOut:
+    await _ensure_professional_for_current_user(db=db, current_user=current_user)
     include_education = await _has_professional_education_table(db)
     result = await db.execute(
         select(Professional)
@@ -1227,6 +1375,7 @@ async def update_my_professional_editor_payload(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> ProfessionalEditorOut:
+    await _ensure_professional_for_current_user(db=db, current_user=current_user)
     include_education = await _has_professional_education_table(db)
     result = await db.execute(
         select(Professional)
@@ -1241,8 +1390,8 @@ async def update_my_professional_editor_payload(
         )
 
     prof.username = payload.username.strip()
-    prof.cover_image_url = payload.cover_image_url.strip() if payload.cover_image_url else None
-    prof.profile_image_url = payload.profile_image_url.strip() if payload.profile_image_url else None
+    prof.cover_image_url = normalize_profile_media_path(payload.cover_image_url)
+    prof.profile_image_url = normalize_profile_media_path(payload.profile_image_url)
     prof.specialization = payload.specialization.strip()
     prof.membership_tier = payload.membership_tier.strip() if payload.membership_tier else None
     prof.experience_years = payload.experience_years

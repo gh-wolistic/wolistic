@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { cache } from "react";
 
 import {
   getProfessionalById,
@@ -8,8 +7,7 @@ import {
 } from "@/components/public/data/professionalsApi";
 import { ProfessionalDetailPage } from "@/components/public/expertdetails/ProfessionalDetailPage";
 
-const getCachedProfessionalByUsername = cache(getProfessionalByUsername);
-const getCachedProfessionalById = cache(getProfessionalById);
+export const dynamic = "force-dynamic";
 
 type ProfileByUsernamePageProps = {
   params: Promise<{ username: string }>;
@@ -39,7 +37,7 @@ export async function generateMetadata({
   const { username } = await params;
 
   if (isUuid(username)) {
-    const prof = await getCachedProfessionalById(username);
+    const prof = await getProfessionalById(username);
     if (!prof) {
       return { title: "Professional Not Found", robots: { index: false, follow: true } };
     }
@@ -61,7 +59,7 @@ export async function generateMetadata({
     };
   }
 
-  const professional = await getCachedProfessionalByUsername(username);
+  const professional = await getProfessionalByUsername(username);
   if (!professional) {
     return { title: "Professional Not Found", robots: { index: false, follow: true } };
   }
@@ -99,12 +97,12 @@ export default async function ProfileByUsernamePage({
   const { username } = await params;
 
   if (isUuid(username)) {
-    const prof = await getCachedProfessionalById(username);
+    const prof = await getProfessionalById(username);
     if (!prof) notFound();
     redirect(`/${prof!.username}`);
   }
 
-  const professional = await getCachedProfessionalByUsername(username);
+  const professional = await getProfessionalByUsername(username);
   if (!professional) notFound();
 
   const personJsonLd = {

@@ -34,6 +34,7 @@ function WellnessCenterCard({ center }: { center: WolisticService }) {
           <ImageWithFallback
             src={center.imageUrl}
             alt={center.title}
+            sizes="(max-width: 768px) 82vw, 25vw"
             className="h-full w-full object-cover"
           />
         ) : (

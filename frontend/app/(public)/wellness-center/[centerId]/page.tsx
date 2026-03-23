@@ -82,7 +82,7 @@ export default async function WellnessCenterDetailsPage({ params, searchParams }
           <Card className="overflow-hidden rounded-3xl border border-border/80">
             <div className="relative aspect-square sm:aspect-5/4">
               {center.imageUrl ? (
-                <ImageWithFallback src={center.imageUrl} alt={center.title} className="h-full w-full object-cover" />
+                <ImageWithFallback src={center.imageUrl} alt={center.title} className="h-full w-full object-cover" sizes="(max-width: 768px) 100vw, (max-width: 1280px) 100vw" />
               ) : (
                 <div className="h-full w-full bg-muted" />
               )}
@@ -182,6 +182,7 @@ export default async function WellnessCenterDetailsPage({ params, searchParams }
                       src={image}
                       alt={`${center.title} gallery ${index + 1}`}
                       className="h-full w-full object-cover"
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                   </div>
                 </div>

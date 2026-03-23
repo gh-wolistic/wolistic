@@ -37,6 +37,7 @@ export function ProductsSection({ products, isLoading, resultsHref }: ProductsSe
                 <ImageWithFallback
                   src={product.image}
                   alt={product.name}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               </div>

@@ -39,6 +39,7 @@ export function ServicesSection({ suggestions }: ServicesSectionProps) {
                 <ImageWithFallback
                   src={item.imageUrl}
                   alt={item.title}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                 />
               ) : (
