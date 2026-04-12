@@ -35,11 +35,6 @@ const commonItems: DashboardNavItem[] = [
     href: DASHBOARD_V1_PATHS.profile.edit,
     icon: UserSquare2,
   },
-  {
-    label: "Account",
-    href: "/account",
-    icon: UserSquare2,
-  },
 ];
 
 const clientItems: DashboardNavItem[] = [

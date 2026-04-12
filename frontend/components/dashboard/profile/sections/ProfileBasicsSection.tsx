@@ -1,7 +1,11 @@
+import Image from "next/image";
+import { Upload } from "lucide-react";
+import type { ReactNode } from "react";
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import type { ProfessionalEditorPayload } from "@/types/professional-editor";
 
 type ProfileBasicsSectionProps = {
@@ -12,6 +16,19 @@ type ProfileBasicsSectionProps = {
   isMediaBusy?: boolean;
 };
 
+function initialsFromName(name: string): string {
+  const normalized = name.trim();
+  if (!normalized) {
+    return "SM";
+  }
+  return normalized
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 export function ProfileBasicsSection({
   value,
   onFieldChange,
@@ -19,117 +36,41 @@ export function ProfileBasicsSection({
   onRemoveImage,
   isMediaBusy = false,
 }: ProfileBasicsSectionProps) {
-  return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4">
-      <h2 className="text-lg font-semibold text-zinc-900">Basic Profile</h2>
-      <p className="mt-1 text-sm text-zinc-600">These fields control what clients see first in your public profile.</p>
+  const initials = initialsFromName(value.username || value.specialization || "");
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-username">Public Username</Label>
-          <Input
-            id="editor-username"
-            value={value.username}
-            onChange={(event) => onFieldChange("username", event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-specialization">Specialization</Label>
-          <Input
-            id="editor-specialization"
-            value={value.specialization}
-            onChange={(event) => onFieldChange("specialization", event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-membership-tier">Membership Tier</Label>
-          <Input
-            id="editor-membership-tier"
-            value={value.membership_tier}
-            onChange={(event) => onFieldChange("membership_tier", event.target.value)}
-            placeholder="verified / premium"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-experience">Experience Years</Label>
-          <Input
-            id="editor-experience"
-            type="number"
-            min={0}
-            value={value.experience_years}
-            onChange={(event) => onFieldChange("experience_years", Number(event.target.value || 0))}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-location">Location</Label>
-          <Input
-            id="editor-location"
-            value={value.location}
-            onChange={(event) => onFieldChange("location", event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-sex">Sex</Label>
-          <Input
-            id="editor-sex"
-            value={value.sex}
-            onChange={(event) => onFieldChange("sex", event.target.value)}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-profile-image">Profile Image</Label>
-          <Input
-            id="editor-profile-image"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
-            disabled={isMediaBusy}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (!file) {
-                return;
-              }
-              void onUploadImage("profile", file);
-              event.currentTarget.value = "";
-            }}
-          />
-          <div className="flex items-center gap-2 text-xs text-zinc-600">
-            <span className="truncate">{value.profile_image_url || "No profile image uploaded"}</span>
-            {value.profile_image_url ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
+  return (
+    <section className="w-full max-w-full space-y-6 overflow-hidden">
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+        <div className="relative h-40 sm:h-56 bg-linear-to-r from-emerald-500 via-teal-500 to-blue-500">
+          {value.cover_image_url ? (
+            <Image src={value.cover_image_url} alt="Cover" fill className="object-cover" />
+          ) : null}
+          <div className="absolute right-3 top-3 flex items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-black/50 px-3 py-1.5 text-xs font-medium text-white hover:bg-black/70 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm">
+              <Upload className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Upload Cover</span>
+              <span className="sm:hidden">Cover</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+                className="hidden"
                 disabled={isMediaBusy}
-                onClick={() => void onRemoveImage("profile")}
-              >
-                Remove
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-cover-image">Cover Image</Label>
-          <Input
-            id="editor-cover-image"
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif"
-            disabled={isMediaBusy}
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (!file) {
-                return;
-              }
-              void onUploadImage("cover", file);
-              event.currentTarget.value = "";
-            }}
-          />
-          <div className="flex items-center gap-2 text-xs text-zinc-600">
-            <span className="truncate">{value.cover_image_url || "No cover image uploaded"}</span>
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (!file) {
+                    return;
+                  }
+                  void onUploadImage("cover", file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
             {value.cover_image_url ? (
               <Button
                 type="button"
                 size="sm"
                 variant="outline"
+                className="border-white/30 bg-black/50 text-white text-xs px-2 sm:px-3"
                 disabled={isMediaBusy}
                 onClick={() => void onRemoveImage("cover")}
               >
@@ -138,28 +79,163 @@ export function ProfileBasicsSection({
             ) : null}
           </div>
         </div>
+
+        <div className="px-4 pb-4 sm:px-8 sm:pb-8">
+          <div className="mb-4 flex items-end gap-3 sm:gap-6 -mt-10 sm:-mt-14">
+            <div className="relative shrink-0">
+              <div className="relative flex h-20 w-20 sm:h-32 sm:w-32 items-center justify-center rounded-2xl border-4 border-[#0d1526] bg-linear-to-br from-emerald-500 to-teal-600 text-2xl sm:text-4xl font-semibold text-white shadow-xl">
+                {value.profile_image_url ? (
+                  <Image src={value.profile_image_url} alt="Profile" fill className="rounded-2xl object-cover" />
+                ) : (
+                  initials
+                )}
+              </div>
+              <label className="absolute -bottom-1 -right-1 flex h-8 w-8 sm:h-10 sm:w-10 cursor-pointer items-center justify-center rounded-xl bg-zinc-800 text-white shadow-lg hover:scale-105">
+                <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  className="hidden"
+                  disabled={isMediaBusy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) {
+                      return;
+                    }
+                    void onUploadImage("profile", file);
+                    event.currentTarget.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <div className="min-w-0 flex-1 pb-2 sm:pb-3">
+              <h2 className="truncate text-xl font-semibold tracking-tight text-white sm:text-3xl">{value.username || ""}</h2>
+              <p className="truncate text-sm text-zinc-400 sm:text-lg">{value.specialization || ""}</p>
+              {value.profile_image_url ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="mt-2 border-white/20 bg-white/5 text-zinc-300 text-xs sm:text-sm"
+                  disabled={isMediaBusy}
+                  onClick={() => void onRemoveImage("profile")}
+                >
+                  Remove profile image
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 grid gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-short-bio">Short Bio</Label>
-          <Textarea
-            id="editor-short-bio"
-            value={value.short_bio}
-            onChange={(event) => onFieldChange("short_bio", event.target.value)}
-            rows={2}
-          />
+      <div className="rounded-xl border border-white/10 bg-white/5 p-4 sm:p-6">
+        <h3 className="mb-4 sm:mb-6 flex items-center gap-2 text-xl sm:text-2xl font-semibold tracking-tight text-white">Basic Information</h3>
+
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <Field label="Username *" id="editor-username">
+            <Input
+              id="editor-username"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.username}
+              onChange={(event) => onFieldChange("username", event.target.value)}
+              placeholder="Enter your username"
+            />
+          </Field>
+
+          <Field label="Specialization *" id="editor-specialization">
+            <Input
+              id="editor-specialization"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.specialization}
+              onChange={(event) => onFieldChange("specialization", event.target.value)}
+              placeholder="Certified Wellness Coach"
+            />
+          </Field>
+
+          <Field label="Experience (Years) *" id="editor-experience">
+            <Input
+              id="editor-experience"
+              type="number"
+              min={0}
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.experience_years}
+              onChange={(event) => onFieldChange("experience_years", Number(event.target.value || 0))}
+            />
+          </Field>
+
+          <Field label="Location *" id="editor-location">
+            <Input
+              id="editor-location"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.location}
+              onChange={(event) => onFieldChange("location", event.target.value)}
+              placeholder="City, State/Country"
+            />
+          </Field>
+
+          <Field label="Membership Tier" id="editor-membership-tier">
+            <Input
+              id="editor-membership-tier"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.membership_tier}
+              onChange={(event) => onFieldChange("membership_tier", event.target.value)}
+              placeholder="verified / premium"
+            />
+          </Field>
+
+          <Field label="Sex" id="editor-sex">
+            <Input
+              id="editor-sex"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.sex}
+              onChange={(event) => onFieldChange("sex", event.target.value)}
+            />
+          </Field>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="editor-about">About</Label>
-          <Textarea
-            id="editor-about"
-            value={value.about}
-            onChange={(event) => onFieldChange("about", event.target.value)}
-            rows={5}
-          />
+
+        <div className="mt-5 space-y-5">
+          <Field label="Short Bio *" id="editor-short-bio">
+            <Input
+              id="editor-short-bio"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.short_bio}
+              onChange={(event) => onFieldChange("short_bio", event.target.value)}
+              maxLength={120}
+              placeholder="A brief one-liner about yourself"
+            />
+            <p className="mt-1 text-xs text-zinc-500">{value.short_bio.length}/120 characters</p>
+          </Field>
+
+          <Field label="About *" id="editor-about">
+            <Textarea
+              id="editor-about"
+              className="min-h-40 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.about}
+              onChange={(event) => onFieldChange("about", event.target.value)}
+              rows={6}
+            />
+          </Field>
         </div>
       </div>
     </section>
+  );
+}
+
+function Field({
+  label,
+  id,
+  children,
+}: {
+  label: string;
+  id: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id} className="mb-2 block text-sm font-medium text-zinc-300">
+        {label}
+      </Label>
+      {children}
+    </div>
   );
 }

@@ -20,6 +20,34 @@ export type ProfessionalCertification = {
 
 export type ProfessionalCertificationInput = string | ProfessionalCertification;
 
+export type ProfessionalApproach = {
+  title: string;
+  description?: string;
+};
+
+export type ProfessionalExpertiseArea = {
+  title: string;
+  description?: string;
+};
+
+export type ProfessionalServiceArea = {
+  city_name: string;
+  latitude?: number;
+  longitude?: number;
+  radius_km: number;
+  is_primary: boolean;
+};
+
+export type SocialLinks = {
+  website?: string;
+  instagram?: string;
+  linkedin?: string;
+  youtube?: string;
+  twitter?: string;
+  tiktok?: string;
+  [key: string]: string | undefined;
+};
+
 export type ProfessionalProfile = {
   id: string;
   username: string;
@@ -40,9 +68,23 @@ export type ProfessionalProfile = {
   isOnline: boolean;
   placementLabel?: string;
 
+  // Extended fields
+  pronouns?: string;
+  whoIWorkWith?: string;
+  clientGoals?: string[];
+  responseTimeHours?: number;
+  cancellationHours?: number;
+  socialLinks?: SocialLinks;
+  videoIntroUrl?: string;
+
+  // Structured child data
+  approaches?: ProfessionalApproach[];
+  /** @deprecated Use approaches[]. Kept for search ranking compatibility. */
   approach?: string;
   availability?: string;
   certifications: ProfessionalCertificationInput[];
+  expertiseAreas?: ProfessionalExpertiseArea[];
+  /** @deprecated Use expertiseAreas[]. Kept for compatibility. */
   specializations: string[];
   education: string[];
   languages: string[];
@@ -50,6 +92,7 @@ export type ProfessionalProfile = {
   subcategories: string[];
   gallery: string[];
   services: ProfessionalService[];
+  serviceAreas?: ProfessionalServiceArea[];
   featuredProducts: FeaturedProduct[];
 };
 

@@ -19,7 +19,7 @@ async def health_readiness(db: AsyncSession = Depends(get_db_session)) -> dict[s
 
 
 @router.get("/health", summary="Service health check", deprecated=True)
-async def health_legacy(db: AsyncSession = Depends(get_db_session)) -> dict[str, str]:
-    # Backward-compatible alias for previous health route behavior.
-    await db.execute(text("SELECT 1"))
+async def health_legacy() -> dict[str, str]:
+    # Deprecated liveness alias — no DB check to avoid pgbouncer prepared-statement
+    # collisions on container restart. Use /readyz for a DB-verified readiness check.
     return {"status": "ok"}

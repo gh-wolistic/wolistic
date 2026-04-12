@@ -65,6 +65,7 @@ export function usePaymentFlow({
 }: UsePaymentFlowArgs) {
   const [paymentForm, setPaymentForm] = useState<PaymentForm>({
     gstin: "",
+    coins_to_use: 0,
   });
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentSubmitting, setPaymentSubmitting] = useState(false);
@@ -111,6 +112,9 @@ export function usePaymentFlow({
           customer_email: customerEmail,
           booking_at: bookingAt,
           is_immediate: Boolean(isImmediate),
+          ...(paymentForm.coins_to_use && paymentForm.coins_to_use > 0
+            ? { coins_to_use: paymentForm.coins_to_use }
+            : {}),
         },
         token ?? undefined,
       );
@@ -190,6 +194,8 @@ export function usePaymentFlow({
     paymentError,
     paymentSubmitting,
     setPaymentForm,
+    setCoinsToUse: (coins: number) =>
+      setPaymentForm((f) => ({ ...f, coins_to_use: coins })),
     submitPayment,
   };
 }

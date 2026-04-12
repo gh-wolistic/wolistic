@@ -1,3 +1,8 @@
+from app.models.activity import (
+    PartnerActivity,
+    WolisticActivityTemplate,
+    PartnerInternalActivityStatus,
+)
 from app.models.booking import (
     Booking,
     BookingPayment,
@@ -25,6 +30,8 @@ from app.models.professional import (
 )
 from app.models.user import User, UserFavourite
 from app.models.wolistic_content import WolisticArticle, WolisticProduct, WolisticService
+from app.models.classes import WorkLocation, GroupClass, ClassSession, ClassEnrollment
+from app.models.subscription import SubscriptionPlan, ProfessionalSubscription, SubscriptionBillingRecord, SubscriptionPaymentOrder, SubscriptionPriorityTicket
 
 __all__ = [
     "Booking",

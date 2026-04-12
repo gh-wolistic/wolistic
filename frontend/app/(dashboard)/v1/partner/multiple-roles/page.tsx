@@ -1,11 +1,5 @@
-import { RoleDashboardPage } from "@/components/dashboard/v1/RoleDashboardPage";
+import { PartnerDashboardPage } from "@/components/dashboard/partner/PartnerDashboardPage";
 
 export default function MultipleRolesDashboardPage() {
-  return (
-    <RoleDashboardPage
-      roleLabel="Partner · Multiple Roles"
-      title="Multi-Role Console"
-      summary="Operate across disciplines with a unified control center for bookings, workflows, and visibility."
-    />
-  );
+  return <PartnerDashboardPage subtype="mutiple_roles" />;
 }

@@ -51,6 +51,23 @@ export type BookingQuestionTemplateInput = {
   is_active: boolean;
 };
 
+export type ProfessionalServiceAreaInput = {
+  city_name: string;
+  latitude?: number;
+  longitude?: number;
+  radius_km: number;
+  is_primary: boolean;
+};
+
+export type SocialLinksInput = {
+  website?: string;
+  instagram?: string;
+  linkedin?: string;
+  youtube?: string;
+  twitter?: string;
+  tiktok?: string;
+};
+
 export type ProfessionalEditorPayload = {
   professional_id: string;
   username: string;
@@ -63,6 +80,15 @@ export type ProfessionalEditorPayload = {
   sex: string;
   short_bio: string;
   about: string;
+  // Extended fields
+  pronouns: string;
+  who_i_work_with: string;
+  client_goals: string[];
+  response_time_hours: number;
+  cancellation_hours: number;
+  social_links: SocialLinksInput;
+  video_intro_url: string;
+  default_timezone: string;
   approaches: ProfessionalApproachInput[];
   availability_slots: ProfessionalAvailabilityInput[];
   certifications: ProfessionalCertificationInput[];
@@ -73,7 +99,10 @@ export type ProfessionalEditorPayload = {
   session_types: string[];
   subcategories: string[];
   services: ProfessionalServiceInput[];
+  service_areas: ProfessionalServiceAreaInput[];
   booking_question_templates: BookingQuestionTemplateInput[];
 };
 
-export type ProfessionalEditorUpdatePayload = Omit<ProfessionalEditorPayload, "professional_id">;
+export type ProfessionalEditorUpdatePayload = Omit<ProfessionalEditorPayload, "professional_id"> & {
+  service_areas: ProfessionalServiceAreaInput[];
+};

@@ -3,10 +3,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import type { ProfessionalProfile } from "@/types/professional";
+import { toCamelProfile } from "@/components/public/data/professionalsApi";
 import { ExpertHeroSection } from "./sections/HeroSection";
 import { AboutServicesSection } from "./sections/AboutServicesSection";
 import { GalleryProductsSection } from "./sections/GalleryProductsSection";
@@ -15,19 +17,51 @@ import { SidebarSection } from "./sections/SidebarSection";
 import { DesktopSectionNav } from "./sections/DesktopSectionNav";
 import { MobileSectionNav } from "./sections/MobileSectionNav";
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000/api/v1";
+
 type ProfessionalDetailPageProps = {
   professional: ProfessionalProfile;
 };
 
-export function ProfessionalDetailPage({ professional }: ProfessionalDetailPageProps) {
+export function ProfessionalDetailPage({ professional: publishedProfile }: ProfessionalDetailPageProps) {
   const searchParams = useSearchParams();
+  const { user, accessToken } = useAuthSession();
   const [bookingStartSignal, setBookingStartSignal] = useState(0);
+  const [professional, setProfessional] = useState<ProfessionalProfile>(publishedProfile);
+  const [isDraftPreview, setIsDraftPreview] = useState(false);
+
   const returnTo = searchParams.get("returnTo");
   const shouldStartBooking = searchParams.get("startBooking") === "1";
+  const wantsDraftPreview = searchParams.get("preview") === "draft";
   const backHref =
     returnTo && returnTo.startsWith("/results")
       ? returnTo
       : "/results?scope=professionals";
+
+  // Fetch draft profile when the owner visits with ?preview=draft
+  useEffect(() => {
+    if (!wantsDraftPreview || !accessToken) return;
+
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/professionals/me/profile/draft`, {
+          cache: "no-store",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) return; // fall back to published if not authorized
+        const raw = (await res.json()) as Record<string, unknown>;
+        // Only swap to draft view if this is the owner's own profile
+        if (String(raw.username) === publishedProfile.username) {
+          const draft = toCamelProfile(raw);
+          setProfessional(draft);
+          setIsDraftPreview(true);
+        }
+      } catch {
+        // silently fall back to published data
+      }
+    })();
+  }, [wantsDraftPreview, accessToken, publishedProfile.username]);
 
   const handleStartBooking = useCallback(() => {
     const servicesSection = document.getElementById("services");
@@ -55,6 +89,13 @@ export function ProfessionalDetailPage({ professional }: ProfessionalDetailPageP
           </Button>
         </div>
       </section>
+
+      {isDraftPreview && (
+        <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-3 text-center text-sm text-amber-300">
+          <Eye size={14} className="mr-2 inline-block" />
+          Draft preview — only you can see this. Changes are not visible to clients until you Publish.
+        </div>
+      )}
 
       {/* Hero Section */}
       <ExpertHeroSection professional={professional} onBookConsultation={handleStartBooking} />

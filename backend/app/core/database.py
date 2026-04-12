@@ -1,5 +1,6 @@
 import logging
 import time
+import uuid
 
 from sqlalchemy import event
 from sqlalchemy import pool
@@ -17,7 +18,12 @@ def _normalize_asyncpg_url(database_url: str) -> tuple[str, dict]:
     parsed = make_url(database_url)
     query = dict(parsed.query)
 
-    connect_args: dict = {"statement_cache_size": 0}
+    connect_args: dict = {
+        "statement_cache_size": 0,
+        # Each prepared statement gets a unique name so pgbouncer reused backend
+        # connections never see a DuplicatePreparedStatementError.
+        "prepared_statement_name_func": lambda: f"__asyncpg_{uuid.uuid4().hex}__",
+    }
     sslmode = query.pop("sslmode", None)
     if sslmode:
         mode = str(sslmode).strip().lower()

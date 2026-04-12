@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, time, timedelta, timezone
 
 from app.models.professional import Professional
-from app.schemas.professional import CertificationOut, ServiceOut
+from app.schemas.professional import ApproachOut, CertificationOut, ExpertiseAreaOut, ServiceOut
 from app.services.media_urls import to_public_profile_media_url
 
 _DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -63,6 +63,17 @@ def flatten_professional(prof: Professional) -> dict:
         "membership_tier": prof.membership_tier,
         "profile_completeness": int(prof.profile_completeness or 0),
         "is_online": is_online,
+        "pronouns": prof.pronouns,
+        "who_i_work_with": prof.who_i_work_with,
+        "client_goals": list(prof.client_goals) if prof.client_goals else [],
+        "response_time_hours": int(prof.response_time_hours or 24),
+        "cancellation_hours": int(prof.cancellation_hours or 24),
+        "social_links": dict(prof.social_links) if prof.social_links else {},
+        "video_intro_url": prof.video_intro_url,
+        "approaches": [
+            ApproachOut(title=a.title, description=a.description)
+            for a in prof.approaches
+        ],
         "approach": " ".join(
             a.description or a.title for a in prof.approaches
         ) if prof.approaches else None,
@@ -74,6 +85,10 @@ def flatten_professional(prof: Professional) -> dict:
                 issued_year=c.issued_year,
             )
             for c in prof.certifications
+        ],
+        "expertise_areas": [
+            ExpertiseAreaOut(title=e.title, description=e.description)
+            for e in prof.expertise_areas
         ],
         "specializations": [e.title for e in prof.expertise_areas],
         "education": [item.education for item in getattr(prof, "education_items", [])],

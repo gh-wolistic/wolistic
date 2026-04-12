@@ -52,6 +52,19 @@ class Professional(Base):
         nullable=False,
         server_default="0",
     )
+    # --- Extended profile fields (added v1.2) ---
+    pronouns: Mapped[str | None] = mapped_column(String(64))
+    who_i_work_with: Mapped[str | None] = mapped_column(Text)
+    client_goals: Mapped[list | None] = mapped_column(JSONB)
+    response_time_hours: Mapped[int] = mapped_column(Integer, nullable=False, server_default="24")
+    cancellation_hours: Mapped[int] = mapped_column(Integer, nullable=False, server_default="24")
+    social_links: Mapped[dict | None] = mapped_column(JSONB)
+    video_intro_url: Mapped[str | None] = mapped_column(Text)
+    default_timezone: Mapped[str] = mapped_column(String(100), nullable=False, server_default="UTC")
+    # --- Draft/publish system ---
+    draft_profile: Mapped[dict | None] = mapped_column(JSONB)
+    draft_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

@@ -28,6 +28,14 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
   const hasEducation = professional.education.length > 0;
   const hasCertifications = certifications.length > 0;
 
+  // Prefer structured approaches[], fall back to legacy approach string
+  const hasStructuredApproaches = professional.approaches && professional.approaches.length > 0;
+  const hasLegacyApproach = !hasStructuredApproaches && Boolean(professional.approach);
+
+  // Prefer structured expertiseAreas[], fall back to legacy specializations[]
+  const hasStructuredExpertise = professional.expertiseAreas && professional.expertiseAreas.length > 0;
+  const legacySpecializations = !hasStructuredExpertise ? (professional.specializations ?? []) : [];
+
   return (
     <>
       <div id="short-bio" className={sectionAnchorClassName}>
@@ -44,27 +52,63 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
         </Card>
       </div>
 
-      <div id="approach" className={sectionAnchorClassName}>
-        <Card className="p-5 sm:p-6">
-        <h2 className="mb-4">Approach</h2>
-        <p className="break-words text-sm leading-relaxed text-muted-foreground sm:text-base">
-          {professional.approach}
-        </p>
-      </Card>
-      </div>
+      {(hasStructuredApproaches || hasLegacyApproach) && (
+        <div id="approach" className={sectionAnchorClassName}>
+          <Card className="p-5 sm:p-6">
+            <h2 className="mb-4">My Approach</h2>
+            {hasStructuredApproaches ? (
+              <div className="space-y-4">
+                {professional.approaches?.map((approach, idx) => (
+                  <div
+                    key={`${approach.title}-${idx}`}
+                    className="rounded-xl border border-border/60 bg-muted/10 p-4"
+                  >
+                    <p className="font-semibold text-foreground">{approach.title}</p>
+                    {approach.description && (
+                      <p className="mt-2 break-words text-sm leading-relaxed text-muted-foreground">
+                        {approach.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="break-words text-sm leading-relaxed text-muted-foreground sm:text-base">
+                {professional.approach}
+              </p>
+            )}
+          </Card>
+        </div>
+      )}
 
       <div id="expertise" className={sectionAnchorClassName}>
         <Card className="p-5 sm:p-6">
-        <h2 className="mb-4">Areas of Expertise</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {professional.specializations.map((specialization) => (
-            <div key={specialization} className="flex items-start gap-2">
-              <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
-              <span className="break-words text-sm sm:text-base">{specialization}</span>
+          <h2 className="mb-4">Areas of Expertise</h2>
+          {hasStructuredExpertise ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {professional.expertiseAreas?.map((area, idx) => (
+                <div key={`${area.title}-${idx}`} className="flex items-start gap-3 rounded-xl border border-border/50 bg-muted/10 p-3">
+                  <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-600" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{area.title}</p>
+                    {area.description && (
+                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{area.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </Card>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {legacySpecializations.map((specialization) => (
+                <div key={specialization} className="flex items-start gap-2">
+                  <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+                  <span className="break-words text-sm sm:text-base">{specialization}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
 
       <div id="education" className={sectionAnchorClassName}>

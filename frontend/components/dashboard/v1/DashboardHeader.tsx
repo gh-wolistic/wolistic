@@ -1,7 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { Bell, Menu } from "lucide-react";
+import logoImage from "@/assets/logo_dark_text.png";
 
 import type { AuthSessionUser } from "@/components/auth/AuthSessionProvider";
 import { DASHBOARD_V1_PATHS } from "@/components/dashboard/v1/routing";
@@ -36,14 +38,13 @@ export function DashboardHeader({ user, onMenuClick, onSignOut }: DashboardHeade
   return (
     <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white/95 backdrop-blur">
       <div className="flex h-16 items-center justify-between gap-3 px-4 md:px-6">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <Button type="button" variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
             <Menu className="h-5 w-5" />
           </Button>
-          <div>
-            <p className="text-xs uppercase tracking-wide text-zinc-500">Signed in</p>
-            <p className="text-sm font-medium text-zinc-800">{user.email}</p>
-          </div>
+          <Link href="/" aria-label="Wolistic home">
+            <Image src={logoImage} alt="Wolistic" className="h-8 w-auto" priority />
+          </Link>
         </div>
 
         <div className="flex items-center gap-2">

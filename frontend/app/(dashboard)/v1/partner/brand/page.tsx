@@ -1,11 +1,5 @@
-import { RoleDashboardPage } from "@/components/dashboard/v1/RoleDashboardPage";
+import { PartnerDashboardPage } from "@/components/dashboard/partner/PartnerDashboardPage";
 
 export default function BrandDashboardPage() {
-  return (
-    <RoleDashboardPage
-      roleLabel="Partner · Brand"
-      title="Brand Dashboard"
-      summary="Manage campaigns, monitor collaborations, and track brand performance across Wolistic touchpoints."
-    />
-  );
+  return <PartnerDashboardPage subtype="brand" />;
 }

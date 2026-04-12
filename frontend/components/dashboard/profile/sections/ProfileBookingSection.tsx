@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type {
   BookingQuestionTemplateInput,
@@ -15,6 +16,16 @@ type ProfileBookingSectionProps = {
   onAvailabilityChange: (items: ProfessionalAvailabilityInput[]) => void;
   onQuestionTemplatesChange: (items: BookingQuestionTemplateInput[]) => void;
 };
+
+const DAY_OPTIONS = [
+  { value: 0, label: "Sunday" },
+  { value: 1, label: "Monday" },
+  { value: 2, label: "Tuesday" },
+  { value: 3, label: "Wednesday" },
+  { value: 4, label: "Thursday" },
+  { value: 5, label: "Friday" },
+  { value: 6, label: "Saturday" },
+];
 
 function createEmptyAvailability(): ProfessionalAvailabilityInput {
   return {
@@ -43,17 +54,18 @@ export function ProfileBookingSection({
   const questions = value.booking_question_templates;
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-4">
-      <h2 className="text-lg font-semibold text-zinc-900">Booking Setup</h2>
-      <p className="mt-1 text-sm text-zinc-600">Configure consultation windows and mandatory intake prompts.</p>
+    <section className="rounded-xl border border-white/10 bg-white/5 p-5">
+      <h2 className="text-xl font-semibold tracking-tight text-white">Booking Setup</h2>
+      <p className="mt-1 text-sm text-zinc-400">Configure consultation windows and mandatory intake prompts.</p>
 
-      <div className="mt-4 rounded-lg border border-zinc-200 p-3">
+      <div className="mt-5 rounded-xl border border-white/10 bg-white/5 p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-zinc-900">Availability Slots</h3>
+          <h3 className="text-sm font-medium text-white">Availability Slots</h3>
           <Button
             type="button"
             variant="outline"
             size="sm"
+            className="border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
             onClick={() => onAvailabilityChange([...availability, createEmptyAvailability()])}
           >
             <Plus className="h-4 w-4" /> Add Slot
@@ -62,18 +74,27 @@ export function ProfileBookingSection({
 
         <div className="space-y-3">
           {availability.map((slot, index) => (
-            <div key={`${slot.day_of_week}-${index}`} className="grid gap-2 rounded-md bg-zinc-50 p-2 sm:grid-cols-5">
-              <Input
-                type="number"
-                min={0}
-                max={6}
-                value={slot.day_of_week}
-                onChange={(event) => {
+            <div
+              key={`${slot.day_of_week}-${index}`}
+              className="grid gap-2 rounded-xl border border-white/10 bg-white/5 p-2 sm:grid-cols-5"
+            >
+              <Select
+                value={String(slot.day_of_week)}
+                onValueChange={(val) => {
                   const next = [...availability];
-                  next[index] = { ...slot, day_of_week: Number(event.target.value || 0) };
+                  next[index] = { ...slot, day_of_week: Number(val) };
                   onAvailabilityChange(next);
                 }}
-              />
+              >
+                <SelectTrigger className="h-9 rounded-lg border-white/10 bg-white/5 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DAY_OPTIONS.map((day) => (
+                    <SelectItem key={day.value} value={String(day.value)}>{day.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input
                 type="time"
                 value={slot.start_time.slice(0, 5)}
@@ -113,13 +134,14 @@ export function ProfileBookingSection({
         </div>
       </div>
 
-      <div className="mt-4 rounded-lg border border-zinc-200 p-3">
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h3 className="text-sm font-medium text-zinc-900">Booking Questions</h3>
+          <h3 className="text-sm font-medium text-white">Booking Questions</h3>
           <Button
             type="button"
             variant="outline"
             size="sm"
+            className="border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
             onClick={() => onQuestionTemplatesChange([...questions, createQuestionTemplate(questions.length + 1)])}
           >
             <Plus className="h-4 w-4" /> Add Question
@@ -128,11 +150,12 @@ export function ProfileBookingSection({
 
         <div className="space-y-3">
           {questions.map((question, index) => (
-            <div key={index} className="rounded-md bg-zinc-50 p-3">
+            <div key={index} className="rounded-xl border border-white/10 bg-white/5 p-3">
               <div className="grid gap-2 sm:grid-cols-2">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label>Prompt</Label>
+                  <Label className="text-zinc-300">Prompt</Label>
                   <Input
+                    className="rounded-xl border-white/10 bg-white/5 text-white"
                     value={question.prompt}
                     onChange={(event) => {
                       const next = [...questions];
@@ -142,10 +165,11 @@ export function ProfileBookingSection({
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Order</Label>
+                  <Label className="text-zinc-300">Order</Label>
                   <Input
                     type="number"
                     min={1}
+                    className="rounded-xl border-white/10 bg-white/5 text-white"
                     value={question.display_order}
                     onChange={(event) => {
                       const next = [...questions];
@@ -158,7 +182,7 @@ export function ProfileBookingSection({
                   />
                 </div>
                 <div className="flex items-center justify-end gap-2 pt-6">
-                  <span className="text-sm text-zinc-600">Required</span>
+                  <span className="text-sm text-zinc-400">Required</span>
                   <Switch
                     checked={question.is_required}
                     onCheckedChange={(checked) => {
@@ -167,7 +191,7 @@ export function ProfileBookingSection({
                       onQuestionTemplatesChange(next);
                     }}
                   />
-                  <span className="text-sm text-zinc-600">Active</span>
+                  <span className="text-sm text-zinc-400">Active</span>
                   <Switch
                     checked={question.is_active}
                     onCheckedChange={(checked) => {
@@ -180,6 +204,7 @@ export function ProfileBookingSection({
                     type="button"
                     variant="ghost"
                     size="icon"
+                  className="text-red-400 hover:bg-red-500/10 hover:text-red-300"
                     onClick={() => onQuestionTemplatesChange(questions.filter((_, itemIndex) => itemIndex !== index))}
                   >
                     <Trash2 className="h-4 w-4" />

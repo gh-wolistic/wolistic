@@ -1,16 +1,18 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.booking import Booking, BookingPayment
 from app.models.professional import Professional
 from app.schemas.booking import CreatePaymentOrderIn, CreatePaymentOrderOut, VerifyPaymentIn, VerifyPaymentOut
+from app.services.coins import award_coins
 from app.services.payments.providers.base import (
     PaymentOrderRequest,
     PaymentProvider,
@@ -42,6 +44,19 @@ def get_payment_provider(settings: Settings) -> PaymentProvider:
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+async def _is_first_confirmed_booking(db: AsyncSession, client_user_id: uuid.UUID, exclude_booking_id: int) -> bool:
+    """Return True if this is the only confirmed booking the client has (i.e. their first)."""
+    result = await db.execute(
+        select(func.count(Booking.id)).where(
+            Booking.client_user_id == client_user_id,
+            Booking.status == "confirmed",
+            Booking.id != exclude_booking_id,
+        )
+    )
+    prior_count = result.scalar_one() or 0
+    return prior_count == 0
 
 
 def _merge_provider_payload(
@@ -187,6 +202,32 @@ async def verify_payment(
     payment.verified_at = _now_utc()
     booking.status = _resolve_booking_status(verification.status)
 
+    # Award coins on confirmed booking — both sides of the transaction.
+    if booking.status == "confirmed":
+        await award_coins(
+            db,
+            user_id=booking.client_user_id,
+            event_type="booking_cashback",
+            reference_type="booking",
+            reference_id=str(booking.id),
+        )
+        await award_coins(
+            db,
+            user_id=booking.professional_id,
+            event_type="session_complete",
+            reference_type="booking",
+            reference_id=str(booking.id),
+        )
+        # One-time first-booking bonus for clients.
+        if await _is_first_confirmed_booking(db, booking.client_user_id, booking.id):
+            await award_coins(
+                db,
+                user_id=booking.client_user_id,
+                event_type="first_booking",
+                reference_type="user",
+                reference_id=str(booking.client_user_id),
+            )
+
     await db.commit()
 
     return VerifyPaymentOut(
@@ -226,6 +267,32 @@ async def process_payment_webhook(
     payment.verified_at = _now_utc()
     payment.provider_signature = signature
     payment.booking.status = _resolve_booking_status(event.status)
+
+    # Award coins on webhook-confirmed booking — mirrors the verify_payment hook.
+    if payment.booking.status == "confirmed":
+        await award_coins(
+            db,
+            user_id=payment.booking.client_user_id,
+            event_type="booking_cashback",
+            reference_type="booking",
+            reference_id=str(payment.booking.id),
+        )
+        await award_coins(
+            db,
+            user_id=payment.booking.professional_id,
+            event_type="session_complete",
+            reference_type="booking",
+            reference_id=str(payment.booking.id),
+        )
+        # One-time first-booking bonus for clients.
+        if await _is_first_confirmed_booking(db, payment.booking.client_user_id, payment.booking.id):
+            await award_coins(
+                db,
+                user_id=payment.booking.client_user_id,
+                event_type="first_booking",
+                reference_type="user",
+                reference_id=str(payment.booking.client_user_id),
+            )
 
     await db.commit()
 

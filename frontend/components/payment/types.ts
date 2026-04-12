@@ -4,6 +4,7 @@ export type PaymentStatus = "success" | "failure" | "pending";
 
 export type PaymentForm = {
   gstin: string;
+  coins_to_use?: number;
 };
 
 export type PaymentOrderResult = {

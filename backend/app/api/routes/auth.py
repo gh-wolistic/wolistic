@@ -13,6 +13,7 @@ from app.core.database import get_db_session
 from app.models.professional import Professional, ProfessionalService
 from app.models.user import User
 from app.schemas.auth import AuthMeOut, UpdateOnboardingIn
+from app.services.coins import award_coins
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -225,5 +226,36 @@ async def update_auth_onboarding(
 
     await db.commit()
     await db.refresh(user)
+
+    # Award welcome bonus once per user (idempotency constraint prevents doubles).
+    await award_coins(
+        db,
+        user_id=user.id,
+        event_type="welcome_bonus",
+        reference_type="user",
+        reference_id=str(user.id),
+    )
+
+    # Client-specific onboarding bonus.
+    if payload.user_type == "client":
+        await award_coins(
+            db,
+            user_id=user.id,
+            event_type="client_onboarding_complete",
+            reference_type="user",
+            reference_id=str(user.id),
+        )
+
+    # Reward users who have their display name set (idempotent — fires at most once).
+    if user.full_name and user.full_name.strip():
+        await award_coins(
+            db,
+            user_id=user.id,
+            event_type="profile_name_set",
+            reference_type="user",
+            reference_id=str(user.id),
+        )
+
+    await db.commit()
 
     return _to_auth_me_out(user)

@@ -366,6 +366,27 @@ export default function Home() {
             </button>
           </div>
 
+          <div className="mt-4 flex flex-wrap gap-2">
+            <a
+              href="/coins"
+              className="rounded-lg border border-white/15 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-cyan-400/60 hover:text-cyan-300"
+            >
+              🪙 Coin Wallets
+            </a>
+            <a
+              href="/tasks"
+              className="rounded-lg border border-white/15 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-emerald-400/60 hover:text-emerald-300"
+            >
+              ✅ Wolistic Tasks
+            </a>
+            <a
+              href="/subscriptions"
+              className="rounded-lg border border-white/15 bg-slate-900/60 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-violet-400/60 hover:text-violet-300"
+            >
+              💎 Subscriptions
+            </a>
+          </div>
+
           <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="rounded-2xl border border-cyan-300/20 bg-cyan-400/10 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Queue</p>

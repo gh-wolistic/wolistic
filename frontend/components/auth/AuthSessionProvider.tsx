@@ -240,11 +240,20 @@ export function AuthSessionProvider({ children, resolveUserProfile }: AuthSessio
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;
 }
 
-export function useAuthSession() {
+export function useAuthSession(): AuthSessionContextValue {
   const context = useContext(AuthSessionContext);
 
   if (!context) {
-    throw new Error("useAuthSession must be used within AuthSessionProvider");
+    // Return a safe unauthenticated fallback during SSR or when used outside the provider.
+    // The real value is populated on the client once AuthSessionProvider mounts.
+    return {
+      status: "loading",
+      isAuthenticated: false,
+      user: null,
+      accessToken: null,
+      refreshSession: async () => {},
+      signOut: async () => {},
+    };
   }
 
   return context;

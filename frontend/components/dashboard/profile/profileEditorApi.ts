@@ -30,6 +30,15 @@ function toEditorPayload(raw: Record<string, unknown>): ProfessionalEditorPayloa
     sex: (raw.sex as string) ?? "undisclosed",
     short_bio: (raw.short_bio as string) ?? "",
     about: (raw.about as string) ?? "",
+    // Extended fields
+    pronouns: (raw.pronouns as string) ?? "",
+    who_i_work_with: (raw.who_i_work_with as string) ?? "",
+    client_goals: ((raw.client_goals as string[]) ?? []).filter(Boolean),
+    response_time_hours: Number(raw.response_time_hours ?? 24),
+    cancellation_hours: Number(raw.cancellation_hours ?? 24),
+    social_links: ((raw.social_links as Record<string, unknown>) ?? {}) as ProfessionalEditorPayload["social_links"],
+    video_intro_url: (raw.video_intro_url as string) ?? "",
+    default_timezone: (raw.default_timezone as string) ?? "UTC",
     approaches: ((raw.approaches as Record<string, unknown>[]) ?? []).map((item) => ({
       title: (item.title as string) ?? "",
       description: (item.description as string) ?? "",
@@ -84,6 +93,13 @@ function toEditorPayload(raw: Record<string, unknown>): ProfessionalEditorPayloa
       duration_unit: (item.duration_unit as string) ?? "mins",
       is_active: item.is_active === undefined ? true : Boolean(item.is_active),
     })),
+    service_areas: ((raw.service_areas as Record<string, unknown>[]) ?? []).map((item) => ({
+      city_name: (item.city_name as string) ?? "",
+      latitude: item.latitude !== undefined && item.latitude !== null ? Number(item.latitude) : undefined,
+      longitude: item.longitude !== undefined && item.longitude !== null ? Number(item.longitude) : undefined,
+      radius_km: Number(item.radius_km ?? 300),
+      is_primary: Boolean(item.is_primary),
+    })),
     booking_question_templates: ((raw.booking_question_templates as Record<string, unknown>[]) ?? []).map(
       (item) => ({
         prompt: (item.prompt as string) ?? "",
@@ -107,21 +123,32 @@ function toUpdatePayload(payload: ProfessionalEditorPayload): ProfessionalEditor
     sex: payload.sex || "undisclosed",
     short_bio: payload.short_bio,
     about: payload.about,
-    approaches: payload.approaches,
+    // Extended fields
+    pronouns: payload.pronouns,
+    who_i_work_with: payload.who_i_work_with,
+    client_goals: payload.client_goals,
+    response_time_hours: payload.response_time_hours,
+    cancellation_hours: payload.cancellation_hours,
+    social_links: payload.social_links,
+    video_intro_url: payload.video_intro_url,
+    default_timezone: payload.default_timezone,
+    // Filter out incomplete items so backend validation doesn't reject the entire payload
+    approaches: payload.approaches.filter((item) => item.title.trim().length > 0),
     availability_slots: payload.availability_slots.map((slot) => ({
       ...slot,
       start_time: slot.start_time.length === 5 ? `${slot.start_time}:00` : slot.start_time,
       end_time: slot.end_time.length === 5 ? `${slot.end_time}:00` : slot.end_time,
     })),
-    certifications: payload.certifications,
+    certifications: payload.certifications.filter((item) => item.name.trim().length > 0),
     education: payload.education,
-    expertise_areas: payload.expertise_areas,
+    expertise_areas: payload.expertise_areas.filter((item) => item.title.trim().length > 0),
     gallery: payload.gallery,
     languages: payload.languages,
     session_types: payload.session_types,
     subcategories: payload.subcategories,
-    services: payload.services,
-    booking_question_templates: payload.booking_question_templates,
+    services: payload.services.filter((item) => item.name.trim().length > 0),
+    service_areas: [],
+    booking_question_templates: payload.booking_question_templates.filter((item) => item.prompt.trim().length > 0),
   };
 }
 
@@ -158,4 +185,19 @@ export async function updateProfessionalEditorPayload(
   }
 
   return toEditorPayload((await response.json()) as Record<string, unknown>);
+}
+
+export async function publishProfessionalProfile(token: string): Promise<{ ok: boolean; message: string }> {
+  const response = await fetch(`${API_BASE}/professionals/me/profile/publish`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Unable to publish profile (${response.status})`);
+  }
+
+  return response.json() as Promise<{ ok: boolean; message: string }>;
 }

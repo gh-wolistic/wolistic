@@ -1,11 +1,5 @@
-import { RoleDashboardPage } from "@/components/dashboard/v1/RoleDashboardPage";
+import { PartnerDashboardPage } from "@/components/dashboard/partner/PartnerDashboardPage";
 
 export default function InfluencerDashboardPage() {
-  return (
-    <RoleDashboardPage
-      roleLabel="Partner · Influencer"
-      title="Influencer Dashboard"
-      summary="Plan content collaborations, track reach, and grow your wellness audience with platform insights."
-    />
-  );
+  return <PartnerDashboardPage subtype="influencer" />;
 }

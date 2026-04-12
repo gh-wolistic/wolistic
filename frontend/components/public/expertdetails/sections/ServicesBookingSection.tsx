@@ -250,7 +250,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     router.push(`/payment-status?${params.toString()}`);
   };
 
-  const { paymentForm, paymentError, paymentSubmitting, setPaymentForm, submitPayment } = usePaymentFlow({
+  const { paymentForm, paymentError, paymentSubmitting, setPaymentForm, setCoinsToUse, submitPayment } = usePaymentFlow({
     amount: grandTotal,
     professionalUsername: professional.username,
     professionalName: professional.name,
@@ -902,6 +902,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                 paymentSubmitting={paymentSubmitting}
                 onSubmit={handlePaymentSubmit}
                 onChangeGstin={(value) => setPaymentForm((previous) => ({ ...previous, gstin: value }))}
+                onChangeCoins={setCoinsToUse}
               />
             )}
           </Card>

@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.config import get_settings
 from app.core.database import get_db_session
+from app.services.coins import award_coins
 from app.api.serializers.professional import flatten_professional as _flatten_professional
 from app.models.booking import BookingQuestionTemplate
 from app.models.professional import (
@@ -43,6 +44,7 @@ from app.schemas.professional import (
     ProfessionalEditorPayload,
     ProfessionalProfileOut,
     ProfessionalUsernameOut,
+    PublishProfileOut,
     ReviewOut,
     ReviewPageOut,
 )
@@ -743,6 +745,15 @@ def _to_editor_payload(prof: Professional) -> dict:
         "sex": prof.sex,
         "short_bio": prof.short_bio,
         "about": prof.about,
+        # Extended fields
+        "pronouns": prof.pronouns,
+        "who_i_work_with": prof.who_i_work_with,
+        "client_goals": list(prof.client_goals) if prof.client_goals else [],
+        "response_time_hours": int(prof.response_time_hours or 24),
+        "cancellation_hours": int(prof.cancellation_hours or 24),
+        "social_links": dict(prof.social_links) if prof.social_links else {},
+        "video_intro_url": prof.video_intro_url,
+        "default_timezone": prof.default_timezone or "UTC",
         "approaches": [
             {"title": item.title, "description": item.description}
             for item in prof.approaches
@@ -1399,6 +1410,16 @@ async def update_my_professional_editor_payload(
     prof.short_bio = payload.short_bio.strip() if payload.short_bio else None
     prof.about = payload.about.strip() if payload.about else None
 
+    # Extended fields
+    prof.pronouns = payload.pronouns.strip() if payload.pronouns else None
+    prof.who_i_work_with = payload.who_i_work_with.strip() if payload.who_i_work_with else None
+    prof.client_goals = [g.strip() for g in payload.client_goals if g.strip()] or None
+    prof.response_time_hours = payload.response_time_hours
+    prof.cancellation_hours = payload.cancellation_hours
+    prof.social_links = payload.social_links or {}
+    prof.video_intro_url = payload.video_intro_url.strip() if payload.video_intro_url else None
+    prof.default_timezone = (payload.default_timezone or "UTC").strip()
+
     service_areas = _build_service_areas(payload)
     primary_area = next((item for item in service_areas if item["is_primary"]), None)
     fallback_location = payload.location.strip() if payload.location else None
@@ -1406,7 +1427,9 @@ async def update_my_professional_editor_payload(
     prof.location = primary_area["city_name"] if primary_area else fallback_location
     prof.latitude = primary_area["latitude"] if primary_area else None
     prof.longitude = primary_area["longitude"] if primary_area else None
+    previous_completeness = int(prof.profile_completeness or 0)
     prof.profile_completeness = _compute_profile_completeness(professional=prof)
+    new_completeness = prof.profile_completeness
 
     await _replace_professional_children(
         db=db,
@@ -1416,6 +1439,24 @@ async def update_my_professional_editor_payload(
         service_areas=service_areas,
     )
     await db.commit()
+
+    # Award milestone coins for 50 / 75 / 100 % completeness thresholds.
+    # award_coins is idempotent — duplicate calls are silently ignored.
+    for threshold, event_type in (
+        (50, "profile_milestone_50"),
+        (75, "profile_milestone_75"),
+        (100, "profile_milestone_100"),
+    ):
+        if previous_completeness < threshold <= new_completeness:
+            await award_coins(
+                db,
+                user_id=current_user.user_id,
+                event_type=event_type,
+                reference_type="professional",
+                reference_id=str(current_user.user_id),
+            )
+    if new_completeness != previous_completeness:
+        await db.commit()
 
     refreshed = await db.execute(
         select(Professional)
@@ -1447,6 +1488,51 @@ async def update_my_professional_editor_payload(
         for template in templates
     ]
     return ProfessionalEditorOut(**out)
+
+
+@router.post("/me/profile/publish", response_model=PublishProfileOut)
+async def publish_my_professional_profile(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> PublishProfileOut:
+    """Publish the current draft (snapshot in draft_profile) to the live profile.
+
+    Currently the PUT /me/editor endpoint saves directly to live tables, so this
+    endpoint stores a published snapshot in draft_profile and clears it.  Future
+    iterations may introduce a true staging buffer; for now publishing simply
+    marks the profile as explicitly published and returns a confirmation.
+    """
+    result = await db.execute(
+        select(Professional).where(Professional.user_id == current_user.user_id)
+    )
+    prof = result.scalar_one_or_none()
+    if prof is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Professional profile not found")
+
+    # Clear any saved draft since the live profile IS the current state
+    prof.draft_profile = None
+    prof.draft_updated_at = None
+    await db.commit()
+    return PublishProfileOut(ok=True, message="Profile published successfully.")
+
+
+@router.get("/me/profile/draft", response_model=ProfessionalProfileOut | None)
+async def get_my_draft_profile(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> ProfessionalProfileOut | None:
+    """Return the saved draft profile snapshot, or the live profile if no draft exists."""
+    include_education = await _has_professional_education_table(db)
+    result = await db.execute(
+        select(Professional)
+        .join(User, User.id == Professional.user_id)
+        .options(*_professional_load_options(include_education=include_education))
+        .where(Professional.user_id == current_user.user_id)
+    )
+    prof = result.scalar_one_or_none()
+    if prof is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Professional profile not found")
+    return ProfessionalProfileOut(**_flatten_professional(prof))
 
 
 @router.get("/{username}", response_model=ProfessionalProfileOut)

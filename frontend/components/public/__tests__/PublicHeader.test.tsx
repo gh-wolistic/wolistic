@@ -49,7 +49,7 @@ describe("PublicHeader", () => {
         user={{
           name: "Jane Doe",
           email: "jane@example.com",
-          type: "user",
+          type: "client",
         }}
         onOpenAuth={vi.fn()}
         onDashboard={vi.fn()}

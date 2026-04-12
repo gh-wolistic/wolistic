@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 type ProfileByUsernamePageProps = {
   params: Promise<{ username: string }>;
+  searchParams: Promise<{ preview?: string }>;
 };
 
 const siteUrl =
@@ -33,8 +34,11 @@ function buildProfileDescription(
 
 export async function generateMetadata({
   params,
+  searchParams,
 }: ProfileByUsernamePageProps): Promise<Metadata> {
   const { username } = await params;
+  const { preview } = await searchParams;
+  const isDraftPreview = preview === "draft";
 
   if (isUuid(username)) {
     const prof = await getProfessionalById(username);
@@ -45,6 +49,7 @@ export async function generateMetadata({
       title: `${prof.name} - ${prof.specialization}`,
       description: buildProfileDescription(prof),
       alternates: { canonical: `/${prof.username}` },
+      robots: isDraftPreview ? { index: false, follow: false } : undefined,
       openGraph: {
         title: `${prof.name} - ${prof.specialization}`,
         description: buildProfileDescription(prof),
@@ -76,6 +81,7 @@ export async function generateMetadata({
       "book consultation",
     ],
     alternates: { canonical: `/${professional.username}` },
+    robots: isDraftPreview ? { index: false, follow: false } : undefined,
     openGraph: {
       title: `${professional.name} - ${professional.specialization}`,
       description: buildProfileDescription(professional),
@@ -122,7 +128,7 @@ export default async function ProfileByUsernamePage({
       ratingValue: professional.rating,
       reviewCount: professional.reviewCount,
     },
-    knowsAbout: professional.specializations,
+    knowsAbout: professional.expertiseAreas?.map((e) => e.title) ?? professional.specializations,
     url: `${siteUrl}/${professional.username}`,
   };
 

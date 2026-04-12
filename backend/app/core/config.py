@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
 
     DATABASE_URL: str
+    # Optional: use a direct (non-pgBouncer) URL for Alembic migrations.
+    # Supabase direct connection: postgresql+asyncpg://postgres:PASSWORD@db.PROJECT_REF.supabase.co:5432/postgres
+    DIRECT_DATABASE_URL: str = ""
     SUPABASE_URL: AnyHttpUrl
     SUPABASE_ANON_KEY: str = ""
     SUPABASE_SERVICE_ROLE_KEY: str = ""

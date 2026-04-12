@@ -4,11 +4,15 @@
  */
 
 import type {
+  ProfessionalApproach,
   ProfessionalCertification,
   ProfessionalCertificationInput,
+  ProfessionalExpertiseArea,
   ProfessionalProfile,
   ProfessionalReview,
+  ProfessionalServiceArea,
   ReviewPage,
+  SocialLinks,
 } from "@/types/professional";
 
 const API_BASE =
@@ -19,7 +23,7 @@ const API_BASE =
 // Response → camelCase mapper
 // ---------------------------------------------------------------------------
 
-function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
+export function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
   const certifications = ((raw.certifications as unknown[]) ?? []).map(
     (cert): ProfessionalCertificationInput => {
       if (typeof cert === "string") {
@@ -34,6 +38,28 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
         issuedYear: (certification.issued_year as number | null) ?? undefined,
       } satisfies ProfessionalCertification;
     },
+  );
+
+  const approaches: ProfessionalApproach[] = ((raw.approaches as Record<string, unknown>[]) ?? []).map((a) => ({
+    title: (a.title as string) ?? "",
+    description: (a.description as string) ?? undefined,
+  }));
+
+  const expertiseAreas: ProfessionalExpertiseArea[] = ((raw.expertise_areas as Record<string, unknown>[]) ?? []).map(
+    (e) => ({
+      title: (e.title as string) ?? "",
+      description: (e.description as string) ?? undefined,
+    }),
+  );
+
+  const serviceAreas: ProfessionalServiceArea[] = ((raw.service_areas as Record<string, unknown>[]) ?? []).map(
+    (area) => ({
+      city_name: (area.city_name as string) ?? "",
+      latitude: typeof area.latitude === "number" ? area.latitude : undefined,
+      longitude: typeof area.longitude === "number" ? area.longitude : undefined,
+      radius_km: (area.radius_km as number) ?? 300,
+      is_primary: Boolean(area.is_primary),
+    }),
   );
 
   return {
@@ -55,9 +81,20 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
     profileCompleteness: (raw.profile_completeness as number) ?? 0,
     isOnline: raw.is_online as boolean,
     placementLabel: (raw.placement_label as string) ?? undefined,
+    // Extended fields
+    pronouns: (raw.pronouns as string) ?? undefined,
+    whoIWorkWith: (raw.who_i_work_with as string) ?? undefined,
+    clientGoals: (raw.client_goals as string[]) ?? [],
+    responseTimeHours: (raw.response_time_hours as number) ?? 24,
+    cancellationHours: (raw.cancellation_hours as number) ?? 24,
+    socialLinks: ((raw.social_links as SocialLinks) ?? {}) as SocialLinks,
+    videoIntroUrl: (raw.video_intro_url as string) ?? undefined,
+    // Structured
+    approaches,
     approach: (raw.approach as string) ?? undefined,
     availability: (raw.availability as string) ?? undefined,
     certifications,
+    expertiseAreas,
     specializations: (raw.specializations as string[]) ?? [],
     education: (raw.education as string[]) ?? [],
     languages: (raw.languages as string[]) ?? [],
@@ -75,6 +112,7 @@ function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfile {
       offer_label: (s.offer_label as string) ?? undefined,
       offer_value: (s.offer_value as number) ?? undefined,
     })),
+    serviceAreas,
     featuredProducts: (raw.featured_products as ProfessionalProfile["featuredProducts"]) ?? [],
   };
 }

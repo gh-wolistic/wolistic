@@ -4,12 +4,12 @@ import type { AuthUserType } from "@/components/auth/AuthSessionProvider";
 export const DASHBOARD_V1_PATHS = {
   client: "/v1/client",
   profile: {
-    edit: "/v1/profile/edit",
-    settings: "/v1/profile/settings",
-    viewAsPublic: "/v1/profile/view-as-public",
+    edit: "/v2/profile/edit",
+    settings: "/v2/profile/settings",
+    viewAsPublic: "/v2/profile/view-as-public",
   },
   partner: {
-    body_expert: "/v1/partner/body-expert",
+    body_expert: "/v2/partner/body-expert",
     mind_expert: "/v1/partner/mind-expert",
     diet_expert: "/v1/partner/diet-expert",
     mutiple_roles: "/v1/partner/multiple-roles",

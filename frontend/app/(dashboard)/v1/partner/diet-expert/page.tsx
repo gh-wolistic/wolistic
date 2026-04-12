@@ -1,11 +1,5 @@
-import { RoleDashboardPage } from "@/components/dashboard/v1/RoleDashboardPage";
+import { PartnerDashboardPage } from "@/components/dashboard/partner/PartnerDashboardPage";
 
 export default function DietExpertDashboardPage() {
-  return (
-    <RoleDashboardPage
-      roleLabel="Partner · Diet Expert"
-      title="Diet Expert Console"
-      summary="Coordinate nutrition plans, monitor outcomes, and streamline your diet consultation workflow."
-    />
-  );
+  return <PartnerDashboardPage subtype="diet_expert" />;
 }

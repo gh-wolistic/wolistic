@@ -1,11 +1,5 @@
-import { RoleDashboardPage } from "@/components/dashboard/v1/RoleDashboardPage";
+import { PartnerDashboardPage } from "@/components/dashboard/partner/PartnerDashboardPage";
 
 export default function MindExpertDashboardPage() {
-  return (
-    <RoleDashboardPage
-      roleLabel="Partner · Mind Expert"
-      title="Mind Expert Console"
-      summary="Run your session pipeline, build care continuity, and manage your mental-wellness services."
-    />
-  );
+  return <PartnerDashboardPage subtype="mind_expert" />;
 }

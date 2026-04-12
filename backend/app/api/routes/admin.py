@@ -12,6 +12,7 @@ from app.core.auth import require_admin_api_key
 from app.core.database import get_db_session
 from app.models.professional import Professional
 from app.models.user import User
+from app.services.coins import award_coins
 
 router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(require_admin_api_key)])
 
@@ -103,6 +104,17 @@ async def update_professional_status(
     await db.commit()
     await db.refresh(user)
 
+    # Award profile_verified coins when admin approves a partner.
+    if new_status == "verified":
+        await award_coins(
+            db,
+            user_id=user.id,
+            event_type="profile_verified",
+            reference_type="professional",
+            reference_id=str(user.id),
+        )
+        await db.commit()
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -178,9 +190,35 @@ async def bulk_approve_professionals(
 
     await db.commit()
 
+    # Award profile_verified coins for each newly approved partner.
+    for uid_str in updated_ids:
+        import uuid as _uuid
+        await award_coins(
+            db,
+            user_id=_uuid.UUID(uid_str),
+            event_type="profile_verified",
+            reference_type="professional",
+            reference_id=uid_str,
+        )
+    if updated_ids:
+        await db.commit()
+
     return {
         "requested": len(unique_ids),
         "approved": len(updated_ids),
         "min_profile_completeness": payload.min_profile_completeness,
         "updated_ids": updated_ids,
     }
+
+
+@router.get("/users/by-email")
+async def get_user_id_by_email(
+    email: str = Query(..., min_length=1),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Resolve an email address to its user UUID. Used by admin coin lookup."""
+    result = await db.execute(select(User).where(User.email == email.strip().lower()))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"user_id": str(user.id), "email": user.email}

@@ -50,6 +50,20 @@ class ServiceAreaOut(BaseModel):
     is_primary: bool = False
 
 
+class ApproachOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str
+    description: str | None = None
+
+
+class ExpertiseAreaOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    title: str
+    description: str | None = None
+
+
 class ProfessionalProfileOut(BaseModel):
     """Full professional profile returned by GET /professionals/{username}."""
 
@@ -74,10 +88,23 @@ class ProfessionalProfileOut(BaseModel):
     is_online: bool = False
     placement_label: str | None = None
 
-    # Flattened child data
+    # Extended fields
+    pronouns: str | None = None
+    who_i_work_with: str | None = None
+    client_goals: list[str] = []
+    response_time_hours: int = 24
+    cancellation_hours: int = 24
+    social_links: dict = {}
+    video_intro_url: str | None = None
+
+    # Structured child data
+    approaches: list[ApproachOut] = []
+    # Legacy flattened approach string kept for search ranking compatibility
     approach: str | None = None
     availability: str | None = None
     certifications: list[CertificationOut] = []
+    expertise_areas: list[ExpertiseAreaOut] = []
+    # Legacy flat specializations list kept for search/featured compatibility
     specializations: list[str] = []
     education: list[str] = []
     languages: list[str] = []
@@ -87,6 +114,13 @@ class ProfessionalProfileOut(BaseModel):
     services: list[ServiceOut] = []
     service_areas: list[ServiceAreaOut] = []
     featured_products: list[dict] = []
+
+
+class PublishProfileOut(BaseModel):
+    """Response returned after publishing a draft profile."""
+
+    ok: bool = True
+    message: str = "Profile published successfully."
 
 
 class ProfessionalUsernameOut(BaseModel):
@@ -174,6 +208,16 @@ class ProfessionalEditorPayload(BaseModel):
     sex: str = Field(default="undisclosed", min_length=2, max_length=32)
     short_bio: str | None = Field(default=None, max_length=255)
     about: str | None = Field(default=None, max_length=10000)
+
+    # Extended fields
+    pronouns: str | None = Field(default=None, max_length=64)
+    who_i_work_with: str | None = Field(default=None, max_length=5000)
+    client_goals: list[str] = []
+    response_time_hours: int = Field(default=24, ge=1, le=720)
+    cancellation_hours: int = Field(default=24, ge=0, le=720)
+    social_links: dict = {}
+    video_intro_url: str | None = Field(default=None, max_length=4000)
+    default_timezone: str = Field(default="UTC", max_length=100)
 
     approaches: list[ProfessionalApproachIn] = []
     availability_slots: list[ProfessionalAvailabilityIn] = []
