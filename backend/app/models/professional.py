@@ -257,6 +257,7 @@ class ProfessionalService(Base):
     mode: Mapped[str] = mapped_column(String, nullable=False)
     duration_value: Mapped[int] = mapped_column(Integer, nullable=False)
     duration_unit: Mapped[str] = mapped_column(String, nullable=False)
+    max_participants: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -344,3 +345,17 @@ class ProfessionalFeaturedIndex(Base):
     )
 
     professional: Mapped["Professional"] = relationship(lazy="joined")
+
+
+class ProfessionalUsernameHistory(Base):
+    __tablename__ = "professional_username_history"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.user_id", ondelete="CASCADE"), nullable=False
+    )
+    old_username: Mapped[str] = mapped_column(String, nullable=False)
+    new_username: Mapped[str] = mapped_column(String, nullable=False)
+    changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )

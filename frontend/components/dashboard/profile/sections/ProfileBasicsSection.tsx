@@ -1,7 +1,9 @@
 import Image from "next/image";
-import { Upload } from "lucide-react";
-import type { ReactNode } from "react";
+import { CheckCircle2, Upload, XCircle } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
+import { checkUsernameAvailability, fetchUsernameChangeLimits, type UsernameChangeLimits } from "@/components/dashboard/profile/profileEditorApi";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,7 +38,43 @@ export function ProfileBasicsSection({
   onRemoveImage,
   isMediaBusy = false,
 }: ProfileBasicsSectionProps) {
+  const { accessToken } = useAuthSession();
   const initials = initialsFromName(value.username || value.specialization || "");
+
+  const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [usernameLimits, setUsernameLimits] = useState<UsernameChangeLimits | null>(null);
+
+  useEffect(() => {
+    if (!accessToken) return;
+    void fetchUsernameChangeLimits(accessToken)
+      .then(setUsernameLimits)
+      .catch(() => null);
+  }, [accessToken]);
+
+  useEffect(() => {
+    const username = (value.username || "").trim();
+    if (username.length < 2) {
+      setUsernameStatus("idle");
+      return;
+    }
+
+    setUsernameStatus("checking");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(() => {
+      if (!accessToken) return;
+      void checkUsernameAvailability(username, accessToken)
+        .then((data) => {
+          setUsernameStatus(data.available ? "available" : "taken");
+        })
+        .catch(() => setUsernameStatus("idle"));
+    }, 500);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [value.username, accessToken]);
 
   return (
     <section className="w-full max-w-full space-y-6 overflow-hidden">
@@ -133,13 +171,57 @@ export function ProfileBasicsSection({
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Username *" id="editor-username">
+            {usernameLimits && (
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  usernameLimits.changes_today >= usernameLimits.daily_limit
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-white/10 text-zinc-400"
+                }`}>
+                  Today: {usernameLimits.changes_today}/{usernameLimits.daily_limit}
+                </span>
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                  usernameLimits.changes_this_year >= usernameLimits.yearly_limit
+                    ? "bg-red-500/20 text-red-400"
+                    : "bg-white/10 text-zinc-400"
+                }`}>
+                  This year: {usernameLimits.changes_this_year}/{usernameLimits.yearly_limit}
+                </span>
+              </div>
+            )}
             <Input
               id="editor-username"
-              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              disabled={usernameLimits != null && usernameLimits.changes_this_year >= usernameLimits.yearly_limit}
+              className={`h-12 rounded-xl border-white/10 bg-white/5 text-white ${
+                usernameStatus === "taken" ? "border-red-500/60" : usernameStatus === "available" ? "border-emerald-500/60" : ""
+              } disabled:cursor-not-allowed disabled:opacity-50`}
               value={value.username}
               onChange={(event) => onFieldChange("username", event.target.value)}
               placeholder="Enter your username"
             />
+            {usernameLimits?.changes_this_year != null && usernameLimits.changes_this_year >= usernameLimits.yearly_limit && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-red-400">
+                <XCircle className="h-3.5 w-3.5" /> Yearly username change limit reached
+              </p>
+            )}
+            {usernameLimits?.changes_today != null && usernameLimits.changes_today >= usernameLimits.daily_limit && usernameLimits.changes_this_year < usernameLimits.yearly_limit && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-amber-400">
+                <XCircle className="h-3.5 w-3.5" /> Daily limit reached — try again tomorrow
+              </p>
+            )}
+            {usernameStatus === "available" && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-emerald-400">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Username is available
+              </p>
+            )}
+            {usernameStatus === "taken" && (
+              <p className="mt-1 flex items-center gap-1 text-xs text-red-400">
+                <XCircle className="h-3.5 w-3.5" /> Username is already taken
+              </p>
+            )}
+            {usernameStatus === "checking" && (
+              <p className="mt-1 text-xs text-zinc-500">Checking availability…</p>
+            )}
           </Field>
 
           <Field label="Specialization *" id="editor-specialization">

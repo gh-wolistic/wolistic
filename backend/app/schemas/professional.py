@@ -179,6 +179,7 @@ class ProfessionalServiceIn(BaseModel):
     mode: str = Field(min_length=1, max_length=64)
     duration_value: int = Field(ge=1, le=1440)
     duration_unit: str = Field(min_length=1, max_length=32)
+    max_participants: int | None = Field(default=None, ge=1, le=10000)
     is_active: bool = True
 
 
@@ -192,6 +193,7 @@ class ProfessionalServiceAreaIn(BaseModel):
 
 class BookingQuestionTemplateIn(BaseModel):
     prompt: str = Field(min_length=1, max_length=4000)
+    question_type: str = Field(default="text", pattern="^(text|scale|choice)$")
     display_order: int = Field(default=1, ge=1, le=20)
     is_required: bool = True
     is_active: bool = True

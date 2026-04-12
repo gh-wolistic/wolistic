@@ -46,6 +46,7 @@ class BookingQuestionTemplate(Base):
         UUID(as_uuid=True), ForeignKey("professionals.user_id"), nullable=False
     )
     prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    question_type: Mapped[str] = mapped_column(String(20), nullable=False, server_default="text")
     display_order: Mapped[int] = mapped_column(SmallInteger, nullable=False, server_default="1")
     is_required: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")

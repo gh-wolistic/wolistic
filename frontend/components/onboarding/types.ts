@@ -31,7 +31,7 @@ export const partnerSubtypeOptions: PartnerSubtypeOption[] = [
   {
     value: "mind_expert",
     label: "Mind Expert",
-    description: "Mental wellness, therapy, coaching, mindfulness, and emotional wellbeing.",
+    description: "Therapists, counsellors, psychologists, mindfulness coaches, and mental wellness practitioners.",
   },
   {
     value: "diet_expert",

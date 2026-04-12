@@ -17,6 +17,37 @@ const API_BASE = rawApiBase.replace(/\/$/, "").endsWith("/api/v1")
   ? rawApiBase.replace(/\/$/, "")
   : `${rawApiBase.replace(/\/$/, "")}/api/v1`;
 
+export { API_BASE };
+
+export async function checkUsernameAvailability(
+  username: string,
+  accessToken: string,
+): Promise<{ available: boolean; slug: string }> {
+  const response = await fetch(
+    `${API_BASE}/professionals/me/username-available?username=${encodeURIComponent(username)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  if (!response.ok) throw new Error("Failed to check username");
+  return response.json() as Promise<{ available: boolean; slug: string }>;
+}
+
+export type UsernameChangeLimits = {
+  changes_today: number;
+  changes_this_year: number;
+  daily_limit: number;
+  yearly_limit: number;
+};
+
+export async function fetchUsernameChangeLimits(
+  accessToken: string,
+): Promise<UsernameChangeLimits> {
+  const response = await fetch(`${API_BASE}/professionals/me/username-change-limits`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!response.ok) throw new Error("Failed to fetch username change limits");
+  return response.json() as Promise<UsernameChangeLimits>;
+}
+
 function toEditorPayload(raw: Record<string, unknown>): ProfessionalEditorPayload {
   return {
     professional_id: raw.professional_id as string,
@@ -91,6 +122,10 @@ function toEditorPayload(raw: Record<string, unknown>): ProfessionalEditorPayloa
       mode: (item.mode as string) ?? "online",
       duration_value: Number(item.duration_value ?? 30),
       duration_unit: (item.duration_unit as string) ?? "mins",
+      max_participants:
+        item.max_participants !== undefined && item.max_participants !== null
+          ? Number(item.max_participants)
+          : null,
       is_active: item.is_active === undefined ? true : Boolean(item.is_active),
     })),
     service_areas: ((raw.service_areas as Record<string, unknown>[]) ?? []).map((item) => ({
@@ -103,6 +138,7 @@ function toEditorPayload(raw: Record<string, unknown>): ProfessionalEditorPayloa
     booking_question_templates: ((raw.booking_question_templates as Record<string, unknown>[]) ?? []).map(
       (item) => ({
         prompt: (item.prompt as string) ?? "",
+        question_type: ((item.question_type as string) ?? "text") as import("@/types/professional-editor").QuestionType,
         display_order: Number(item.display_order ?? 1),
         is_required: item.is_required === undefined ? true : Boolean(item.is_required),
         is_active: item.is_active === undefined ? true : Boolean(item.is_active),
@@ -181,7 +217,12 @@ export async function updateProfessionalEditorPayload(
   });
 
   if (!response.ok) {
-    throw new Error(`Unable to update profile editor data (${response.status})`);
+    let detail = `Unable to update profile editor data (${response.status})`;
+    try {
+      const body = (await response.json()) as { detail?: string };
+      if (body.detail) detail = body.detail;
+    } catch { /* ignore parse errors */ }
+    throw new Error(detail);
   }
 
   return toEditorPayload((await response.json()) as Record<string, unknown>);

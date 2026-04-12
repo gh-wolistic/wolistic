@@ -30,6 +30,8 @@ export function AuthPanelContent({
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendSent, setResendSent] = useState(false);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,11 +54,33 @@ export function AuthPanelContent({
   const resetForm = () => {
     setError(null);
     setSuccess(null);
+    setResendSent(false);
     setName("");
     setEmail("");
     setPassword("");
     setPasswordConfirm("");
     setMode(defaultMode);
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!email.trim()) return;
+    try {
+      setResendLoading(true);
+      setResendSent(false);
+      const supabase = getSupabaseBrowserClient();
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: oauthRedirectTo },
+      });
+      if (!resendError) {
+        setResendSent(true);
+      }
+    } catch {
+      // silently fail — user can retry
+    } finally {
+      setResendLoading(false);
+    }
   };
 
   const validateEmail = (value: string) => {
@@ -297,6 +321,16 @@ export function AuthPanelContent({
               <div>
                 <p className="text-sm font-semibold">Check your inbox to activate your account</p>
                 <p className="mt-1 text-sm leading-relaxed">{success}</p>
+                {success.includes("confirm") && (
+                  <button
+                    type="button"
+                    className="mt-2 text-sm text-emerald-600 hover:underline dark:text-emerald-400 disabled:opacity-50"
+                    onClick={() => void handleResendConfirmation()}
+                    disabled={resendLoading || resendSent}
+                  >
+                    {resendLoading ? "Sending…" : resendSent ? "Confirmation email resent!" : "Resend confirmation email"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

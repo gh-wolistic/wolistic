@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.encoders import jsonable_encoder
@@ -34,6 +34,7 @@ from app.models.professional import (
     ProfessionalService,
     ProfessionalSessionType,
     ProfessionalSubcategory,
+    ProfessionalUsernameHistory,
 )
 from app.models.user import User
 from app.services.media_urls import normalize_profile_media_path, to_public_profile_media_url
@@ -68,6 +69,56 @@ _RESULTS_BOOST_TOP_GAP = 0.10
 _DISCOVERY_MIN_PROFILE_COMPLETENESS = settings.PROFILE_COMPLETENESS_MIN_FOR_DISCOVERY
 _DEFAULT_INITIAL_CONSULTATION_NAME = "Initial Consultation"
 _DEFAULT_INITIAL_CONSULTATION_PRICE = 250
+_USERNAME_CHANGE_DAILY_LIMIT = 1    # max changes per rolling 24 hours
+_USERNAME_CHANGE_YEARLY_LIMIT = 5   # max changes per rolling 365 days
+
+
+async def _check_username_change_limits(
+    *,
+    db: AsyncSession,
+    professional_id: uuid.UUID,
+    old_username: str,
+    new_username: str,
+) -> tuple[int, int]:
+    """
+    Enforce username change rate limits. Raises HTTP 429 if exceeded.
+    Returns (changes_today, changes_this_year) for the caller to surface.
+    """
+    if old_username == new_username:
+        return 0, 0  # not a change — no limits apply
+
+    now = datetime.now(timezone.utc)
+    since_24h = now - timedelta(hours=24)
+    since_365d = now - timedelta(days=365)
+
+    result_24h = await db.execute(
+        select(func.count()).select_from(ProfessionalUsernameHistory).where(
+            ProfessionalUsernameHistory.professional_id == professional_id,
+            ProfessionalUsernameHistory.changed_at >= since_24h,
+        )
+    )
+    changes_today = result_24h.scalar_one()
+
+    result_365d = await db.execute(
+        select(func.count()).select_from(ProfessionalUsernameHistory).where(
+            ProfessionalUsernameHistory.professional_id == professional_id,
+            ProfessionalUsernameHistory.changed_at >= since_365d,
+        )
+    )
+    changes_year = result_365d.scalar_one()
+
+    if changes_today >= _USERNAME_CHANGE_DAILY_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Username can only be changed {_USERNAME_CHANGE_DAILY_LIMIT} time(s) per day.",
+        )
+    if changes_year >= _USERNAME_CHANGE_YEARLY_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Username can only be changed {_USERNAME_CHANGE_YEARLY_LIMIT} times per year.",
+        )
+
+    return changes_today, changes_year
 
 
 def _build_default_initial_consultation_service(*, professional_id: uuid.UUID) -> ProfessionalService:
@@ -806,6 +857,7 @@ def _to_editor_payload(prof: Professional) -> dict:
                 "mode": service.mode,
                 "duration_value": service.duration_value,
                 "duration_unit": service.duration_unit,
+                "max_participants": service.max_participants,
                 "is_active": service.is_active,
             }
             for service in prof.services
@@ -967,6 +1019,7 @@ async def _replace_professional_children(
                     mode=service.mode.strip(),
                     duration_value=service.duration_value,
                     duration_unit=_normalize_duration_unit(service.duration_unit),
+                    max_participants=service.max_participants,
                     is_active=service.is_active,
                 )
             )
@@ -998,6 +1051,7 @@ async def _replace_professional_children(
             BookingQuestionTemplate(
                 professional_id=professional_id,
                 prompt=template.prompt.strip(),
+                question_type=template.question_type,
                 display_order=index,
                 is_required=template.is_required,
                 is_active=template.is_active,
@@ -1341,6 +1395,54 @@ async def get_professional_reviews(
     )
 
 
+@router.get("/me/username-available")
+async def check_username_availability(
+    username: str = Query(..., min_length=2, max_length=60),
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Return whether a username is available. Excludes the caller's own current username."""
+    slug = _slugify_username_seed(username)
+    exists_result = await db.execute(
+        select(Professional.user_id).where(
+            Professional.username == slug,
+            Professional.user_id != current_user.user_id,
+        )
+    )
+    taken = exists_result.scalar_one_or_none() is not None
+    return {"available": not taken, "slug": slug}
+
+
+@router.get("/me/username-change-limits")
+async def get_username_change_limits(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Return how many username changes the caller has used today and this year."""
+    now = datetime.now(timezone.utc)
+    since_24h = now - timedelta(hours=24)
+    since_365d = now - timedelta(days=365)
+
+    r24 = await db.execute(
+        select(func.count()).select_from(ProfessionalUsernameHistory).where(
+            ProfessionalUsernameHistory.professional_id == current_user.user_id,
+            ProfessionalUsernameHistory.changed_at >= since_24h,
+        )
+    )
+    r365 = await db.execute(
+        select(func.count()).select_from(ProfessionalUsernameHistory).where(
+            ProfessionalUsernameHistory.professional_id == current_user.user_id,
+            ProfessionalUsernameHistory.changed_at >= since_365d,
+        )
+    )
+    return {
+        "changes_today": r24.scalar_one(),
+        "changes_this_year": r365.scalar_one(),
+        "daily_limit": _USERNAME_CHANGE_DAILY_LIMIT,
+        "yearly_limit": _USERNAME_CHANGE_YEARLY_LIMIT,
+    }
+
+
 @router.get("/me/editor", response_model=ProfessionalEditorOut)
 async def get_my_professional_editor_payload(
     current_user: AuthenticatedUser = Depends(get_current_user),
@@ -1371,6 +1473,7 @@ async def get_my_professional_editor_payload(
     payload["booking_question_templates"] = [
         {
             "prompt": template.prompt,
+            "question_type": template.question_type,
             "display_order": template.display_order,
             "is_required": template.is_required,
             "is_active": template.is_active,
@@ -1400,10 +1503,17 @@ async def update_my_professional_editor_payload(
             detail="Professional profile not found for current user",
         )
 
-    prof.username = payload.username.strip()
+    new_username = payload.username.strip()
+    old_username = prof.username
+    await _check_username_change_limits(
+        db=db,
+        professional_id=current_user.user_id,
+        old_username=old_username,
+        new_username=new_username,
+    )
+
+    prof.username = new_username
     prof.cover_image_url = normalize_profile_media_path(payload.cover_image_url)
-    prof.profile_image_url = normalize_profile_media_path(payload.profile_image_url)
-    prof.specialization = payload.specialization.strip()
     prof.membership_tier = payload.membership_tier.strip() if payload.membership_tier else None
     prof.experience_years = payload.experience_years
     prof.sex = payload.sex.strip()
@@ -1438,6 +1548,14 @@ async def update_my_professional_editor_payload(
         include_education=include_education,
         service_areas=service_areas,
     )
+    if old_username != new_username:
+        db.add(
+            ProfessionalUsernameHistory(
+                professional_id=current_user.user_id,
+                old_username=old_username,
+                new_username=new_username,
+            )
+        )
     await db.commit()
 
     # Award milestone coins for 50 / 75 / 100 % completeness thresholds.

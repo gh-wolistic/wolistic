@@ -48,6 +48,7 @@ export function ProfileStudioPage() {
   const [isMediaBusy, setIsMediaBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isPublished, setIsPublished] = useState(false);
   const [saveEpoch, setSaveEpoch] = useState(0);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export function ProfileStudioPage() {
         const mediaAssets = await listMyMediaAssets(accessToken);
         if (!active) return;
         setEditorData(payload);
+        setIsPublished(Boolean(payload.profile_completeness && payload.profile_completeness >= 100));
         const nextBySurface: Record<string, MediaAsset> = {};
         for (const asset of mediaAssets) {
           if ((asset.surface === "profile" || asset.surface === "cover") && !nextBySurface[asset.surface]) {
@@ -119,7 +121,7 @@ export function ProfileStudioPage() {
       const updated = await updateProfessionalEditorPayload(accessToken, editorData);
       setEditorData(updated);
       setSaveEpoch((n) => n + 1);
-      setSaveMessage("Profile changes saved.");
+      setSaveMessage("Profile changes saved. Click Publish to make it visible to clients.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to save profile right now.");
     } finally {
@@ -138,6 +140,7 @@ export function ProfileStudioPage() {
       setEditorData(updated);
       await publishProfessionalProfile(accessToken);
       setSaveEpoch((n) => n + 1);
+      setIsPublished(true);
       setSaveMessage("Profile published and live.");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "Unable to publish profile right now.");
@@ -276,6 +279,26 @@ export function ProfileStudioPage() {
               </div>
             </header>
 
+            {!isPublished && !saveMessage?.includes("published") && (
+              <Alert className="rounded-xl border-amber-500/30 bg-amber-500/10">
+                <Upload className="h-4 w-4 text-amber-400" />
+                <AlertTitle className="text-amber-300">Profile is in draft</AlertTitle>
+                <AlertDescription className="text-amber-400">
+                  Your profile is saved but not yet visible to clients. Click <strong>Publish</strong> when ready.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {user?.userSubtype === "mind_expert" && (
+              <Alert className="rounded-xl border-sky-500/30 bg-sky-500/10">
+                <Sparkles className="h-4 w-4 text-sky-400" />
+                <AlertTitle className="text-sky-300">Safeguarding tip for mental wellness practitioners</AlertTitle>
+                <AlertDescription className="text-sky-400">
+                  Consider adding a crisis support reference (e.g. iCall: 9152987821) in your About section so clients in distress know where to turn.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {saveMessage && (
               <Alert className="rounded-xl border-emerald-500/30 bg-emerald-500/10">
                 <CheckCircle2 className="text-emerald-400" />
@@ -398,6 +421,7 @@ export function ProfileStudioPage() {
                 <TabsContent key={`booking-${saveEpoch}`} value="booking">
                   <ProfileBookingSection
                     value={editorData}
+                    defaultTimezone={editorData.default_timezone || "Asia/Kolkata"}
                     onAvailabilityChange={(availability_slots) =>
                       setEditorData((current) => (current ? { ...current, availability_slots } : current))
                     }

@@ -41,11 +41,15 @@ export type ProfessionalServiceInput = {
   mode: string;
   duration_value: number;
   duration_unit: string;
+  max_participants?: number | null;
   is_active: boolean;
 };
 
+export type QuestionType = "text" | "scale" | "choice";
+
 export type BookingQuestionTemplateInput = {
   prompt: string;
+  question_type: QuestionType;
   display_order: number;
   is_required: boolean;
   is_active: boolean;

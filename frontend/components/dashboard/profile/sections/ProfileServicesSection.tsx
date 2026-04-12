@@ -11,7 +11,11 @@ type ProfileServicesSectionProps = {
   onServicesChange: (services: ProfessionalServiceInput[]) => void;
 };
 
-const SERVICE_MODES = ["online", "offline", "hybrid"] as const;
+const SERVICE_MODES: { value: string; label: string }[] = [
+  { value: "online",  label: "Online (Video / Phone)" },
+  { value: "offline", label: "In-person (Gym / Studio)" },
+  { value: "hybrid",  label: "Hybrid" },
+];
 
 function createEmptyService(): ProfessionalServiceInput {
   return {
@@ -25,6 +29,7 @@ function createEmptyService(): ProfessionalServiceInput {
     mode: "online",
     duration_value: 30,
     duration_unit: "mins",
+    max_participants: null,
     is_active: true,
   };
 }
@@ -99,9 +104,9 @@ export function ProfileServicesSection({ value, onServicesChange }: ProfileServi
                   <Label className="mb-2 block text-sm text-zinc-300">Mode *</Label>
                   <div className="flex flex-wrap gap-4">
                     {SERVICE_MODES.map((mode) => {
-                      const checked = selectedModes.includes(mode);
+                      const checked = selectedModes.includes(mode.value);
                       return (
-                        <label key={mode} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-300">
+                        <label key={mode.value} className="flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-300">
                           <span
                             className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
                               checked ? "border-emerald-500 bg-emerald-500" : "border-white/30 bg-white/5"
@@ -116,12 +121,12 @@ export function ProfileServicesSection({ value, onServicesChange }: ProfileServi
                             onChange={(event) => {
                               const current = parseModes(service.mode);
                               const next = event.target.checked
-                                ? [...new Set([...current, mode])]
-                                : current.filter((item) => item !== mode);
+                                ? [...new Set([...current, mode.value])]
+                                : current.filter((item) => item !== mode.value);
                               updateService(index, { ...service, mode: next.join(",") || "online" });
                             }}
                           />
-                          <span className="capitalize">{mode}</span>
+                          <span>{mode.label}</span>
                         </label>
                       );
                     })}
@@ -183,6 +188,47 @@ export function ProfileServicesSection({ value, onServicesChange }: ProfileServi
                     value={service.short_brief}
                     onChange={(event) => updateService(index, { ...service, short_brief: event.target.value })}
                     placeholder="One-on-one personalized wellness coaching"
+                  />
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-zinc-300">
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
+                        service.negotiable ? "border-emerald-500 bg-emerald-500" : "border-white/30 bg-white/5"
+                      }`}
+                    >
+                      {service.negotiable ? <Check className="h-3.5 w-3.5 text-white" /> : null}
+                    </span>
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={service.negotiable}
+                      onChange={(event) => updateService(index, { ...service, negotiable: event.target.checked })}
+                    />
+                    <span>Negotiable price</span>
+                  </label>
+                  <span className="text-xs text-zinc-500">Clients can request a custom price before booking.</span>
+                </div>
+
+                <div>
+                  <Label className="mb-2 block text-sm text-zinc-300">
+                    Max Participants{" "}
+                    <span className="text-zinc-500 font-normal">(leave blank for 1-on-1)</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={500}
+                    className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+                    value={service.max_participants ?? ""}
+                    placeholder="e.g. 10 for a group class"
+                    onChange={(event) =>
+                      updateService(index, {
+                        ...service,
+                        max_participants: event.target.value ? Number(event.target.value) : null,
+                      })
+                    }
                   />
                 </div>
               </div>

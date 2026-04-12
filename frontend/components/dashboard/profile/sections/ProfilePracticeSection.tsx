@@ -23,7 +23,11 @@ type ProfilePracticeSectionProps = {
   onCertificationsChange: (next: ProfessionalCertificationInput[]) => void;
 };
 
-const SESSION_TYPES = ["online", "offline", "hybrid"] as const;
+const SESSION_TYPES: { value: string; label: string; clientLabel: string }[] = [
+  { value: "online",  label: "Online (Video / Phone)",  clientLabel: "clients see: Video Call" },
+  { value: "offline", label: "In-person (Gym / Studio)", clientLabel: "clients see: In-person" },
+  { value: "hybrid",  label: "Hybrid (Online + In-person)", clientLabel: "clients see: Hybrid" },
+];
 
 function toLines(raw: string): string[] {
   return raw
@@ -118,11 +122,11 @@ export function ProfilePracticeSection({
             <Label className="mb-2 block text-sm text-zinc-300">Session Types</Label>
             <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
               {SESSION_TYPES.map((type) => {
-                const checked = value.session_types.includes(type);
+                const checked = value.session_types.includes(type.value);
                 return (
-                  <label key={type} className="flex cursor-pointer items-center gap-3">
+                  <label key={type.value} className="flex cursor-pointer items-start gap-3">
                     <span
-                      className={`flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all ${
+                      className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
                         checked
                           ? "border-emerald-500 bg-emerald-500"
                           : "border-white/30 bg-white/5"
@@ -136,13 +140,16 @@ export function ProfilePracticeSection({
                       checked={checked}
                       onChange={(event) => {
                         if (event.target.checked) {
-                          onSessionTypesChange([...value.session_types, type]);
+                          onSessionTypesChange([...value.session_types, type.value]);
                         } else {
-                          onSessionTypesChange(value.session_types.filter((item) => item !== type));
+                          onSessionTypesChange(value.session_types.filter((item) => item !== type.value));
                         }
                       }}
                     />
-                    <span className="text-base font-medium capitalize text-zinc-300">{type}</span>
+                    <span className="flex flex-col">
+                      <span className="text-sm font-medium text-zinc-200">{type.label}</span>
+                      <span className="text-xs text-zinc-500">{type.clientLabel}</span>
+                    </span>
                   </label>
                 );
               })}

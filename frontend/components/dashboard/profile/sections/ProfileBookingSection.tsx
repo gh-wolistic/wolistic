@@ -9,10 +9,12 @@ import type {
   BookingQuestionTemplateInput,
   ProfessionalAvailabilityInput,
   ProfessionalEditorPayload,
+  QuestionType,
 } from "@/types/professional-editor";
 
 type ProfileBookingSectionProps = {
   value: ProfessionalEditorPayload;
+  defaultTimezone?: string;
   onAvailabilityChange: (items: ProfessionalAvailabilityInput[]) => void;
   onQuestionTemplatesChange: (items: BookingQuestionTemplateInput[]) => void;
 };
@@ -27,18 +29,19 @@ const DAY_OPTIONS = [
   { value: 6, label: "Saturday" },
 ];
 
-function createEmptyAvailability(): ProfessionalAvailabilityInput {
+function createEmptyAvailability(timezone: string): ProfessionalAvailabilityInput {
   return {
     day_of_week: 1,
     start_time: "09:00",
     end_time: "17:00",
-    timezone: "UTC",
+    timezone,
   };
 }
 
 function createQuestionTemplate(order: number): BookingQuestionTemplateInput {
   return {
     prompt: "",
+    question_type: "text",
     display_order: order,
     is_required: true,
     is_active: true,
@@ -47,6 +50,7 @@ function createQuestionTemplate(order: number): BookingQuestionTemplateInput {
 
 export function ProfileBookingSection({
   value,
+  defaultTimezone = "UTC",
   onAvailabilityChange,
   onQuestionTemplatesChange,
 }: ProfileBookingSectionProps) {
@@ -66,7 +70,7 @@ export function ProfileBookingSection({
             variant="outline"
             size="sm"
             className="border-white/20 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
-            onClick={() => onAvailabilityChange([...availability, createEmptyAvailability()])}
+            onClick={() => onAvailabilityChange([...availability, createEmptyAvailability(defaultTimezone)])}
           >
             <Plus className="h-4 w-4" /> Add Slot
           </Button>
@@ -163,6 +167,26 @@ export function ProfileBookingSection({
                       onQuestionTemplatesChange(next);
                     }}
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-zinc-300">Answer Type</Label>
+                  <Select
+                    value={question.question_type ?? "text"}
+                    onValueChange={(val) => {
+                      const next = [...questions];
+                      next[index] = { ...question, question_type: val as QuestionType };
+                      onQuestionTemplatesChange(next);
+                    }}
+                  >
+                    <SelectTrigger className="rounded-xl border-white/10 bg-white/5 text-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Text (free-form)</SelectItem>
+                      <SelectItem value="scale">Scale (1–10)</SelectItem>
+                      <SelectItem value="choice">Multiple choice</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-zinc-300">Order</Label>

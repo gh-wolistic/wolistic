@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-03-22
+Last updated: 2026-04-12
 
 This folder contains architecture and execution documents for the Wolistic monorepo.
 
@@ -9,9 +9,10 @@ This folder contains architecture and execution documents for the Wolistic monor
 - Auth UX baseline:
 	- Header Sign In/Get Started uses modal auth.
 	- Non-header protected flows use sidebar auth.
-- Holistic-team and booking flows are configured to preserve navigation context across auth.
-- Expert-review intake persistence is part of the active migration chain via:
-	- `../backend/alembic/versions/c3d9f0a4e8b2_add_expert_review_requests_table.py`
+- Holistic-team and booking flows preserve navigation context across auth.
+- Active migration chain: 13 migrations after v1.1 baseline (`f577acd2eef7`).
+- Dashboard v2 (Elite shell) is the active partner dashboard surface.
+- Coins, subscriptions, activities, classes, and clients are all backend-live.
 
 ## Canonical Docs
 
@@ -20,6 +21,7 @@ This folder contains architecture and execution documents for the Wolistic monor
 - `AI_DONT_DELETE_TODO_WORKLIST.md`: Single canonical active worklist
 - `AI_DONT_DELETE_COMMANDS.md`: Development and operational command reference
 - `AI_DONT_DELETE_OWNERSHIP_MATRIX.md`: Frontend/backend ownership split
+- `high_priority_refactor_todo.md`: Dedicated performance refactor backlog
 
 ## Program and Strategy Docs
 
