@@ -128,6 +128,7 @@ We combine:
 | **MyFitnessPal** | Goal tracking, transparency | We add holistic (not just diet/fitness) + collaborative teams |
 | **Urban Company** | Booking reliability | We add verification, routines, and long-term client relationships |
 | **Practo** | Doctor discovery | We focus on wellness (non-medical), premium UX, and team-based care |
+| **Betterlyf** | Therapist/counselor marketplace (mind-focused) | We add holistic body + diet + mind, team collaboration, routine management |
 
 **Where We Win**: Holistic team approach + verified professional quality + AI-assisted personalization + elite UX
 
