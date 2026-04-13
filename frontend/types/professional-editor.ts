@@ -41,6 +41,7 @@ export type ProfessionalServiceInput = {
   mode: string;
   duration_value: number;
   duration_unit: string;
+  session_count: number;
   max_participants?: number | null;
   is_active: boolean;
 };

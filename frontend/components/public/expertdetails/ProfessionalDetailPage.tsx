@@ -113,7 +113,10 @@ export function ProfessionalDetailPage({ professional: publishedProfile }: Profe
                 bookingStartSignal={bookingStartSignal}
               />
               <GalleryProductsSection professional={professional} />
-              <ReviewsSection professionalId={professional.id} />
+              <ReviewsSection 
+                professionalId={professional.id} 
+                professionalName={professional.name}
+              />
             </div>
 
             <div className="hidden lg:block">

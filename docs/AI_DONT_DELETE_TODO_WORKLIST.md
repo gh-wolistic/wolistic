@@ -102,6 +102,54 @@ This is the single source of truth for active work tracking in `docs/`.
 - [ ] Caching strategy for search/discovery responses
 - [ ] Performance refactor pass (see `high_priority_refactor_todo.md`)
 
+## P3 Future Product Features (Phase 2+)
+
+### V2 Dashboard Enhancements
+
+- [ ] My Wolistic Teams
+	- Collaboration management interface for experts working together
+	- Invite/manage co-experts, team roles, and shared resources
+	- Team-level activity visibility and coordination tools
+
+- [ ] Feedback to Wolistic
+	- In-dashboard feedback submission interface
+	- Category-based feedback routing (feature request, bug report, general feedback)
+	- Feedback history and status tracking for user submissions
+
+- [ ] Client Manager — Favorite Clients
+	- Mark/unmark clients as favorites
+	- Quick-access favorite clients list or filter
+	- Favorite indicator in client cards/lists
+
+- [ ] Classes & Sessions — Work Locations Overview
+	- Dedicated section listing all gyms/centers/studios where expert works
+	- Location details: name, address, active class count
+	- Quick navigation to location-specific classes
+
+- [ ] Marketplace
+	- Explore products: wellness products, equipment, supplements
+	- Collaboration opportunities: brand partnerships, event sponsorships
+	- Events: industry events, training workshops, certification programs
+	- Discovery filters and search
+
+- [ ] Classes & Sessions — Conflict Detection Details
+	- Clickable conflict count indicator
+	- Conflict detail modal showing:
+		- Overlapping classes/sessions with time ranges
+		- Location conflicts (if same location double-booked)
+		- Suggested resolution actions (reschedule, cancel, adjust time)
+
+### Other Phase 2+ Features
+
+- [ ] In-app messaging system (professional ↔ client communication)
+	- Real-time messaging infrastructure (WebSocket, message storage, notifications)
+	- Professional-client chat UI with message history
+	- Negotiation support for "negotiable" services: in-chat price negotiation → "Book at ₹X" action link
+	- Reusable for all professional-client communication (pre-booking questions, post-booking follow-up, etc.)
+	- Mobile push notification integration
+	- Message moderation/safety tooling
+	- Estimated effort: ~10+ backend tasks + ~8+ frontend tasks
+
 ## Done Recently (Tracked Summary)
 
 - [x] Backend JWT verification and authenticated identity boundary

@@ -227,6 +227,22 @@ class ProfessionalReview(Base):
     rating: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     review_text: Mapped[str | None] = mapped_column(Text)
     is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    
+    # Phase 1 additions
+    booking_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("bookings.id"))
+    service_name: Mapped[str | None] = mapped_column(String(255))
+    verification_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="wolistic_user"
+    )  # 'verified_client' or 'wolistic_user'
+    
+    # Moderation fields
+    flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    flagged_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id")
+    )
+    flag_reason: Mapped[str | None] = mapped_column(Text)
+    moderation_status: Mapped[str | None] = mapped_column(String(32))  # 'under_review', 'approved', 'removed'
+    
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -234,6 +250,36 @@ class ProfessionalReview(Base):
     professional: Mapped["Professional"] = relationship(back_populates="reviews")
     reviewer: Mapped["User"] = relationship(
         "User", foreign_keys=[reviewer_user_id], lazy="joined"
+    )
+    flagged_by: Mapped["User"] = relationship(
+        "User", foreign_keys=[flagged_by_user_id], lazy="select"
+    )
+    response: Mapped["ProfessionalReviewResponse | None"] = relationship(
+        "ProfessionalReviewResponse", back_populates="review", uselist=False
+    )
+
+
+class ProfessionalReviewResponse(Base):
+    __tablename__ = "professional_review_responses"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    review_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("professional_reviews.id", ondelete="CASCADE"), nullable=False
+    )
+    professional_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("professionals.user_id"), nullable=False
+    )
+    response_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    review: Mapped["ProfessionalReview"] = relationship(back_populates="response")
+    professional: Mapped["Professional"] = relationship(
+        "Professional", foreign_keys=[professional_id]
     )
 
 
@@ -257,6 +303,7 @@ class ProfessionalService(Base):
     mode: Mapped[str] = mapped_column(String, nullable=False)
     duration_value: Mapped[int] = mapped_column(Integer, nullable=False)
     duration_unit: Mapped[str] = mapped_column(String, nullable=False)
+    session_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     max_participants: Mapped[int | None] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     created_at: Mapped[datetime] = mapped_column(

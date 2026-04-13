@@ -105,6 +105,7 @@ def flatten_professional(prof: Professional) -> dict:
                 duration=f"{s.duration_value} {s.duration_unit}",
                 mode=s.mode,
                 price=int(s.price),
+                session_count=s.session_count if s.session_count is not None else 1,
                 offers=s.offers,
                 negotiable=s.negotiable,
                 offer_type="percentage" if s.offer_type == "percent" else s.offer_type,

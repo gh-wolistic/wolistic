@@ -22,6 +22,9 @@ from app.api.routes.subscription import admin_router as subscription_admin_route
 from app.api.routes.clients import router as clients_router
 from app.api.routes.settings import router as settings_router
 from app.api.routes.wellness_centers import router as wellness_centers_router
+from app.api.routes.messaging import router as messaging_router
+from app.api.routes.notification import router as notification_router
+from app.api.routes.review import router as review_router
 
 api_router = APIRouter()
 api_router.include_router(admin_router)
@@ -46,3 +49,6 @@ api_router.include_router(settings_router)
 api_router.include_router(classes_router)
 api_router.include_router(subscription_partner_router)
 api_router.include_router(subscription_admin_router)
+api_router.include_router(messaging_router)
+api_router.include_router(notification_router)
+api_router.include_router(review_router)

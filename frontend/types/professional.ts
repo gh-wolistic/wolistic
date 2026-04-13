@@ -5,6 +5,7 @@ export type ProfessionalService = {
   duration: string;
   mode: string;
   price: number;
+  session_count: number;
   offers?: string;
   negotiable?: boolean;
   offer_type?: string;
@@ -103,15 +104,69 @@ export type FeaturedProduct = {
   price: number;
 };
 
+export type ReviewResponse = {
+  id: number;
+  reviewId: number;
+  professionalId: string;
+  responseText: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ProfessionalReview = {
   id: number;
-  reviewerName: string;
+  professionalId: string;
+  reviewerUserId: string;
+  reviewerName: string | null;
+  reviewerEmail: string | null;
   rating: number;
+  reviewText?: string;
+  /** @deprecated Use reviewText */
   comment?: string;
+  isVerified: boolean;
+  verificationType: "verified_client" | "wolistic_user" | null;
+  bookingId: number | null;
+  serviceName: string | null;
+  flaggedAt: string | null;
+  flaggedByUserId: string | null;
+  flagReason: string | null;
+  moderationStatus: string | null;
   createdAt: string;
+  response: ReviewResponse | null;
+};
+
+export type ReviewsSummary = {
+  totalReviews: number;
+  avgRating: number;
+  verifiedCount: number;
+  wolisticUserCount: number;
+  responseRate: number;
 };
 
 export type ReviewPage = {
   items: ProfessionalReview[];
   total: number;
+};
+
+export type ReviewsListResponse = {
+  reviews: ProfessionalReview[];
+  summary: ReviewsSummary;
+};
+
+export type ReviewEligibility = {
+  canReview: boolean;
+  reason: string | null;
+  verificationType: "verified_client" | "wolistic_user" | null;
+};
+
+export type ExpertClient = {
+  id: number;
+  professionalId: string;
+  clientUserId: string | null;
+  clientName: string;
+  clientEmail: string;
+  serviceNotes: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
 };

@@ -15,6 +15,7 @@ class ServiceOut(BaseModel):
     duration: str
     mode: str
     price: int
+    session_count: int = 1
     offers: str | None = None
     negotiable: bool = False
     offer_type: str | None = None
@@ -179,6 +180,7 @@ class ProfessionalServiceIn(BaseModel):
     mode: str = Field(min_length=1, max_length=64)
     duration_value: int = Field(ge=1, le=1440)
     duration_unit: str = Field(min_length=1, max_length=32)
+    session_count: int = Field(default=1, ge=1, le=365)
     max_participants: int | None = Field(default=None, ge=1, le=10000)
     is_active: bool = True
 

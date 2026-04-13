@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
   LayoutDashboard,
@@ -9,7 +9,6 @@ import {
   CalendarDays,
   Kanban,
   MessageSquare,
-  Star,
   UserSquare2,
   Settings,
   Gem,
@@ -25,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/components/ui/utils";
 import logoLightText from "@/assets/logo_light_text.png";
+import { notificationAPI } from "@/lib/notification-api";
 import type { ElitePageView } from "./types";
 
 interface NavItem {
@@ -37,13 +37,11 @@ interface NavItem {
   href?: string;
 }
 
-const navItems: NavItem[] = [
+const baseNavItems: NavItem[] = [
   { icon: LayoutDashboard, label: "Home", section: "main", page: "dashboard" },
   { icon: Activity, label: "Body Expert Console", section: "main", page: "dashboard" },
-  { icon: Users, label: "Clients", section: "main", page: "clients" },
-  { icon: CalendarDays, label: "Schedule", section: "main" },
-  { icon: MessageSquare, label: "Messages", badge: true, section: "main" },
-  { icon: Star, label: "Reviews", section: "main" },
+  { icon: Users, label: "Client Manager", section: "main", page: "clients" },
+  { icon: MessageSquare, label: "Messages", section: "main", page: "messages" },
   { icon: Kanban, label: "Activity Manager", section: "main", page: "activities" },
   { icon: CalendarDays, label: "Classes & Sessions", section: "main", page: "classes" },
   { icon: UserSquare2, label: "Profile Studio", section: "main", page: "profile" },
@@ -74,6 +72,33 @@ function NavContent({
   onPageChange?: (page: ElitePageView) => void;
   onSignOut?: () => void;
 }) {
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
+  // Load unread message count
+  useEffect(() => {
+    const loadUnreadMessages = async () => {
+      try {
+        const data = await notificationAPI.getUnreadCount();
+        setUnreadMessageCount(data.by_type?.message || 0);
+      } catch (error) {
+        console.error('Failed to load unread message count:', error);
+      }
+    };
+
+    loadUnreadMessages();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(loadUnreadMessages, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Create dynamic navItems with badge based on unread count
+  const navItems = baseNavItems.map(item => 
+    item.label === "Messages" 
+      ? { ...item, badge: unreadMessageCount > 0 }
+      : item
+  );
+
   return (
     <div className="flex h-full flex-col">
       {/* Logo */}

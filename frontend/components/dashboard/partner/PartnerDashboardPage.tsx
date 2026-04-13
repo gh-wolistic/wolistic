@@ -13,6 +13,9 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { ClientListManager } from "@/components/dashboard/partner/ClientListManager";
+import { ReviewResponseManager } from "@/components/dashboard/partner/ReviewResponseManager";
+
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import type { UserSubtype } from "@/components/onboarding/types";
 import { getPartnerDashboardData } from "@/components/dashboard/partner/partnerApi";
@@ -370,6 +373,10 @@ export function PartnerDashboardPage({ subtype }: PartnerDashboardPageProps) {
               ))}
             </CardContent>
           </Card>
+
+          <ClientListManager />
+
+          <ReviewResponseManager membershipTier={membershipTier} />
         </>
       )}
     </section>

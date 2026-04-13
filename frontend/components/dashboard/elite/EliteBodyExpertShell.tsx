@@ -17,9 +17,11 @@ import { WolisticCoinsPage } from "./WolisticCoinsPage";
 import { ProfileStudioPage } from "@/components/dashboard/profile/ProfileStudioPage";
 import { ActivityManagerPage } from "@/components/dashboard/activity/ActivityManagerPage";
 import { ClientsManagerPage } from "./ClientsManagerPage";
+import ClientsManagerV2Page from "./ClientsManagerV2Page";
 import { SettingsPage } from "./SettingsPage";
 import { ClassesManagerPage } from "./ClassesManagerPage";
 import { SubscriptionPage } from "./SubscriptionPage";
+import { MessagingPage } from "../MessagingPage";
 import type { ElitePageView } from "./types";
 
 /** Derive profile completeness as a percentage from the editor payload. */
@@ -48,14 +50,18 @@ function toInitials(name: string): string {
     .toUpperCase();
 }
 
-export function EliteBodyExpertShell() {
+interface EliteBodyExpertShellProps {
+  initialPage?: ElitePageView;
+}
+
+export function EliteBodyExpertShell({ initialPage = "dashboard" }: EliteBodyExpertShellProps = {}) {
   const { user, accessToken, signOut, status } = useAuthSession();
   const { wallet, refresh: refreshWallet } = useCoinWallet();
 
   const [dashboardData, setDashboardData] = useState<PartnerDashboardData | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [currentPage, setCurrentPage] = useState<ElitePageView>("dashboard");
+  const [currentPage, setCurrentPage] = useState<ElitePageView>(initialPage);
 
   const loadDashboard = useCallback(() => {
     if (!accessToken) return;
@@ -115,7 +121,7 @@ export function EliteBodyExpertShell() {
 
       {/* Main Content Area */}
       <main
-        className={`min-h-screen overflow-x-hidden pt-16 transition-all duration-300 ${
+        className={`${currentPage === "messages" ? "h-[calc(100vh-4rem)] overflow-hidden" : "min-h-screen overflow-x-hidden"} pt-16 transition-all duration-300 ${
           sidebarCollapsed ? "lg:pl-17" : "lg:pl-60"
         } ${currentPage === "dashboard" ? "xl:pr-72" : ""}`}
       >
@@ -131,6 +137,7 @@ export function EliteBodyExpertShell() {
             coinTransactions={recentCoinTransactions}
             editorPayload={editor}
             onSaved={loadDashboard}
+            onPageChange={setCurrentPage}
           />
         )}
         {currentPage === "coins" && <WolisticCoinsPage />}
@@ -144,7 +151,7 @@ export function EliteBodyExpertShell() {
           />
         )}
         {currentPage === "activities" && <ActivityManagerPage />}
-        {currentPage === "clients" && <ClientsManagerPage />}
+        {currentPage === "clients" && <ClientsManagerV2Page />}
         {currentPage === "classes" && (
           <ClassesManagerPage
             specialization={editor.specialization ?? ""}
@@ -152,6 +159,11 @@ export function EliteBodyExpertShell() {
           />
         )}
         {currentPage === "subscription" && <SubscriptionPage />}
+        {currentPage === "messages" && (
+          <div className="h-full">
+            <MessagingPage />
+          </div>
+        )}
       </main>
 
       {/* Right Profile Panel — dashboard view only */}

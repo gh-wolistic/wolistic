@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.database import get_db_session
 from app.models.booking import Booking, BookingPayment, BookingQuestionTemplate
+from app.models.client import ExpertClient, ExpertClientFollowUp
 from app.models.holistic_team import HolisticTeamMember
 from app.models.professional import Professional, ProfessionalReview
 from app.models.user import User
@@ -163,17 +164,58 @@ async def get_partner_dashboard(
         for uid, data in client_data.items()
     ][:20]
 
-    follow_ups = [
+    # ------------------------------------------------------------------
+    # Follow-ups — combine auto-generated + manual follow-ups
+    # ------------------------------------------------------------------
+    # 1. Auto-generated: clients with last session but no next session
+    auto_followups = [
         PartnerFollowUpOut(
+            id=f"auto_{c.client_user_id}",
             client_user_id=c.client_user_id,
             name=c.name,
             initials=c.initials,
             last_session_at=c.last_session_at,
             reason="Check in after last session",
+            is_manual=False,
         )
         for c in active_clients
         if c.next_session_at is None and c.last_session_at is not None
-    ][:10]
+    ]
+
+    # 2. Manual follow-ups: explicitly created by professional (unresolved only)
+    manual_followups_result = await db.execute(
+        select(ExpertClientFollowUp, ExpertClient)
+        .join(ExpertClient, ExpertClient.id == ExpertClientFollowUp.client_id)
+        .where(
+            ExpertClientFollowUp.professional_id == current_user.user_id,
+            ExpertClientFollowUp.resolved == False,  # noqa: E712
+        )
+        .order_by(ExpertClientFollowUp.due_date.asc())
+    )
+    manual_followups_rows = manual_followups_result.all()
+
+    manual_followups = []
+    for followup, client in manual_followups_rows:
+        is_overdue = followup.due_date < now_utc
+        manual_followups.append(
+            PartnerFollowUpOut(
+                id=f"manual_{followup.id}",
+                client_user_id=str(client.user_id) if client.user_id else f"client_{client.id}",
+                name=client.name,
+                initials=_initials(client.name),
+                last_session_at=client.last_session_date,
+                reason=followup.note[:100] if followup.note else "Follow-up due",
+                due_date=followup.due_date,
+                note=followup.note,
+                is_overdue=is_overdue,
+                is_manual=True,
+            )
+        )
+
+    # Combine: prioritize overdue manual follow-ups first, then due manual, then auto
+    overdue_manual = [f for f in manual_followups if f.is_overdue]
+    due_manual = [f for f in manual_followups if not f.is_overdue]
+    follow_ups = (overdue_manual + due_manual + auto_followups)[:10]
 
     # ------------------------------------------------------------------
     # Today's sessions — bookings scheduled today OR immediate created today.

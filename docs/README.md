@@ -29,6 +29,11 @@ This folder contains architecture and execution documents for the Wolistic monor
 - `AI_DONT_DELETE_HOLISTIC_PLAN_MVP_V1.md`
 - `AI_DONT_DELETE_PIVOT_TO_MIN_MVP.md`
 
+## Feature Specifications and UX Reviews
+
+- `reviews-ui-specification.md`: Reviews system spec for v2 dashboard
+- `ux-review-messaging-2026-04-13.md`: UX audit of messaging real-time and layout issues
+
 ## Migration Runbooks
 
 - `../backend/alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md`

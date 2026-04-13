@@ -25,11 +25,16 @@ export type PartnerActiveClient = {
 };
 
 export type PartnerFollowUp = {
+  id: string;
   client_user_id: string;
   name: string;
   initials: string;
   last_session_at: string | null;
   reason: string;
+  due_date: string | null;
+  note: string | null;
+  is_overdue: boolean;
+  is_manual: boolean;
 };
 
 export type DashboardCoinTransaction = {

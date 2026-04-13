@@ -255,16 +255,6 @@ export function ProfileBasicsSection({
             />
           </Field>
 
-          <Field label="Membership Tier" id="editor-membership-tier">
-            <Input
-              id="editor-membership-tier"
-              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
-              value={value.membership_tier}
-              onChange={(event) => onFieldChange("membership_tier", event.target.value)}
-              placeholder="verified / premium"
-            />
-          </Field>
-
           <Field label="Sex" id="editor-sex">
             <Input
               id="editor-sex"

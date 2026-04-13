@@ -10,6 +10,7 @@ from app.models.booking import (
     BookingQuestionTemplate,
 )
 from app.models.catalog import CatalogBrand, CatalogInfluencer, CatalogProduct, CatalogService
+from app.models.client import ExpertClient, ExpertClientFollowUp
 from app.models.holistic_team import HolisticTeam, HolisticTeamMember
 from app.models.media import MediaAsset
 from app.models.professional import (
@@ -23,6 +24,7 @@ from app.models.professional import (
     ProfessionalGallery,
     ProfessionalLanguage,
     ProfessionalReview,
+    ProfessionalReviewResponse,
     ProfessionalServiceArea,
     ProfessionalService,
     ProfessionalSessionType,
@@ -32,6 +34,8 @@ from app.models.user import User, UserFavourite
 from app.models.wolistic_content import WolisticArticle, WolisticProduct, WolisticService
 from app.models.classes import WorkLocation, GroupClass, ClassSession, ClassEnrollment
 from app.models.subscription import SubscriptionPlan, ProfessionalSubscription, SubscriptionBillingRecord, SubscriptionPaymentOrder, SubscriptionPriorityTicket
+from app.models.messaging import Conversation, ConversationParticipant, Message
+from app.models.notification import Notification
 
 __all__ = [
     "Booking",
@@ -42,6 +46,8 @@ __all__ = [
     "CatalogProduct",
     "CatalogService",
     "CatalogInfluencer",
+    "ExpertClient",
+    "ExpertClientFollowUp",
     "HolisticTeam",
     "HolisticTeamMember",
     "MediaAsset",
@@ -55,10 +61,15 @@ __all__ = [
     "ProfessionalGallery",
     "ProfessionalLanguage",
     "ProfessionalReview",
+    "ProfessionalReviewResponse",
     "ProfessionalServiceArea",
     "ProfessionalService",
     "ProfessionalSessionType",
     "ProfessionalSubcategory",
     "User",
     "UserFavourite",
+    "Conversation",
+    "ConversationParticipant",
+    "Message",
+    "Notification",
 ]

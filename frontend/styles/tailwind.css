@@ -100,4 +100,16 @@ html {
   .animate-float {
     animation: float 6s ease-in-out infinite;
   }
+
+  /* Slide in from right animation for modals/sheets */
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
 }

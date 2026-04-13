@@ -47,11 +47,16 @@ class PartnerActiveClientOut(BaseModel):
 
 
 class PartnerFollowUpOut(BaseModel):
+    id: str  # Unique identifier for this follow-up
     client_user_id: str
     name: str
     initials: str
     last_session_at: datetime | None = None
     reason: str = "Check in after last session"
+    due_date: datetime | None = None
+    note: str | None = None
+    is_overdue: bool = False
+    is_manual: bool = False  # True if created manually, False if auto-generated
 
 
 class TodaySessionOut(BaseModel):

@@ -72,6 +72,9 @@ import type {
   ProfessionalServiceInput,
 } from "@/types/professional-editor";
 import { mockMessages } from "./mock-data";
+import { ReviewResponseManager } from "@/components/dashboard/partner/ReviewResponseManager";
+import { messagingAPI, type ConversationWithLastMessage } from "@/lib/messaging-api";
+import type { ElitePageView } from "./types";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -130,6 +133,7 @@ interface BodyExpertDashboardContentProps {
   coinTransactions: DashboardCoinTransaction[];
   editorPayload: ProfessionalEditorPayload;
   onSaved: () => void;
+  onPageChange?: (page: ElitePageView) => void;
 }
 
 function GlassCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -261,8 +265,8 @@ function WelcomeHero({
   const dateStr = now.toLocaleDateString("en-IN", { month: "long", day: "numeric", year: "numeric" });
   const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 
-  // Derive a streak from the total booking count as a simple proxy
-  const streak = Math.max(1, Math.min(Math.floor(aggregate.metrics.bookings_total / 3), 30));
+  // Derive a session streak from the total booking count as a simple proxy
+  const sessionStreak = Math.max(1, Math.min(Math.floor(aggregate.metrics.bookings_total / 3), 30));
   const ratingDelta = aggregate.metrics.rating_count > 0 ? 1 : 0; // placeholder directional
 
   return (
@@ -275,73 +279,26 @@ function WelcomeHero({
         {/* Top row: greeting + clock */}
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-sm font-medium text-zinc-400">{dayOfWeek}, {dateStr}</p>
-            <h1 className="mt-1 text-3xl font-bold text-white">
+            <p className="text-sm font-medium text-zinc-500">{dayOfWeek}, {dateStr}</p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
               {greeting}, {firstName} 👋
             </h1>
-            <p className="mt-1 text-zinc-400">
-              Here's how your practice is doing today
+            <p className="mt-2 text-base text-zinc-400">
+              Your practice at a glance
             </p>
           </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span className="text-2xl font-semibold tabular-nums text-white">{timeStr}</span>
-            {/* Streak pill */}
-            <div className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1">
-              <Zap className="size-3.5 text-amber-400" />
-              <span className="text-xs font-medium text-amber-300">{streak}-day streak</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Stat chips row */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {/* Upcoming */}
-          <div className="rounded-xl border border-white/8 bg-white/5 p-3">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <CalendarDays className="size-3.5 text-emerald-400" />
-              Upcoming
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {aggregate.metrics.upcoming_bookings_total}
-            </p>
-            <DeltaBadge delta={aggregate.metrics.upcoming_bookings_total > 0 ? 1 : 0} unit=" sessions" />
-          </div>
-
-          {/* Revenue */}
-          <div className="rounded-xl border border-white/8 bg-white/5 p-3">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <DollarSign className="size-3.5 text-cyan-400" />
-              Revenue
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {aggregate.metrics.revenue_currency ?? ""}
-              {aggregate.metrics.revenue_total.toLocaleString()}
-            </p>
-            <DeltaBadge delta={aggregate.metrics.revenue_total > 0 ? 2 : 0} unit="" />
-          </div>
-
-          {/* Rating */}
-          <div className="rounded-xl border border-white/8 bg-white/5 p-3">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <Star className="size-3.5 text-amber-400" />
-              Rating
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">
-              {aggregate.metrics.rating_avg > 0 ? aggregate.metrics.rating_avg.toFixed(1) : "—"}
-            </p>
-            <DeltaBadge delta={ratingDelta} unit=" pts" />
-          </div>
-
-          {/* Profile */}
-          <div className="rounded-xl border border-white/8 bg-white/5 p-3">
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <Sparkles className="size-3.5 text-violet-400" />
-              Profile
-            </div>
-            <p className="mt-1 text-2xl font-semibold text-white">{profileCompleteness}%</p>
-            <span className="text-xs text-zinc-500">
-              {profileCompleteness === 100 ? "✓ Fully complete" : `${100 - profileCompleteness}% left`}
-            </span>
+          <div className="flex flex-col items-end gap-2">
+            <span className="text-2xl font-semibold tabular-nums tracking-tight text-white">{timeStr}</span>
+            {/* Session Streak pill with tooltip context */}
+            {sessionStreak > 0 && (
+              <div 
+                className="group relative flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-linear-to-r from-amber-500/10 to-orange-500/10 px-3 py-1.5 shadow-sm transition-all hover:border-amber-400/50 hover:shadow-md"
+                title={`You've maintained ${sessionStreak} consecutive ${sessionStreak === 1 ? 'day' : 'days'} with active sessions`}
+              >
+                <Zap className="size-3.5 text-amber-400" />
+                <span className="text-xs font-semibold text-amber-300">{sessionStreak}-day session streak</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -360,13 +317,25 @@ export function BodyExpertDashboardContent({
   coinTransactions,
   editorPayload,
   onSaved,
+  onPageChange,
 }: BodyExpertDashboardContentProps) {
-  const { accessToken } = useAuthSession();
+  const { accessToken, user } = useAuthSession();
   const isPending = userStatus === "pending";
   const isProfileIncomplete = profileCompleteness < 60;
   const isNotPremium = aggregate.overview.membership_tier !== "premium";
   const coinBalance = wallet?.balance ?? 0;
   const activeServices = services.filter((s) => s.is_active);
+
+  // --- Recent Messages ---
+  const [recentMessages, setRecentMessages] = useState<Array<{
+    id: string;
+    senderInitials: string;
+    senderName: string;
+    preview: string;
+    timeAgo: string;
+    unread: boolean;
+  }>>([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   // --- Services quick-edit sheet ---
   const [isServicesOpen, setIsServicesOpen] = useState(false);
@@ -428,9 +397,86 @@ export function BodyExpertDashboardContent({
     }
   }
 
+  // --- Fetch Recent Messages ---
+  useEffect(() => {
+    async function fetchRecentMessages() {
+      if (!user?.id) return;
+      
+      setLoadingMessages(true);
+      try {
+        // Fetch only 5 most recent conversations with cache enabled
+        const conversations = await messagingAPI.listConversations(5, true);
+        
+        // Transform conversations to widget format
+        const transformed = conversations
+          .filter((conv) => conv.last_message !== null)
+          .map((conv) => {
+            // Find the other participant (not the current user)
+            const otherParticipant = conv.participants.find(
+              (p) => p.user_id !== user.id
+            );
+            
+            // Get user profile data
+            const profile = otherParticipant?.user_profile;
+            const name = profile?.name || "Unknown User";
+            const initials = name
+              .split(' ')
+              .map(word => word[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase() || "??";
+            
+            // Format time ago
+            const messageTime = conv.last_message?.created_at || conv.last_message_at || "";
+            const timeAgo = formatMessageTime(messageTime);
+            
+            // Truncate preview
+            const content = conv.last_message?.content || "";
+            const preview = content.length > 60 ? content.slice(0, 60) + "..." : content;
+            
+            return {
+              id: conv.id,
+              senderInitials: initials,
+              senderName: name,
+              preview: preview || "No messages yet",
+              timeAgo,
+              unread: conv.unread_count > 0,
+            };
+          });
+        
+        setRecentMessages(transformed);
+      } catch (error) {
+        console.error("Failed to fetch recent messages:", error);
+        // Keep empty array on error
+      } finally {
+        setLoadingMessages(false);
+      }
+    }
+
+    fetchRecentMessages();
+  }, [user?.id]); // Re-fetch if user ID changes
+
+  function formatMessageTime(isoDate: string): string {
+    if (!isoDate) return "—";
+    const now = Date.now();
+    const date = new Date(isoDate);
+    const diff = now - date.getTime();
+    
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days}d ago`;
+    return date.toLocaleDateString("en-IN", { month: "short", day: "numeric" });
+  }
+
   return (
     <>
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Alert Banners */}
       {isPending && (
         <GlassCard className="border-amber-400/30 bg-amber-500/10 p-4">
@@ -547,45 +593,102 @@ export function BodyExpertDashboardContent({
 
         {/* Follow-ups */}
         <GlassCard className="p-4 sm:p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <ClipboardList className="size-5 text-cyan-400" />
-            <h2 className="text-lg font-semibold text-white">Follow-Ups</h2>
+          <div className="mb-5 flex items-center gap-3">
+            <div className="rounded-xl bg-linear-to-br from-cyan-500/20 to-sky-500/10 p-2.5 shadow-lg shadow-cyan-500/10">
+              <ClipboardList className="size-5 text-cyan-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight text-white">Follow-Ups</h2>
+              {aggregate.follow_ups.length > 0 && (
+                <p className="text-xs text-zinc-500">
+                  {aggregate.follow_ups.filter(f => f.is_overdue).length > 0 && 
+                    `${aggregate.follow_ups.filter(f => f.is_overdue).length} overdue • `}
+                  {aggregate.follow_ups.length} total
+                </p>
+              )}
+            </div>
           </div>
 
           {aggregate.follow_ups.length > 0 ? (
             <div className="space-y-3">
               {aggregate.follow_ups.map((followUp) => (
                 <div
-                  key={followUp.client_user_id}
-                  className="space-y-2 rounded-lg border border-white/8 bg-white/5 p-3"
+                  key={followUp.id}
+                  className={`group relative space-y-3 rounded-xl border p-4 shadow-lg backdrop-blur-sm transition-all duration-300 ${
+                    followUp.is_overdue
+                      ? "border-rose-400/40 bg-linear-to-br from-rose-500/15 to-rose-600/10 hover:border-rose-400/60 hover:shadow-rose-500/20"
+                      : followUp.is_manual
+                        ? "border-amber-400/30 bg-linear-to-br from-amber-500/10 to-orange-500/5 hover:border-amber-400/50 hover:shadow-amber-500/15"
+                        : "border-cyan-400/30 bg-linear-to-br from-cyan-500/10 to-sky-500/5 hover:border-cyan-400/50 hover:shadow-cyan-500/15"
+                  } hover:shadow-xl`}
                 >
-                  <div className="flex items-center gap-2">
-                    <Avatar className="size-8">
-                      <AvatarFallback className="bg-cyan-500/20 text-xs text-cyan-400">
+                  {/* Subtle glow effect on hover */}
+                  <div className={`pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity duration-300 group-hover:opacity-100 ${
+                    followUp.is_overdue
+                      ? "bg-linear-to-br from-rose-500/5 to-transparent"
+                      : "bg-linear-to-br from-cyan-500/5 to-transparent"
+                  }`} />
+                  
+                  <div className="relative flex items-center gap-3">
+                    <Avatar className={`size-10 transition-transform duration-300 group-hover:scale-110 ${
+                      followUp.is_overdue ? "ring-2 ring-rose-400/60 shadow-lg shadow-rose-500/20" : ""
+                    }`}>
+                      <AvatarFallback className={`text-sm font-semibold ${
+                        followUp.is_overdue
+                          ? "bg-linear-to-br from-rose-500/30 to-rose-600/20 text-rose-300"
+                          : followUp.is_manual
+                            ? "bg-linear-to-br from-amber-500/30 to-orange-500/20 text-amber-300"
+                            : "bg-linear-to-br from-cyan-500/30 to-sky-500/20 text-cyan-300"
+                      }`}>
                         {followUp.initials}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-white">{followUp.name}</p>
-                      <p className="text-xs text-zinc-500">{toRelativeTime(followUp.last_session_at)}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white truncate">{followUp.name}</p>
+                        {followUp.is_overdue && (
+                          <Badge className="shrink-0 border-rose-400/40 bg-rose-500/25 text-rose-300 text-xs px-2 py-0.5 font-medium shadow-sm">
+                            Overdue
+                          </Badge>
+                        )}
+                        {followUp.is_manual && !followUp.is_overdue && (
+                          <Badge className="shrink-0 border-amber-400/40 bg-amber-500/25 text-amber-300 text-xs px-2 py-0.5 font-medium shadow-sm">
+                            Due
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs font-medium text-zinc-400 mt-0.5">
+                        {followUp.due_date
+                          ? toFutureRelativeTime(followUp.due_date)
+                          : toRelativeTime(followUp.last_session_at)}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-zinc-400">{followUp.reason}</p>
+                  
+                  <p className="relative text-xs leading-relaxed text-zinc-300">{followUp.reason}</p>
+                  
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="w-full gap-2 border-white/10 text-xs hover:bg-white/5"
+                    className={`relative w-full gap-2 overflow-hidden border-0 text-xs font-semibold shadow-lg transition-all duration-300 ${
+                      followUp.is_overdue
+                        ? "bg-linear-to-r from-rose-600 to-rose-500 text-white hover:from-rose-500 hover:to-rose-400 hover:shadow-rose-500/40 active:scale-[0.98]"
+                        : "bg-linear-to-r from-emerald-600 to-cyan-600 text-white hover:from-emerald-500 hover:to-cyan-500 hover:shadow-emerald-500/40 active:scale-[0.98]"
+                    }`}
+                    onClick={() => onPageChange?.("messages")}
                   >
-                    <Send className="size-3" />
+                    <Send className="size-3.5" />
                     Send Message
                   </Button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center">
-              <ClipboardList className="mb-3 size-10 text-zinc-600" />
-              <p className="text-sm text-zinc-400">All caught up!</p>
+            <div className="flex flex-col items-center justify-center rounded-xl border border-white/5 bg-white/2 py-12 text-center">
+              <div className="mb-4 rounded-full bg-linear-to-br from-cyan-500/20 to-sky-500/10 p-4 shadow-lg">
+                <ClipboardList className="size-10 text-cyan-400/80" />
+              </div>
+              <p className="text-sm font-medium text-zinc-400">All caught up!</p>
+              <p className="mt-1 text-xs text-zinc-600">No follow-ups pending</p>
             </div>
           )}
         </GlassCard>
@@ -679,34 +782,48 @@ export function BodyExpertDashboardContent({
               <MessageSquare className="size-5 text-sky-400" />
               <h2 className="text-lg font-semibold text-white">Recent Messages</h2>
             </div>
-            <button className="text-sm text-emerald-400 hover:text-emerald-300">
+            <button 
+              className="text-sm text-emerald-400 hover:text-emerald-300"
+              onClick={() => onPageChange?.("messages")}
+            >
               View all &rarr;
             </button>
           </div>
 
           <div className="space-y-3">
-            {mockMessages.map((message) => (
-              <div
-                key={message.id}
-                className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/8 bg-white/5 p-3 transition-colors hover:bg-white/8"
-              >
-                <Avatar className="size-9 shrink-0">
-                  <AvatarFallback className="bg-sky-500/20 text-xs text-sky-400">
-                    {message.senderInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="truncate font-medium text-white">{message.senderName}</p>
-                    <p className="shrink-0 text-xs text-zinc-500">{message.timeAgo}</p>
-                  </div>
-                  <p className="truncate text-sm text-zinc-400">{message.preview}</p>
-                </div>
-                {message.unread && (
-                  <span className="mt-2 size-2 shrink-0 rounded-full bg-emerald-400" />
-                )}
+            {loadingMessages ? (
+              <div className="py-8 text-center text-sm text-zinc-500">
+                Loading messages...
               </div>
-            ))}
+            ) : recentMessages.length === 0 ? (
+              <div className="py-8 text-center text-sm text-zinc-500">
+                No messages yet
+              </div>
+            ) : (
+              recentMessages.map((message) => (
+                <div
+                  key={message.id}
+                  className="flex cursor-pointer items-start gap-3 rounded-lg border border-white/8 bg-white/5 p-3 transition-colors hover:bg-white/8"
+                  onClick={() => onPageChange?.("messages")}
+                >
+                  <Avatar className="size-9 shrink-0">
+                    <AvatarFallback className="bg-sky-500/20 text-xs text-sky-400">
+                      {message.senderInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate font-medium text-white">{message.senderName}</p>
+                      <p className="shrink-0 text-xs text-zinc-500">{message.timeAgo}</p>
+                    </div>
+                    <p className="truncate text-sm text-zinc-400">{message.preview}</p>
+                  </div>
+                  {message.unread && (
+                    <span className="mt-2 size-2 shrink-0 rounded-full bg-emerald-400" />
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </GlassCard>
 
@@ -899,6 +1016,9 @@ export function BodyExpertDashboardContent({
           ))}
         </div>
       </GlassCard>
+
+      {/* Review Responses */}
+      <ReviewResponseManager membershipTier={aggregate.overview.membership_tier} />
 
       {/* Upgrade Banner */}
       {isNotPremium && (

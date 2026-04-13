@@ -37,6 +37,7 @@ from app.models.professional import (
     ProfessionalUsernameHistory,
 )
 from app.models.user import User
+from app.models.subscription import ProfessionalSubscription, SubscriptionPlan
 from app.services.media_urls import normalize_profile_media_path, to_public_profile_media_url
 from app.services.ai.professional_search import rank_professional_profiles
 from app.services.geo import extract_known_cities, resolve_city_coordinates
@@ -58,6 +59,39 @@ settings = get_settings()
 # ---------------------------------------------------------------------------
 
 _EARTH_RADIUS_KM = 6371.0
+
+
+async def _resolve_membership_tier(
+    db: AsyncSession,
+    professional_id: uuid.UUID,
+    user_status: str | None,
+) -> str:
+    """Derive membership tier from active subscription and user verification status.
+
+    Rules:
+    - Active non-free subscription  → subscription plan tier ("pro" / "elite")
+    - Free / no subscription + user verified  → "verified"
+    - Otherwise → "basic"
+    """
+    result = await db.execute(
+        select(SubscriptionPlan.tier)
+        .join(ProfessionalSubscription, ProfessionalSubscription.plan_id == SubscriptionPlan.id)
+        .where(
+            ProfessionalSubscription.professional_id == professional_id,
+            ProfessionalSubscription.status.in_(["active", "grace"]),
+        )
+    )
+    plan_tier = result.scalar_one_or_none()
+
+    if plan_tier and plan_tier != "free":
+        return plan_tier  # "pro" or "elite"
+
+    if user_status == "verified":
+        return "verified"
+
+    return "basic"
+
+
 _FEATURED_ROLE_ORDER = ("mind", "body", "diet")
 _BOOSTED_MEMBERSHIP_TIERS = {"premium", "elite"}
 _BOOSTED_MIN_RATING = 4.3
@@ -857,6 +891,7 @@ def _to_editor_payload(prof: Professional) -> dict:
                 "mode": service.mode,
                 "duration_value": service.duration_value,
                 "duration_unit": service.duration_unit,
+                "session_count": service.session_count if service.session_count is not None else 1,
                 "max_participants": service.max_participants,
                 "is_active": service.is_active,
             }
@@ -1019,6 +1054,7 @@ async def _replace_professional_children(
                     mode=service.mode.strip(),
                     duration_value=service.duration_value,
                     duration_unit=_normalize_duration_unit(service.duration_unit),
+                    session_count=service.session_count if service.session_count is not None else 1,
                     max_participants=service.max_participants,
                     is_active=service.is_active,
                 )
@@ -1340,59 +1376,62 @@ async def search_professionals(
     return [ProfessionalProfileOut(**profile) for profile in ranked]
 
 
-@router.get("/{professional_id}/reviews", response_model=ReviewPageOut)
-async def get_professional_reviews(
-    professional_id: uuid.UUID,
-    limit: int = Query(default=3, ge=1, le=50),
-    offset: int = Query(default=0, ge=0),
-    cursor_created_at: datetime | None = Query(default=None),
-    cursor_id: int | None = Query(default=None, ge=1),
-    db: AsyncSession = Depends(get_db_session),
-) -> ReviewPageOut:
-    """Fetch paginated reviews for a professional."""
-    count_result = await db.execute(
-        select(func.count()).select_from(ProfessionalReview).where(
-            ProfessionalReview.professional_id == professional_id
-        )
-    )
-    total = count_result.scalar_one()
-
-    items_query = (
-        select(ProfessionalReview)
-        .where(ProfessionalReview.professional_id == professional_id)
-        .order_by(ProfessionalReview.created_at.desc(), ProfessionalReview.id.desc())
-        .limit(limit)
-        .options(selectinload(ProfessionalReview.reviewer))
-    )
-    if cursor_created_at is not None and cursor_id is not None:
-        items_query = items_query.where(
-            or_(
-                ProfessionalReview.created_at < cursor_created_at,
-                and_(
-                    ProfessionalReview.created_at == cursor_created_at,
-                    ProfessionalReview.id < cursor_id,
-                ),
-            )
-        )
-    else:
-        items_query = items_query.offset(offset)
-
-    items_result = await db.execute(items_query)
-    reviews = items_result.scalars().all()
-
-    return ReviewPageOut(
-        items=[
-            ReviewOut(
-                id=r.id,
-                reviewer_name=r.reviewer.full_name or "Anonymous",
-                rating=r.rating,
-                comment=r.review_text,
-                created_at=r.created_at.isoformat(),
-            )
-            for r in reviews
-        ],
-        total=total,
-    )
+# NOTE: This endpoint has been replaced by the new reviews endpoint in routes/review.py
+# which includes verification badges, expert responses, and enhanced summaries.
+# Kept here commented for reference.
+# @router.get("/{professional_id}/reviews", response_model=ReviewPageOut)
+# async def get_professional_reviews(
+#     professional_id: uuid.UUID,
+#     limit: int = Query(default=3, ge=1, le=50),
+#     offset: int = Query(default=0, ge=0),
+#     cursor_created_at: datetime | None = Query(default=None),
+#     cursor_id: int | None = Query(default=None, ge=1),
+#     db: AsyncSession = Depends(get_db_session),
+# ) -> ReviewPageOut:
+#     """Fetch paginated reviews for a professional."""
+#     count_result = await db.execute(
+#         select(func.count()).select_from(ProfessionalReview).where(
+#             ProfessionalReview.professional_id == professional_id
+#         )
+#     )
+#     total = count_result.scalar_one()
+#
+#     items_query = (
+#         select(ProfessionalReview)
+#         .where(ProfessionalReview.professional_id == professional_id)
+#         .order_by(ProfessionalReview.created_at.desc(), ProfessionalReview.id.desc()) 
+#         .limit(limit)
+#         .options(selectinload(ProfessionalReview.reviewer))
+#     )
+#     if cursor_created_at is not None and cursor_id is not None:
+#         items_query = items_query.where(
+#             or_(
+#                 ProfessionalReview.created_at < cursor_created_at,
+#                 and_(
+#                     ProfessionalReview.created_at == cursor_created_at,
+#                     ProfessionalReview.id < cursor_id,
+#                 ),
+#             )
+#         )
+#     else:
+#         items_query = items_query.offset(offset)
+#
+#     items_result = await db.execute(items_query)
+#     reviews = items_result.scalars().all()
+#
+#     return ReviewPageOut(
+#         items=[
+#             ReviewOut(
+#                 id=r.id,
+#                 reviewer_name=r.reviewer.full_name or "Anonymous",
+#                 rating=r.rating,
+#                 comment=r.review_text,
+#                 created_at=r.created_at.isoformat(),
+#             )
+#             for r in reviews
+#         ],
+#         total=total,
+#     )
 
 
 @router.get("/me/username-available")
@@ -1470,6 +1509,9 @@ async def get_my_professional_editor_payload(
     templates = templates_result.scalars().all()
 
     payload = _to_editor_payload(prof)
+    payload["membership_tier"] = await _resolve_membership_tier(
+        db, current_user.user_id, prof.user.user_status
+    )
     payload["booking_question_templates"] = [
         {
             "prompt": template.prompt,
@@ -1514,7 +1556,7 @@ async def update_my_professional_editor_payload(
 
     prof.username = new_username
     prof.cover_image_url = normalize_profile_media_path(payload.cover_image_url)
-    prof.membership_tier = payload.membership_tier.strip() if payload.membership_tier else None
+    prof.membership_tier = await _resolve_membership_tier(db, current_user.user_id, prof.user.user_status)
     prof.experience_years = payload.experience_years
     prof.sex = payload.sex.strip()
     prof.short_bio = payload.short_bio.strip() if payload.short_bio else None

@@ -702,6 +702,15 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Clock size={16} />
                     <span>{service.duration}</span>
+                    {(service.session_count ?? 1) > 1 ? (
+                      <Badge className="bg-teal-600 text-white text-xs">
+                        {service.session_count} sessions
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-xs">
+                        1 session
+                      </Badge>
+                    )}
                     {service.mode && (
                       <Badge variant="secondary" className="text-xs uppercase">
                         {service.mode}
@@ -736,9 +745,17 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                       <>
                         <p className="text-sm text-muted-foreground line-through">₹{service.price}</p>
                         <p className="text-2xl font-semibold text-emerald-600">₹{discountedPrice}</p>
+                        <p className="text-sm text-muted-foreground font-medium">
+                          {(service.session_count ?? 1) > 1 ? `total · ${service.session_count} sessions` : "per session"}
+                        </p>
                       </>
                     ) : (
-                      <p className="text-2xl font-semibold text-emerald-600">₹{service.price}</p>
+                      <>
+                        <p className="text-2xl font-semibold text-emerald-600">₹{service.price}</p>
+                        <p className="text-sm text-muted-foreground font-medium">
+                          {(service.session_count ?? 1) > 1 ? `total · ${service.session_count} sessions` : "per session"}
+                        </p>
+                      </>
                     )}
                   </div>
                   <Button
@@ -797,9 +814,21 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
             <div className="mt-3 rounded-lg border border-emerald-200 bg-background p-4 shadow-sm dark:border-emerald-500/25">
               <p className="text-sm text-muted-foreground">Selected service</p>
               <div className="mt-1 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                          <p>{selectedServiceName}</p>
+                <div>
+                  <p>{selectedServiceName}</p>
+                  {(selectedService.session_count ?? 1) > 1 ? (
+                    <p className="text-xs text-teal-600 dark:text-teal-400">
+                      {selectedService.session_count} sessions · {selectedService.duration} each
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Single session · {selectedService.duration}</p>
+                  )}
+                </div>
                 <p className="font-semibold text-emerald-600">
                   {selectedService.price === 0 ? "Free" : `₹${selectedService.price}`}
+                  <span className="ml-1 text-xs font-normal text-muted-foreground">
+                    {(selectedService.session_count ?? 1) > 1 ? "total" : "per session"}
+                  </span>
                 </p>
               </div>
             </div>

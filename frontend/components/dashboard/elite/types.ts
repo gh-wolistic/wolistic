@@ -1,4 +1,4 @@
-export type ElitePageView = "dashboard" | "coins" | "profile" | "settings" | "activities" | "clients" | "classes" | "subscription";
+export type ElitePageView = "dashboard" | "coins" | "profile" | "settings" | "activities" | "clients" | "classes" | "subscription" | "messages";
 
 export type TodaySession = {
   id: string;

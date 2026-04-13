@@ -12,6 +12,9 @@ import type {
   ProfessionalReview,
   ProfessionalServiceArea,
   ReviewPage,
+  ReviewsListResponse,
+  ReviewsSummary,
+  ReviewResponse,
   SocialLinks,
 } from "@/types/professional";
 
@@ -106,6 +109,7 @@ export function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfil
       duration: s.duration as string,
       mode: s.mode as string,
       price: s.price as number,
+      session_count: (s.session_count as number) ?? 1,
       offers: (s.offers as string) ?? undefined,
       negotiable: (s.negotiable as boolean) ?? undefined,
       offer_type: (s.offer_type as string) ?? undefined,
@@ -117,13 +121,38 @@ export function toCamelProfile(raw: Record<string, unknown>): ProfessionalProfil
   };
 }
 
+function toCamelReviewResponse(raw: Record<string, unknown> | null): ReviewResponse | null {
+  if (!raw) return null;
+  return {
+    id: raw.id as number,
+    reviewId: raw.review_id as number,
+    professionalId: raw.professional_id as string,
+    responseText: raw.response_text as string,
+    createdAt: raw.created_at as string,
+    updatedAt: raw.updated_at as string,
+  };
+}
+
 function toCamelReview(raw: Record<string, unknown>): ProfessionalReview {
   return {
     id: raw.id as number,
-    reviewerName: raw.reviewer_name as string,
+    professionalId: raw.professional_id as string,
+    reviewerUserId: raw.reviewer_user_id as string,
+    reviewerName: (raw.reviewer_name as string | null) ?? null,
+    reviewerEmail: (raw.reviewer_email as string | null) ?? null,
     rating: raw.rating as number,
-    comment: (raw.comment as string) ?? undefined,
+    reviewText: (raw.review_text as string | undefined) ?? undefined,
+    comment: (raw.review_text as string | undefined) ?? undefined, // backward compat
+    isVerified: raw.is_verified as boolean,
+    verificationType: (raw.verification_type as "verified_client" | "wolistic_user" | null) ?? null,
+    bookingId: (raw.booking_id as number | null) ?? null,
+    serviceName: (raw.service_name as string | null) ?? null,
+    flaggedAt: (raw.flagged_at as string | null) ?? null,
+    flaggedByUserId: (raw.flagged_by_user_id as string | null) ?? null,
+    flagReason: (raw.flag_reason as string | null) ?? null,
+    moderationStatus: (raw.moderation_status as string | null) ?? null,
     createdAt: raw.created_at as string,
+    response: toCamelReviewResponse((raw.response as Record<string, unknown> | null) ?? null),
   };
 }
 
@@ -159,20 +188,35 @@ export async function getProfessionalById(
 
 export async function getProfessionalReviews(
   professionalId: string,
-  opts: { limit: number; offset: number },
-): Promise<ReviewPage> {
+  opts: { limit: number; offset: number; filter?: "all" | "verified" | "wolistic_user" },
+): Promise<ReviewsListResponse> {
   const params = new URLSearchParams({
     limit: String(opts.limit),
     offset: String(opts.offset),
   });
+  if (opts.filter && opts.filter !== "all") {
+    params.set("filter", opts.filter);
+  }
   const res = await fetch(
     `${API_BASE}/professionals/${professionalId}/reviews?${params}`,
+    {
+      cache: "no-store",
+    },
   );
   if (!res.ok) throw new Error(`API error ${res.status}`);
-  const data = (await res.json()) as { items: Record<string, unknown>[]; total: number };
+  const data = (await res.json()) as {
+    reviews?: Record<string, unknown>[];
+    summary?: Record<string, unknown>;
+  };
   return {
-    items: data.items.map(toCamelReview),
-    total: data.total,
+    reviews: (data.reviews || []).map(toCamelReview),
+    summary: {
+      totalReviews: (data.summary?.total_reviews as number) || 0,
+      avgRating: (data.summary?.avg_rating as number) || 0,
+      verifiedCount: (data.summary?.verified_count as number) || 0,
+      wolisticUserCount: (data.summary?.wolistic_user_count as number) || 0,
+      responseRate: (data.summary?.response_rate as number) || 0,
+    },
   };
 }
 

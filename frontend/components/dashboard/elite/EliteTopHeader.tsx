@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Search, Bell, Coins, Crown } from "lucide-react";
+import { Search, Coins, Crown } from "lucide-react";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
@@ -21,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import logoLightText from "@/assets/logo_light_text.png";
+import { EliteNotificationCenter } from "./EliteNotificationCenter";
 
 interface EliteTopHeaderProps {
   userName: string;
@@ -28,18 +28,9 @@ interface EliteTopHeaderProps {
   userInitials: string;
   membershipTier: string | null;
   coinBalance: number;
-  unreadNotifications?: number;
   sidebarCollapsed?: boolean;
   onSignOut?: () => void;
 }
-
-const notifications = [
-  { id: "1", title: "New booking request", time: "5m ago", unread: true },
-  { id: "2", title: "Review received from Amit Kumar", time: "2h ago", unread: true },
-  { id: "3", title: "Profile tip: Add more availability", time: "1d ago", unread: false },
-  { id: "4", title: "Payment processed: ₹1,200", time: "2d ago", unread: false },
-  { id: "5", title: "New message from Sneha Patel", time: "3d ago", unread: false },
-];
 
 function MembershipBadge({ tier }: { tier: string | null }) {
   if (!tier) return null;
@@ -67,7 +58,6 @@ export function EliteTopHeader({
   userInitials,
   membershipTier,
   coinBalance,
-  unreadNotifications = 2,
   sidebarCollapsed = false,
   onSignOut,
 }: EliteTopHeaderProps) {
@@ -118,46 +108,7 @@ export function EliteTopHeader({
           </TooltipProvider>
 
           {/* Notifications */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative text-zinc-400 hover:bg-white/5 hover:text-white"
-                aria-label="Notifications"
-              >
-                <Bell className="size-5" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-medium text-white">
-                    {unreadNotifications}
-                  </span>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-[min(20rem,calc(100vw-1rem))] border-white/10 bg-[#0d1526]/95 backdrop-blur-xl"
-            >
-              <DropdownMenuLabel className="text-white">Notifications</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <div className="max-h-80 overflow-y-auto">
-                {notifications.map((notif) => (
-                  <DropdownMenuItem
-                    key={notif.id}
-                    className="flex items-start gap-2 py-3 text-zinc-300 hover:bg-white/5 focus:bg-white/5"
-                  >
-                    {notif.unread && (
-                      <span className="mt-2 size-2 shrink-0 rounded-full bg-emerald-400" />
-                    )}
-                    <div className="flex-1 space-y-1">
-                      <p className="text-sm">{notif.title}</p>
-                      <p className="text-xs text-zinc-500">{notif.time}</p>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <EliteNotificationCenter />
 
           {/* Coin Balance */}
           <TooltipProvider>

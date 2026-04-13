@@ -6,6 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import type { ProfessionalEditorPayload, ProfessionalServiceInput } from "@/types/professional-editor";
 
+function getLocaleCurrencySymbol(): string {
+  try {
+    const locale = typeof navigator !== "undefined" ? navigator.language : "en-IN";
+    const parts = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 0,
+    }).formatToParts(0);
+    return parts.find((p) => p.type === "currency")?.value ?? "₹";
+  } catch {
+    return "₹";
+  }
+}
+
 type ProfileServicesSectionProps = {
   value: ProfessionalEditorPayload;
   onServicesChange: (services: ProfessionalServiceInput[]) => void;
@@ -29,6 +43,7 @@ function createEmptyService(): ProfessionalServiceInput {
     mode: "online",
     duration_value: 30,
     duration_unit: "mins",
+    session_count: 1,
     max_participants: null,
     is_active: true,
   };
@@ -42,6 +57,8 @@ function parseModes(mode: string): string[] {
 }
 
 export function ProfileServicesSection({ value, onServicesChange }: ProfileServicesSectionProps) {
+  const currencySymbol = getLocaleCurrencySymbol();
+
   const updateService = (index: number, nextService: ProfessionalServiceInput) => {
     const next = [...value.services];
     next[index] = nextService;
@@ -57,7 +74,7 @@ export function ProfileServicesSection({ value, onServicesChange }: ProfileServi
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <span className="text-emerald-400">$</span> Services & Pricing
+            <span className="text-emerald-400">{currencySymbol}</span> Services & Pricing
           </h3>
           <p className="mt-1 text-sm text-zinc-400">Define your service offerings and pricing structure</p>
         </div>
@@ -135,9 +152,11 @@ export function ProfileServicesSection({ value, onServicesChange }: ProfileServi
 
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                   <div>
-                    <Label className="mb-2 block text-sm text-zinc-300">Price/Session *</Label>
+                    <Label className="mb-2 block text-sm text-zinc-300">
+                      {(service.session_count ?? 1) > 1 ? "Total Package Price" : "Price/Session"} *
+                    </Label>
                     <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">$</span>
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">{currencySymbol}</span>
                       <Input
                         type="number"
                         min={0}
@@ -178,6 +197,30 @@ export function ProfileServicesSection({ value, onServicesChange }: ProfileServi
                         <SelectItem value="days">Days</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <Label className="mb-2 block text-sm text-zinc-300">
+                      Number of Sessions
+                      <span className="ml-1 text-zinc-500 font-normal">(1 = single session)</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={365}
+                      className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+                      value={service.session_count ?? 1}
+                      onChange={(event) =>
+                        updateService(index, { ...service, session_count: Math.max(1, Number(event.target.value || 1)) })
+                      }
+                    />
+                    {(service.session_count ?? 1) > 1 && (
+                      <p className="mt-1 text-xs text-emerald-400">
+                        Package: {service.session_count} sessions × {service.duration_value} {service.duration_unit} each
+                      </p>
+                    )}
                   </div>
                 </div>
 

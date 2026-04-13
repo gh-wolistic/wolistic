@@ -122,6 +122,7 @@ function toEditorPayload(raw: Record<string, unknown>): ProfessionalEditorPayloa
       mode: (item.mode as string) ?? "online",
       duration_value: Number(item.duration_value ?? 30),
       duration_unit: (item.duration_unit as string) ?? "mins",
+      session_count: item.session_count !== undefined && item.session_count !== null ? Number(item.session_count) : 1,
       max_participants:
         item.max_participants !== undefined && item.max_participants !== null
           ? Number(item.max_participants)
