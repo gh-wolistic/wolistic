@@ -71,7 +71,6 @@ import type {
   ProfessionalEditorPayload,
   ProfessionalServiceInput,
 } from "@/types/professional-editor";
-import { mockMessages } from "./mock-data";
 import { ReviewResponseManager } from "@/components/dashboard/partner/ReviewResponseManager";
 import { messagingAPI, type ConversationWithLastMessage } from "@/lib/messaging-api";
 import type { ElitePageView } from "./types";

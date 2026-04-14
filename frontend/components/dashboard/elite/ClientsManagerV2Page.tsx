@@ -1,12 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { Client, AcquisitionSource, ClientStatus, Routine } from '@/types/routines';
-import { 
-  mockClients, 
-  mockDashboardMetrics,
-  mockRoutines 
-} from '@/lib/mockClientsData';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Client, AcquisitionSource, ClientStatus, Routine, DashboardMetrics, FollowUp } from '@/types/routines';
 import { MetricCard } from '@/components/dashboard/elite/routines/MetricCard';
 import { AcquisitionBreakdown } from '@/components/dashboard/elite/routines/AcquisitionBreakdown';
 import { TabsNavigation, TabType } from '@/components/dashboard/elite/routines/TabsNavigation';
@@ -19,8 +14,17 @@ import { TemplateRoutineCard } from '@/components/dashboard/elite/routines/Templ
 import { BulkAssignModal } from '@/components/dashboard/elite/routines/BulkAssignModal';
 import { AddFollowUpModal } from '@/components/dashboard/elite/routines/AddFollowUpModal';
 import { InviteClientModal } from '@/components/dashboard/elite/routines/InviteClientModal';
+import * as clientAPI from '@/lib/client-manager-api';
 
 export default function ClientsManagerV2Page() {
+  // Data state
+  const [clients, setClients] = useState<Client[]>([]);
+  const [metrics, setMetrics] = useState<DashboardMetrics>({ total_clients: 0, active_clients: 0, followups_due: 0, leads_pending: 0 });
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUp[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   // State management
   const [activeTab, setActiveTab] = useState<TabType>('clients');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -44,9 +48,47 @@ export default function ClientsManagerV2Page() {
   const [statusFilter, setStatusFilter] = useState<ClientStatus | 'all'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'name' | 'sessions'>('recent');
 
+  // Fetch initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const [metricsData, boardData, routinesData] = await Promise.all([
+          clientAPI.fetchDashboardMetrics(),
+          clientAPI.fetchClientsBoard(),
+          clientAPI.fetchRoutines(),
+        ]);
+        
+        setMetrics(metricsData);
+        setClients(boardData.clients.map(c => ({
+          ...c,
+          initials: _initials(c.name),
+          pending_followups: 0, // Will be computed from followUps
+        })));
+        setFollowUps(boardData.follow_ups);
+        setRoutines(routinesData);
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load data');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  // Helper to generate initials
+  const _initials = (name: string) => {
+    const parts = name.trim().split(' ');
+    return parts.slice(0, 2).map(p => p[0].toUpperCase()).join('') || '??';
+  };
+
   // Filtered and sorted clients
   const filteredClients = useMemo(() => {
-    let filtered = [...mockClients];
+    let filtered = [...clients];
 
     // Search filter
     if (searchQuery) {
@@ -79,11 +121,23 @@ export default function ClientsManagerV2Page() {
     });
 
     return filtered;
-  }, [searchQuery, sourceFilter, statusFilter, sortBy]);
+  }, [clients, searchQuery, sourceFilter, statusFilter, sortBy]);
 
   const handleClientClick = (client: Client) => {
     setSelectedClient(client);
     setIsDetailSheetOpen(true);
+  };
+
+  const handleMessageClient = (client: Client) => {
+    // TODO: Navigate to messaging page with this client pre-selected
+    // For now, show a message
+    alert(`Opening messages for ${client.name}...\n\nThis will navigate to the messaging page once integrated with the parent shell.`);
+  };
+
+  const handleScheduleClient = (client: Client) => {
+    // TODO: Navigate to classes/schedule page or open schedule modal
+    // For now, show a message
+    alert(`Schedule session for ${client.name}...\n\nThis will open the scheduling interface once integrated.`);
   };
 
   const handleCreateRoutine = () => {
@@ -92,8 +146,8 @@ export default function ClientsManagerV2Page() {
 
   // Template handlers
   const templateRoutines = useMemo(() => {
-    return mockRoutines.filter(routine => routine.isTemplate === true);
-  }, []);
+    return routines.filter(routine => routine.isTemplate === true);
+  }, [routines]);
 
   const handleAssignTemplate = (templateId: number) => {
     const template = templateRoutines.find(t => t.id === templateId);
@@ -108,11 +162,23 @@ export default function ClientsManagerV2Page() {
     // TODO: Open routine editor in edit mode with template data
   };
 
-  const handleBulkAssign = (templateId: number, clientIds: number[]) => {
-    console.log(`Assigning template ${templateId} to clients:`, clientIds);
-    // TODO: API call to create routine copies for each client
-    // Each copy should have: template_id, client_id, and duplicate items
-    alert(`Successfully assigned template to ${clientIds.length} client(s)!`);
+  const handleBulkAssign = async (templateId: number, clientIds: number[]) => {
+    try {
+      await Promise.all(
+        clientIds.map(clientId => 
+          clientAPI.assignRoutineToClient(templateId, clientId)
+        )
+      );
+      
+      // Reload routines to show new assignments
+      const routinesData = await clientAPI.fetchRoutines();
+      setRoutines(routinesData);
+      
+      alert(`Successfully assigned template to ${clientIds.length} client(s)!`);
+    } catch (err) {
+      console.error('Failed to assign template:', err);
+      alert('Failed to assign template. Please try again.');
+    }
   };
 
   // Follow-up handlers
@@ -121,17 +187,54 @@ export default function ClientsManagerV2Page() {
     setIsAddFollowUpModalOpen(true);
   };
 
-  const handleSaveFollowUp = (followUp: { client_id: number; note: string; due_date: string }) => {
-    console.log('Saving follow-up:', followUp);
-    // TODO: API call to create follow-up
-    alert(`Follow-up added for client ${followUp.client_id}!`);
+  const handleSaveFollowUp = async (followUp: { client_id: number; note: string; due_date: string }) => {
+    try {
+      await clientAPI.createFollowUp(followUp);
+      
+      // Reload board data to show new follow-up
+      const boardData = await clientAPI.fetchClientsBoard();
+      setFollowUps(boardData.follow_ups);
+      
+      // Update metrics
+      const metricsData = await clientAPI.fetchDashboardMetrics();
+      setMetrics(metricsData);
+      
+      alert(`Follow-up added for client ${followUp.client_id}!`);
+    } catch (err) {
+      console.error('Failed to save follow-up:', err);
+      alert('Failed to add follow-up. Please try again.');
+    }
   };
 
-  // Invite client handler
-  const handleInviteClient = (email: string, name?: string, personalMessage?: string) => {
-    console.log('Inviting client:', { email, name, personalMessage });
-    // TODO: API call to send invitation email
-    alert(`Invitation sent to ${email}!${name ? ` (${name})` : ''}`);
+  // Invite client handler (dummy for now per user request)
+  const handleInviteClient = async (email: string, name?: string, personalMessage?: string) => {
+    try {
+      // Create client with expert_invite source (dummy email invitation)
+      await clientAPI.createClient({
+        name: name || email,
+        email,
+        acquisition_source: 'expert_invite',
+        status: 'active',
+      });
+      
+      // Reload data
+      const [metricsData, boardData] = await Promise.all([
+        clientAPI.fetchDashboardMetrics(),
+        clientAPI.fetchClientsBoard(),
+      ]);
+      
+      setMetrics(metricsData);
+      setClients(boardData.clients.map(c => ({
+        ...c,
+        initials: _initials(c.name),
+        pending_followups: 0,
+      })));
+      
+      alert(`Client ${name || email} created! (Email invitation not yet implemented)`);
+    } catch (err) {
+      console.error('Failed to invite client:', err);
+      alert('Failed to create client. Please try again.');
+    }
   };
 
   // Calculate acquisition breakdown
@@ -152,7 +255,7 @@ export default function ClientsManagerV2Page() {
       wolistic_lead: 0
     };
 
-    mockClients.forEach(client => {
+    clients.forEach(client => {
       counts[client.acquisition_source]++;
     });
 
@@ -165,7 +268,23 @@ export default function ClientsManagerV2Page() {
         color: channelConfig[source as AcquisitionSource].color
       }))
       .sort((a, b) => b.count - a.count);
-  }, []);
+  }, [clients]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
+        <div className="text-zinc-400">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#0a0f1e] flex items-center justify-center">
+        <div className="text-red-400">Error: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0f1e] text-zinc-100">
@@ -187,22 +306,22 @@ export default function ClientsManagerV2Page() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-4 md:mb-6">
           <MetricCard 
             label="Total Clients" 
-            value={mockDashboardMetrics.total_clients} 
+            value={metrics.total_clients} 
             variant="emerald" 
           />
           <MetricCard 
             label="Active Clients" 
-            value={mockDashboardMetrics.active_clients} 
+            value={metrics.active_clients} 
             variant="emerald" 
           />
           <MetricCard 
             label="Follow-ups Due" 
-            value={mockDashboardMetrics.followups_due} 
-            variant={mockDashboardMetrics.followups_due > 0 ? 'amber' : 'zinc'} 
+            value={metrics.followups_due} 
+            variant={metrics.followups_due > 0 ? 'amber' : 'zinc'} 
           />
           <MetricCard 
             label="Leads Pending" 
-            value={mockDashboardMetrics.leads_pending} 
+            value={metrics.leads_pending} 
             variant="violet" 
           />
         </div>
@@ -210,7 +329,7 @@ export default function ClientsManagerV2Page() {
         {/* Acquisition Channel Breakdown */}
         <AcquisitionBreakdown 
           channels={acquisitionBreakdown}
-          totalClients={mockDashboardMetrics.total_clients}
+          totalClients={metrics.total_clients}
         />
 
         {/* Tabs */}
@@ -236,7 +355,10 @@ export default function ClientsManagerV2Page() {
                   <ClientCard 
                     key={client.id} 
                     client={client} 
-                    onClick={() => handleClientClick(client)} 
+                    onClick={() => handleClientClick(client)}
+                    onViewDetails={() => handleClientClick(client)}
+                    onMessage={() => handleMessageClient(client)}
+                    onSchedule={() => handleScheduleClient(client)}
                   />
                 ))}
               </div>
@@ -359,6 +481,7 @@ export default function ClientsManagerV2Page() {
         isOpen={isRoutineEditorOpen}
         onClose={() => setIsRoutineEditorOpen(false)}
         clientId={selectedClient?.id}
+        clients={clients}
         onSave={(routine) => {
           console.log('Saving routine:', routine);
         }}
@@ -372,7 +495,7 @@ export default function ClientsManagerV2Page() {
           setSelectedTemplate(null);
         }}
         template={selectedTemplate}
-        clients={mockClients}
+        clients={clients}
         onAssign={handleBulkAssign}
       />
 
@@ -383,7 +506,7 @@ export default function ClientsManagerV2Page() {
           setIsAddFollowUpModalOpen(false);
           setPreselectedClientForFollowUp(undefined);
         }}
-        clients={mockClients}
+        clients={clients}
         preselectedClientId={preselectedClientForFollowUp}
         onSave={handleSaveFollowUp}
       />

@@ -3,13 +3,13 @@
 import React, { useState } from 'react';
 import { Routine, RoutineItem, RoutineItemType, Client } from '@/types/routines';
 import { RoutineItemCard } from './RoutineItemCard';
-import { mockClients } from '@/lib/mockClientsData';
 
 interface RoutineEditorModalProps {
   isOpen: boolean;
   onClose: () => void;
   clientId?: number; // Optional - if provided, pre-selects client
   routine?: Routine;
+  clients?: Client[]; // Available clients for selection
   onSave: (routine: Partial<Routine> & { clientId?: number; isTemplate: boolean }) => void;
 }
 
@@ -18,6 +18,7 @@ export function RoutineEditorModal({
   onClose, 
   clientId,
   routine,
+  clients = [],
   onSave 
 }: RoutineEditorModalProps) {
   const [title, setTitle] = useState(routine?.title || '');
@@ -29,7 +30,7 @@ export function RoutineEditorModal({
 
   if (!isOpen) return null;
 
-  const selectedClient = selectedClientId ? mockClients.find(c => c.id === selectedClientId) : null;
+  const selectedClient = selectedClientId ? clients.find(c => c.id === selectedClientId) : null;
 
   const addItem = (type: RoutineItemType) => {
     const newItem: RoutineItem = {
@@ -160,7 +161,7 @@ export function RoutineEditorModal({
                     transition-all"
                 >
                   <option value="">Select a client...</option>
-                  {mockClients.filter(c => c.status === 'active').map(client => (
+                  {clients.filter(c => c.status === 'active').map(client => (
                     <option key={client.id} value={client.id}>
                       {client.name} ({client.acquisition_source})
                     </option>

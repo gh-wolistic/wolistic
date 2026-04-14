@@ -10,20 +10,20 @@ name: "Client Manager & AI Routine Generation"
 **Location**: `frontend/components/dashboard/elite/ClientsManagerV2Page.tsx`  
 **Shell**: Integrated into `EliteBodyExpertShell` (v2 partner dashboard)  
 **Navigation**: Accessible via "Client Manager" in `EliteSideNav` alongside Activity Manager, Profile Studio  
-**Current State**: ✅ **FULLY IMPLEMENTED** - All 4 stages complete with mock data (April 2026)  
-**Enhancement Status**: New v2 implementation replaces basic client list; renders when `currentPage === "clients"`  
+**Current State**: ✅ **BACKEND INTEGRATION COMPLETE** - All endpoints live with real data (April 14, 2026)  
+**Enhancement Status**: New v2 implementation fully wired to backend; Phase 1 complete  
 
 ### Quick Reference: Implementation Status
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **ClientsManagerV2Page.tsx** | ✅ **LIVE IN DASHBOARD** | Complete UI with 4 stages, tabs, filters, mock data |
-| **Client List View** | ✅ COMPLETE | Metrics, cards grid, filters, source badges |
+| **ClientsManagerV2Page.tsx** | ✅ **FULLY WIRED** | Replaced mock data with real API calls, loading/error states |
+| **Client List View** | ✅ COMPLETE | Real metrics from DB, filters, source badges |
 | **Client Detail Sheet** | ✅ COMPLETE | Hero routine section, sessions, follow-ups, performance |
-| **Routine Editor Modal** | ✅ COMPLETE | Full CRUD with 6 item types, publish workflow |
+| **Routine Editor Modal** | ✅ COMPLETE | Full CRUD with item types, publish workflow |
 | **Reusable Components** | ✅ COMPLETE | 15+ components (badges, progress, empty states) |
-| **Mock Data** | ✅ COMPLETE | 5 clients, 3 routines, realistic wellness scenarios |
-| **Backend Integration** | 🔜 NEXT PHASE | Ready for API wiring (routes defined in spec) |
+| **Backend API** | ✅ **COMPLETE** | 14 endpoints live (clients, routines, items, metrics) |
+| **Database Schema** | ✅ **COMPLETE** | Migration `l01m2n3o4p5q` applied (routines, items, acquisition tracking) |
 | **AI Routine Generation** | 🔜 PHASE 2 | After Phase 1 validation (LLM integration) |
 
 **Navigation Path**: Dashboard → Left Sidebar → "Client Manager" → Full v2 UI loads
@@ -73,25 +73,43 @@ name: "Client Manager & AI Routine Generation"
 
 ### Phasing Strategy
 
-**Phase 1 — Enhanced Client Management + Manual Routines (6-8 weeks)**
-- Goal: Enhance existing ClientsManagerPage with source tracking and routine management
+**Phase 1 — Enhanced Client Management + Manual Routines** ✅ **COMPLETE** (April 14, 2026)
+- Goal: ✅ Enhance existing ClientsManagerPage with source tracking and routine management
 - **Foundation (✅ EXISTING)**:
-  - `ClientsManagerPage.tsx` component with 3 tabs (Clients, Follow-ups, Leads)
-  - `/api/v1/partners/me/clients` and `/me/clients-board` API endpoints
+  - `ClientsManagerV2Page.tsx` component with 5 tabs (Clients, Follow-ups, Leads, Routines, Templates)
+  - API client: `/lib/client-manager-api.ts` with full CRUD operations
+  - Backend routes: `/api/v1/partners/me/clients`, `/me/routines`, `/me/clients/metrics`
   - Database tables: `expert_clients`, `expert_client_followups`, `expert_leads`
   - Basic CRUD: Create/edit/delete clients, follow-ups, leads
-- **Phase 1A Enhancements (2-3 weeks, NEW work)**:
-  - Multi-channel source tracking: Add `acquisition_source`, `source_metadata`, `corporate_event_id`, `discount_code` to `expert_clients`
-  - Enhanced dashboard: Unified view aggregating clients + follow-ups + sessions + routines
-  - Source analytics: Filter by acquisition channel, track conversion rates
-- **Phase 1B Routine Management (4-5 weeks, NEW work)**:
-  - Manual routine builder: Create/edit routines with exercises/meals
-  - Routine assignment: Publish routines to specific clients
-  - Client check-ins: Clients log progress via mobile-friendly form
-  - Expert feedback: Review check-ins, provide guidance
-  - Schema: `routines`, `routine_items`, `routine_check_ins`, `routine_expert_feedback` tables
-- Success Metric: 50+ Pro trainers adopt, 5+ routines published per trainer/month
-- Kill Criteria: <30% use it more than once
+- **Phase 1A Enhancements** ✅ **COMPLETE**:
+  - Multi-channel source tracking: Added `acquisition_source`, `source_metadata`, `enrolled_date` to `expert_clients`
+  - Physical metrics: `age`, `height_cm`, `weight_kg` fields for body expert clients
+  - Profile details: `goals`, `preferences`, `medical_history`, `dietary_requirements`
+  - Engagement tracking: `total_sessions`, `completed_sessions`, `attendance_count`, `current_streak_weeks`, `lifetime_value`
+  - Enhanced dashboard: Unified metrics (total_clients, active_clients, followups_due, leads_pending)
+  - Source analytics: Acquisition breakdown chart, filter by source/status
+- **Phase 1B Routine Management** ✅ **COMPLETE**:
+  - Manual routine builder: Create/edit routines with exercise/hydration/mobility items
+  - Template support: `is_template` flag, `template_id` for assignments, reusable templates
+  - Status workflow: draft → under_review → approved → published → archived
+  - Bulk assignment: Assign template to multiple clients in one action
+  - Routine assignment: Publish routines to specific clients via `POST /routines/{id}/assign/{client_id}`
+  - Client check-ins: `completed`, `completed_at` tracking per routine item
+  - Schema: `expert_client_routines`, `expert_client_routine_items` tables (migration `l01m2n3o4p5q`)
+  - Item types: exercise (sets/reps/rest/intensity), hydration, mobility, meal (calories)
+- **Backend Endpoints** ✅ **LIVE**:
+  - `GET /api/v1/partners/me/clients/metrics` — Dashboard metrics
+  - `GET /api/v1/partners/me/routines` — List routines (filter by is_template, client_id)
+  - `POST /api/v1/partners/me/routines` — Create routine/template
+  - `GET /api/v1/partners/me/routines/{id}` — Get routine with items
+  - `PATCH /api/v1/partners/me/routines/{id}` — Update routine
+  - `DELETE /api/v1/partners/me/routines/{id}` — Delete routine
+  - `POST /api/v1/partners/me/routines/{id}/assign/{client_id}` — Assign template to client
+  - `PATCH /api/v1/partners/me/routines/{rid}/items/{iid}` — Update item (mark completed)
+  - Extended existing `/me/clients` CRUD with new fields
+  - Extended `POST /me/followups`, `PATCH /me/followups/{id}` with `resolved_at`
+- Success Metric: TBD — awaiting production rollout
+- **Deferred to Later**: Email/SMS invitations (provider not yet decided), Edge case tests
 
 **Phase 2 — AI-Assisted Routine Generation (If Phase 1 succeeds)**
 - Goal: Reduce expert time 6x via AI drafting + expert review

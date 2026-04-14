@@ -1,8 +1,10 @@
-# ✅ Client Manager v2 - Dashboard Integration Complete
+# ✅ Client Manager v2 - Full Stack Integration Complete
+
+**Status**: Backend + Frontend fully wired (April 14, 2026)
 
 ## What Was Done
 
-Client Manager v2 has been **fully integrated** into your v2 Elite Dashboard! It now appears alongside Profile Studio, Settings, Activity Manager, and other dashboard features.
+Client Manager v2 has been **fully integrated end-to-end** - database schema migrated, backend API endpoints live, and frontend connected to real data!
 
 ---
 
@@ -12,25 +14,46 @@ Client Manager v2 has been **fully integrated** into your v2 Elite Dashboard! It
 2. The **v2 dashboard** loads automatically (EliteBodyExpertShell)
 3. Look at the **left sidebar navigation**
 4. Click **"Client Manager"** (updated from "Clients")
-5. **Client Manager v2 loads** with all features live!
+5. **Client Manager v2 loads** with **real data from backend**!
 
 ---
 
 ## 🔧 Technical Changes Made
 
-### 1. **EliteBodyExpertShell.tsx**
-   - ✅ Imported `ClientsManagerV2Page`
-   - ✅ Updated render logic: `{currentPage === "clients" && <ClientsManagerV2Page />}`
-   - ✅ Old `ClientsManagerPage` file preserved (not deleted)
+### 1. **Database Schema** (Migration `l01m2n3o4p5q`)
+   - ✅ Extended `expert_clients` table with 15 new fields:
+     - Acquisition tracking: `acquisition_source`, `source_metadata`, `enrolled_date`
+     - Physical metrics: `age`, `height_cm`, `weight_kg`
+     - Profile: `goals`, `preferences`, `medical_history`, `dietary_requirements`
+     - Engagement: `total_sessions`, `completed_sessions`, `attendance_count`, `current_streak_weeks`, `lifetime_value`
+   - ✅ New `expert_client_routines` table (templates, status workflow, timeline)
+   - ✅ New `expert_client_routine_items` table (exercise/hydration/mobility)
+   - ✅ Extended `expert_client_followups` with `resolved_at` field
 
-### 2. **EliteSideNav.tsx**
-   - ✅ Updated navigation label: `"Clients"` → `"Client Manager"`
-   - ✅ Same page value (`page: "clients"`) - seamless integration
+### 2. **Backend API Endpoints** (`app/api/routes/clients.py`)
+   - ✅ `GET /api/v1/partners/me/clients/metrics` - Dashboard metrics
+   - ✅ `GET /api/v1/partners/me/routines` - List routines (filter by template/client)
+   - ✅ `POST /api/v1/partners/me/routines` - Create routine/template
+   - ✅ `GET /api/v1/partners/me/routines/{id}` - Get routine with items
+   - ✅ `PATCH /api/v1/partners/me/routines/{id}` - Update routine
+   - ✅ `DELETE /api/v1/partners/me/routines/{id}` - Delete routine
+   - ✅ `POST /api/v1/partners/me/routines/{id}/assign/{client_id}` - Assign template
+   - ✅ `PATCH /api/v1/partners/me/routines/{rid}/items/{iid}` - Update item
+   - ✅ Extended client CRUD with new fields
 
-### 3. **Files Cleaned Up**
-   - ✅ Removed standalone demo route `/elite/clients-v2`
-   - ✅ Updated README with dashboard integration instructions
-   - ✅ Updated instructions file with implementation status
+### 3. **Frontend Integration**
+   - ✅ Created `lib/client-manager-api.ts` - API client with full CRUD
+   - ✅ Updated `ClientsManagerV2Page.tsx`:
+     - Replaced all mock data with real API calls
+     - Added `useEffect` to fetch data on mount
+     - Wired handlers for create/update/delete operations
+     - Added loading/error states
+   - ✅ EliteBodyExpertShell renders ClientsManagerV2Page
+   - ✅ EliteSideNav updated label to "Client Manager"
+
+### 4. **Subscription Cancel Flow** (`app/api/routes/subscription.py`)
+   - ✅ `POST /api/v1/partners/subscription/cancel` - Cancel subscription
+   - Sets status='cancelled', auto_renew=false, keeps access until end date
 
 ---
 

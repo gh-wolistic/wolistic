@@ -1,6 +1,6 @@
 # Project Status and Vision
 
-Last updated: 2026-04-12
+Last updated: 2026-04-14
 
 ## Current Status
 
@@ -22,13 +22,19 @@ Last updated: 2026-04-12
 **Subscriptions and coins**
 - Subscription tier system: Free / Pro / Elite tiers; `celeb` tier defined
 - Subscription upgrade flow: Razorpay inline payment (order + verify), priority ticket raise (partner route)
+- Subscription cancellation: `POST /api/v1/partners/subscription/cancel` sets status='cancelled', disables auto-renew, keeps access until period ends
 - `SubscriptionPaymentOrder` and `SubscriptionPriorityTicket` DB models and routes live
 - Coins system: earn rules, daily checkin, redemption, wallet, history — backend service + frontend components fully connected
 
 **Partner and professional management**
 - Activities manager — backend CRUD routes + frontend `ActivityManagerPage` with onboarding tutorial
 - Classes manager — backend routes + frontend `ClassesManagerPage` (schedule, locations)
-- Clients manager — backend routes + frontend `ClientsManagerPage`
+- Clients manager — backend routes + frontend `ClientsManagerV2Page` fully wired with real data
+  - Client acquisition tracking (expert_invite, organic_search, corporate_event, wolistic_recommendation, wolistic_lead)
+  - Routine management with template support (draft→under_review→approved→published→archived workflow)
+  - Routine items (exercise, hydration, mobility) with completion tracking
+  - Dashboard metrics (total_clients, active_clients, followups_due, leads_pending)
+  - Bulk template assignment to multiple clients
 - Professional settings — backend route + frontend `SettingsPage`
 - Professional extended fields migration (`a1b2c3d4e5f6`) applied
 - Partner dashboard — backend KPI routes + frontend `PartnerDashboardPage`
@@ -72,20 +78,25 @@ Last updated: 2026-04-12
 | `i45k6l7m8n9o` | Classes and work locations tables |
 | `j56l7m8n9o0p` | Subscription tables |
 | `k67m8n9o1p2q` | Subscription payment and ticket tables |
+| `l01m2n3o4p5q` | Expert client routines and items (Client Manager v2) |
 
 ### In-progress platform direction
-- Wire live data into all elite dashboard sections (activities, classes, clients); test coverage pending
+- ✅ Wire live data into all elite dashboard sections (activities, classes, clients) — COMPLETE (2026-04-14)
+  - Client Manager v2 fully integrated with backend (acquisition tracking, routines, templates, follow-ups)
+  - Subscription cancel flow implemented
+  - Test coverage still pending for all dashboard sections
 - Coins economy hardening: earn-rule catalog, expiry accounting, admin overrides
-- Payment hardening: cryptographic signature verification, webhook reconciliation, provider references
+- ✅ Payment hardening: COMPLETE — cryptographic signature verification, webhook reconciliation, provider references, structured logging
 - Maintain mobile-first UX quality across all public and dashboard routes
 
 ## High Priority Open Work
-- Complete payment hardening: signature verification, webhook reconciliation
+- ✅ Payment hardening COMPLETE: signature verification, webhook reconciliation, structured logging, idempotency
+- ✅ Elite dashboard data wiring COMPLETE: Client Manager v2 backend integration, subscription cancel flow
 - Coins economy: lock earn-rule catalog, add expiry accounting, admin tools
 - Media upload: documentation, backfill runbook, E2E testing gates (profile/cover complete)
 - Add route-level tests for holistic-teams endpoints (intake tests complete; prepare/list/get pending)
-- Tighten production CORS and broader security defaults
-- Expand test coverage: subscription, coins, activities, classes, clients
+- Tighten production CORS after deployment (implementation ready, blocked by production URL)
+- Expand test coverage: subscription, coins, activities, classes, clients (client manager backend live, tests pending)
 - Professional verification matrix design and rollout strategy
 
 ## Product Vision

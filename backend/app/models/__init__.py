@@ -10,7 +10,7 @@ from app.models.booking import (
     BookingQuestionTemplate,
 )
 from app.models.catalog import CatalogBrand, CatalogInfluencer, CatalogProduct, CatalogService
-from app.models.client import ExpertClient, ExpertClientFollowUp
+from app.models.client import ExpertClient, ExpertClientFollowUp, ExpertLead, ExpertClientRoutine, ExpertClientRoutineItem
 from app.models.holistic_team import HolisticTeam, HolisticTeamMember
 from app.models.media import MediaAsset
 from app.models.professional import (
@@ -48,6 +48,9 @@ __all__ = [
     "CatalogInfluencer",
     "ExpertClient",
     "ExpertClientFollowUp",
+    "ExpertLead",
+    "ExpertClientRoutine",
+    "ExpertClientRoutineItem",
     "HolisticTeam",
     "HolisticTeamMember",
     "MediaAsset",

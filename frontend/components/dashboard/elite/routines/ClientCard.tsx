@@ -7,11 +7,37 @@ import { ProgressBar } from './ProgressBar';
 interface ClientCardProps {
   client: Client;
   onClick: () => void;
+  onViewDetails?: () => void;
+  onMessage?: () => void;
+  onSchedule?: () => void;
 }
 
-export function ClientCard({ client, onClick }: ClientCardProps) {
+export function ClientCard({ client, onClick, onViewDetails, onMessage, onSchedule }: ClientCardProps) {
   const isUpcomingSoon = client.next_session && 
     new Date(client.next_session.date) <= new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+
+  const handleViewDetails = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onViewDetails) {
+      onViewDetails();
+    } else {
+      onClick(); // Fallback to card onClick
+    }
+  };
+
+  const handleMessage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onMessage) {
+      onMessage();
+    }
+  };
+
+  const handleSchedule = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onSchedule) {
+      onSchedule();
+    }
+  };
 
   return (
     <div
@@ -75,21 +101,21 @@ export function ClientCard({ client, onClick }: ClientCardProps) {
       {/* Action Buttons */}
       <div className="flex gap-2">
         <button 
-          onClick={(e) => { e.stopPropagation(); }}
+          onClick={handleViewDetails}
           className="flex-1 px-3 py-2 text-xs font-medium text-zinc-300 bg-white/5 border border-white/10 
             rounded-lg hover:bg-white/10 transition-colors"
         >
           View Details
         </button>
         <button 
-          onClick={(e) => { e.stopPropagation(); }}
+          onClick={handleMessage}
           className="flex-1 px-3 py-2 text-xs font-medium text-zinc-300 bg-white/5 border border-white/10 
             rounded-lg hover:bg-white/10 transition-colors"
         >
           Message
         </button>
         <button 
-          onClick={(e) => { e.stopPropagation(); }}
+          onClick={handleSchedule}
           className="flex-1 px-3 py-2 text-xs font-medium text-zinc-300 bg-white/5 border border-white/10 
             rounded-lg hover:bg-white/10 transition-colors"
         >

@@ -81,12 +81,19 @@ This is the single source of truth for active work tracking in `docs/`.
 	- [ ] Test CORS with production frontend URL
 	- [ ] Validate only whitelisted origins, methods, and headers are allowed
 
-- [ ] Elite/Pro dashboard — wire live data into all dashboard sections
-	- Activities: backend data connected; frontend shell ready; test coverage needed
-	- Classes: backend routes live; frontend manager wired; test coverage needed
-	- Clients: backend routes live; frontend manager wired; test coverage needed
-	- Coins: backend rules + service live; frontend wallet wired; edge case handling needed
-	- Subscription: upgrade flow complete; downgrade/cancellation flow not yet built
+- [x] Elite/Pro dashboard — wire live data into all dashboard sections
+	- ✅ Activities: backend data connected; frontend shell ready; test coverage needed
+	- ✅ Classes: backend routes live; frontend manager wired; test coverage needed
+	- ✅ Clients: backend routes live; frontend Client Manager v2 fully wired; test coverage needed
+	- ✅ Coins: backend rules + service live; frontend wallet wired; edge case handling needed
+	- ✅ Subscription: upgrade flow complete; cancellation flow implemented
+	**Completion notes (2026-04-14):**
+		- Client Manager backend integration: Extended `expert_clients` table with acquisition tracking, physical metrics, engagement stats
+		- New tables: `expert_client_routines`, `expert_client_routine_items` with template support and status workflows
+		- API endpoints: clients/metrics, routines CRUD, template assignment, routine item updates, follow-ups
+		- Frontend: Replaced mock data with real API calls in `ClientsManagerV2Page.tsx`, created `client-manager-api.ts`
+		- Subscription cancel: `POST /api/v1/partners/subscription/cancel` sets status='cancelled', disables auto-renew
+		- Email invitations: Client creation works but email sending deferred (provider decision pending)
 
 - [ ] Coins economy hardening
 	- [ ] Define and lock earn-rule catalog (daily checkin, booking, review) in DB

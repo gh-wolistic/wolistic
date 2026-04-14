@@ -375,6 +375,48 @@ async def raise_priority_ticket(
     return PriorityTicketOut.model_validate(ticket)
 
 
+# ── Partner: cancel subscription ──────────────────────────────────────────────
+
+@partner_router.post("/subscription/cancel", response_model=dict)
+async def cancel_subscription(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Cancel active subscription (sets status to 'cancelled', keeps access until end_date)"""
+    prof = await _require_professional(current_user, db)
+    
+    # Find active subscription
+    sub_result = await db.execute(
+        select(ProfessionalSubscription).where(
+            ProfessionalSubscription.professional_id == prof.user_id,
+            ProfessionalSubscription.status == "active",
+        )
+    )
+    sub = sub_result.scalar_one_or_none()
+    if sub is None:
+        raise HTTPException(status_code=404, detail="No active subscription found")
+    
+    # Set status to cancelled, disable auto-renew
+    sub.status = "cancelled"
+    sub.auto_renew = False
+    
+    await db.commit()
+    
+    logger.info(
+        "Subscription cancelled",
+        extra={
+            "user_id": str(prof.user_id),
+            "subscription_id": sub.id,
+            "ends_at": sub.ends_at.isoformat() if sub.ends_at else None,
+        }
+    )
+    
+    return {
+        "message": "Subscription cancelled successfully. Access remains until the current period ends.",
+        "ends_at": sub.ends_at.isoformat() if sub.ends_at else None,
+    }
+
+
 # ── Admin: Plans CRUD ─────────────────────────────────────────────────────────
 
 @admin_router.get("/plans", response_model=List[SubscriptionPlanOut])

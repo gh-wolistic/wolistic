@@ -1,12 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Client } from '@/types/routines';
-import { 
-  getActiveRoutineByClientId, 
-  getUpcomingSessionsByClientId, 
-  getFollowUpsByClientId 
-} from '@/lib/mockClientsData';
+import { Client, Routine, UpcomingSession, FollowUp } from '@/types/routines';
 import { StatusBadge } from './StatusBadge';
 import { SourceBadge } from './SourceBadge';
 import { ActiveRoutineSection } from './ActiveRoutineSection';
@@ -20,14 +15,21 @@ interface ClientDetailSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onAddFollowUp?: (clientId: number) => void;
+  activeRoutine?: Routine | null;
+  upcomingSessions?: UpcomingSession[];
+  followUps?: FollowUp[];
 }
 
-export function ClientDetailSheet({ client, isOpen, onClose, onAddFollowUp }: ClientDetailSheetProps) {
+export function ClientDetailSheet({ 
+  client, 
+  isOpen, 
+  onClose, 
+  onAddFollowUp,
+  activeRoutine = null,
+  upcomingSessions = [],
+  followUps = []
+}: ClientDetailSheetProps) {
   if (!client || !isOpen) return null;
-
-  const activeRoutine = getActiveRoutineByClientId(client.id);
-  const upcomingSessions = getUpcomingSessionsByClientId(client.id);
-  const followUps = getFollowUpsByClientId(client.id);
 
   return (
     <div 
