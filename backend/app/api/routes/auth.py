@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 
@@ -14,6 +15,8 @@ from app.models.professional import Professional, ProfessionalService
 from app.models.user import User
 from app.schemas.auth import AuthMeOut, UpdateOnboardingIn
 from app.services.coins import award_coins
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -200,6 +203,13 @@ async def get_auth_me(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> AuthMeOut:
+    logger.info(
+        "Auth /me request",
+        extra={
+            "user_id": str(current_user.user_id),
+            "email": current_user.email,
+        },
+    )
     user = await _get_or_create_user(db=db, current_user=current_user)
 
     return _to_auth_me_out(user)
@@ -211,6 +221,14 @@ async def update_auth_onboarding(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> AuthMeOut:
+    logger.info(
+        "Onboarding update started",
+        extra={
+            "user_id": str(current_user.user_id),
+            "user_type": payload.user_type,
+            "user_subtype": payload.user_subtype,
+        },
+    )
     user = await _get_or_create_user(db=db, current_user=current_user)
 
     user.user_type = payload.user_type
@@ -257,5 +275,15 @@ async def update_auth_onboarding(
         )
 
     await db.commit()
+
+    logger.info(
+        "Onboarding update completed",
+        extra={
+            "user_id": str(user.id),
+            "user_type": user.user_type,
+            "user_subtype": user.user_subtype,
+            "user_status": user.user_status,
+        },
+    )
 
     return _to_auth_me_out(user)

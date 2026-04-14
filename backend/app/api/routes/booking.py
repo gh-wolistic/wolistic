@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+import logging
 import re
 import uuid
 
@@ -16,6 +17,8 @@ from app.core.database import get_db_session
 from app.models.booking import Booking, BookingPayment, BookingQuestionResponse, BookingQuestionTemplate
 from app.models.professional import Professional, ProfessionalService
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 from app.schemas.booking import (
     BookingHistoryItemOut,
     BookingHistoryOut,
@@ -322,6 +325,16 @@ async def submit_booking_answers(
 
     await db.commit()
 
+    logger.info(
+        "Booking answers submitted",
+        extra={
+            "user_id": str(current_user.user_id),
+            "professional_id": str(professional_id),
+            "professional_username": professional_username,
+            "question_count": len(answers_by_question_id),
+        },
+    )
+
     return SubmitBookingAnswersOut(saved=True, already_answered=False)
 
 
@@ -404,6 +417,12 @@ async def get_booking_history(
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ) -> BookingHistoryOut:
+    logger.info(
+        "Booking history requested",
+        extra={
+            "user_id": str(current_user.user_id),
+        },
+    )
     bookings_result = await db.execute(
         select(Booking, Professional.username)
         .join(Professional, Professional.user_id == Booking.professional_id)

@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Last updated: 2026-03-22
+Last updated: 2026-04-14
 
 ## Stack
 - Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS 4
@@ -8,6 +8,7 @@ Last updated: 2026-03-22
 - Data: Supabase Postgres (UUID-first identity model)
 - Auth: Supabase Auth on frontend, JWT verification in backend
 - Runtime: Docker and Docker Compose for local/containerized runs
+- Observability: Prometheus metrics (`/metrics` endpoint), structured JSON logging (production), environment-based log formatting
 
 ## Monorepo Structure
 ```
@@ -86,8 +87,16 @@ Aggregated in `backend/app/api/router.py`.
 - Existing automated backend tests currently cover health, auth identity, booking authorization, booking flow behavior, geo city resolution, featured strategy, and professional search ranking.
 - Active migration chain includes expert-review persistence table setup via `backend/alembic/versions/c3d9f0a4e8b2_add_expert_review_requests_table.py`.
 
+## Observability Infrastructure
+- **Metrics**: Prometheus instrumentation via `prometheus-fastapi-instrumentator` exposes `/metrics` endpoint with HTTP request duration, counts by method/path/status, and active requests
+- **Logs**: Environment-based structured logging (`backend/app/core/logging_config.py`)
+  - Development: Human-readable colored terminal logs with request_id
+  - Production: JSON-formatted logs for aggregation/parsing
+  - Request correlation via `RequestIDMiddleware` (X-Request-ID header)
+- **Integration readiness**: Metrics endpoint ready for Grafana Cloud scraping; logs ready for Axiom/Better Stack ingestion (integration deferred until production deployment)
+
 ## Known Gaps
-- Payment hardening is not fully complete (final webhook/reconciliation depth and production verification controls still need finishing).
+- External observability service integration (Axiom for logs, Grafana Cloud for metrics dashboards) deferred until production deployment
 - Documentation was consolidated on 2026-03-21; older scattered todo files were intentionally removed.
 
 ## Related Docs

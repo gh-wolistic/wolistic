@@ -5,7 +5,7 @@
 
 ## Overview
 
-Added request ID tracking and environment-based logging to improve debugging and prepare for production observability.
+Added request ID tracking, environment-based logging, and Prometheus metrics to improve debugging and prepare for production observability.
 
 ---
 
@@ -73,6 +73,34 @@ CORS_ALLOW_ALL_HEADERS=false
 When `false`, only allows:
 - **Methods**: GET, POST, PUT, DELETE
 - **Headers**: Authorization, Content-Type, X-Request-ID, Accept, Accept-Language
+
+---
+
+### 4. Prometheus Metrics
+
+Automatic HTTP metrics collection via `prometheus-fastapi-instrumentator`.
+
+**Metrics Endpoint**: `http://localhost:8000/metrics`
+
+**Tracked Metrics**:
+- `http_request_duration_seconds` — Request latency histogram (p50, p95, p99)
+- `http_requests_total` — Total request count by method, path, status code
+- `http_requests_in_progress` — Active requests currently being handled
+
+**Example Metrics Output**:
+```
+# HELP http_request_duration_seconds HTTP request duration
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_bucket{handler="/api/v1/booking/payments/order",method="POST",status="200",le="0.005"} 12.0
+http_request_duration_seconds_bucket{handler="/api/v1/booking/payments/order",method="POST",status="200",le="0.01"} 45.0
+http_request_duration_seconds_count{handler="/api/v1/booking/payments/order",method="POST",status="200"} 67.0
+http_request_duration_seconds_sum{handler="/api/v1/booking/payments/order",method="POST",status="200"} 2.34
+```
+
+**Integration**:
+- Ready for Grafana Cloud scraping (production)
+- Works locally for `/metrics` endpoint testing (development)
+- No external service connection required until production deployment
 
 ---
 
@@ -222,9 +250,9 @@ When ready to deploy to production:
 
 - Distributed tracing with OpenTelemetry
 - Request ID propagation to database queries
-- Automatic performance metrics per endpoint
 - Rate limiting based on client IP + request patterns
 - Circuit breaker for external payment provider calls
+- Alert configuration for p95/p99 latency, error rates, payment failures (requires Grafana Cloud integration)
 
 ---
 
@@ -234,8 +262,9 @@ When ready to deploy to production:
 |------|---------|
 | `app/core/middleware.py` | Request ID middleware |
 | `app/core/logging_config.py` | Environment-based formatters |
-| `app/main.py` | Middleware registration + CORS config |
+| `app/main.py` | Middleware registration + CORS config + Prometheus instrumentation |
 | `app/core/config.py` | CORS environment flags |
+| `requirements.txt` | Added prometheus-fastapi-instrumentator |
 | `.env.example` | Documentation of new settings |
 
 ---

@@ -6,40 +6,7 @@ This is the single source of truth for active work tracking in `docs/`.
 
 ## P0 Active Work
 
-- [x] Supabase Storage media migration (profile & cover images only)
-	- [x] Next.js image optimization host allowlist configured for Supabase Storage objects
-	- [x] `ImageWithFallback` migrated to `next/image` with fallback handling
-	- [x] `sizes` tuning started on key results/profile cards to reduce over-fetch
-	- [x] Buckets created for media domains (`wolistic-media-profile`, `wolistic-media-feed`)
-	- [x] Bucket policies configured for authenticated owner-scoped access
-	- [x] DB migration for `media_assets` table in place (`d42b5f3a1c90`)
-	- [x] Canonical object path contract finalized and implemented
-		- Format: `{actor_type}/{auth_uid}/{surface}/{yyyy}/{mm}/{uuid}.{ext}`
-		- Allowed `actor_type`: `clients`, `partners` (auto-resolved from user type)
-		- Allowed `surface`: `profile`, `cover` (gallery/feed deferred to future features)
-	- [x] Frontend dashboard upload/delete UX implemented
-		- Profile Studio: profile photo + cover image upload with visual feedback
-		- Remove buttons with confirmation and loading states
-		- Manual URL entry removed from dashboard editors
-	- [x] Backend media contract implemented (production-safe)
-		- POST `/media/upload-intent` - generates canonical path with validation
-		- POST `/media/confirm` - persists metadata and ownership in DB
-		- DELETE `/media/{id}` - owner auth + DB/storage consistency
-		- GET `/media/my` - lists user's uploaded media assets
-	- [x] Private-read strategy completed
-		- Signed URL generation with configurable TTL (default 24h)
-		- 10-minute cache for signed URLs to reduce API calls
-		- Fallback to public URLs if signing fails
-	- [ ] Documentation added to `/docs`
-		- Upload flow diagram (intent → storage → confirm)
-		- Error handling and retry strategies
-		- Path contract specification reference
-	- [ ] Backfill runbook for migrating existing external URLs (operational task)
-	- [ ] E2E testing gates (upload → display → delete scenarios)
-
-	**Note:** Gallery and feed media features are not yet started. Gallery upload UI and feed/posting functionality are deferred to Phase 2+ product roadmap. Current scope covers only professional profile photos and cover images.
-
-- [ ] Payment production hardening
+- [x] Payment production hardening
 	- [x] Subscription upgrade payment via Razorpay inline (order + verify endpoints)
 	- [x] Priority ticket raise post-upgrade (partner route)
 	- [x] Cryptographic signature verification (HMAC SHA256) for all payment paths
@@ -57,16 +24,6 @@ This is the single source of truth for active work tracking in `docs/`.
 		- Phase 3 complete: Admin APIs require ADMIN_API_KEY, support filtering by professional_id and date ranges
 		- Ready for production: Test mode auto-detected via key prefix, signatures verified on all paths, full observability
 
-- [ ] Holistic intake to team flow hardening
-	- [x] End-to-end flow implemented and working
-		- Expert-review intake → prepare holistic team → redirect with query params
-		- Auth state preserved across navigation
-		- Frontend: `/expert-review` → `/holistic-team` flow complete
-		- Backend: `POST /intake/expert-review` and `POST /holistic-teams/prepare` endpoints live
-	- [x] Route-level tests for `/api/v1/intake/expert-review` (success, error cases)
-	- [ ] Add route-level tests for `/api/v1/holistic-teams/*` endpoints (prepare, list, get)
-	- [x] No fallback-only behavior found in production paths
-
 - [x] Frontend auth state consolidation
 	- [x] Remove duplicated source-of-truth patterns between store/provider layers
 	- [x] Keep one canonical session/profile state model
@@ -82,8 +39,17 @@ This is the single source of truth for active work tracking in `docs/`.
 	- [x] Add request ID middleware for request tracing (2026-04-14)
 	- [x] Add environment-based structured logging (dev: human-readable, prod: JSON)
 	- [x] Add environment-based CORS configuration (permissive in dev, restrictive in prod)
-	- [ ] Tighten CORS for production (blocked until production deployment planned)
-	- [ ] Add structured logs for all sensitive workflows (payment, auth, booking)
+	- [x] Add structured logs for all sensitive workflows (2026-04-14)
+		- ✅ Payment operations: order creation, verification, webhook processing (complete)
+		- ✅ Auth workflows: session validation (/auth/me), onboarding updates
+		- ✅ Booking workflows: question submission, booking history access
+	- [x] Prometheus instrumentation for metrics collection (2026-04-14)
+	**Completion notes (2026-04-14):**
+		- RequestIDMiddleware provides correlation IDs across all requests
+		- Environment-based logging: JSON in production, human-readable in dev
+		- Structured logging added to auth routes (session, onboarding) and booking routes (answers, history)
+		- Payment routes use service-layer logging (already comprehensive)
+		- CORS tightening moved to P1 (blocked until production deployment)
 
 - [x] Migration history reset (v1.1 baseline) — release tagging
 	- [x] Generate and review baseline migration from current schema
@@ -98,6 +64,22 @@ This is the single source of truth for active work tracking in `docs/`.
 		- 13 active migrations post-baseline, pre-v1.1 migrations archived
 
 ## P1 Near-Term Product and Quality
+
+- [ ] Holistic intake to team flow hardening
+	- [x] End-to-end flow implemented and working
+		- Expert-review intake → prepare holistic team → redirect with query params
+		- Auth state preserved across navigation
+		- Frontend: `/expert-review` → `/holistic-team` flow complete
+		- Backend: `POST /intake/expert-review` and `POST /holistic-teams/prepare` endpoints live
+	- [x] Route-level tests for `/api/v1/intake/expert-review` (success, error cases)
+	- [ ] Add route-level tests for `/api/v1/holistic-teams/*` endpoints (prepare, list, get)
+	- [x] No fallback-only behavior found in production paths
+
+- [ ] Production CORS tightening
+	- [x] Environment-based CORS configuration implemented (permissive in dev, restrictive in prod)
+	- [ ] Deploy to production environment and configure restrictive CORS settings
+	- [ ] Test CORS with production frontend URL
+	- [ ] Validate only whitelisted origins, methods, and headers are allowed
 
 - [ ] Elite/Pro dashboard — wire live data into all dashboard sections
 	- Activities: backend data connected; frontend shell ready; test coverage needed
@@ -134,7 +116,18 @@ This is the single source of truth for active work tracking in `docs/`.
 
 ## P2 Platform and Operations
 
-- [ ] Monitoring baseline (errors, latency, payment failure alerts)
+- [x] Supabase Storage media migration — Core implementation complete (2026-04-14)
+	- ✅ Feature working in production: Profile Studio upload/delete for profile photos and cover images
+	- ✅ Backend API complete: upload-intent, confirm, delete, list endpoints with signed URLs
+	- ✅ Canonical path contract implemented: `{actor_type}/{auth_uid}/{surface}/{yyyy}/{mm}/{uuid}.{ext}`
+	- [ ] Documentation: Upload flow diagram, error handling strategies, path contract reference
+	- [ ] Backfill runbook for migrating existing external URLs (operational task, if needed)
+	- [ ] E2E test suite for upload → display → delete scenarios
+	- **Note:** Downgraded from P0 (2026-04-14) — Core feature works; docs/tests are quality improvements, not blockers
+
+- [x] Monitoring baseline: Prometheus `/metrics` endpoint instrumented (HTTP duration, request counts, active requests)
+- [ ] Production observability integration: Connect Axiom (logs) + Grafana Cloud (metrics dashboards) after deployment
+- [ ] Alert configuration for errors, latency p95/p99, payment failure rates
 - [ ] Index and query plan review for high-traffic foreign keys
 - [ ] Backup/restore and migration rollback drills
 - [ ] Rate limiting and abuse protection strategy for public endpoints

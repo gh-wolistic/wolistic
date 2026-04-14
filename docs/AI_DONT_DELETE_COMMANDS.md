@@ -85,6 +85,9 @@ Invoke-WebRequest http://localhost:8000/api/v1/healthz
 # Check readiness endpoint
 curl http://localhost:8000/api/v1/readyz
 
+# Check Prometheus metrics endpoint
+curl http://localhost:8000/metrics
+
 # Run backend tests locally
 C:/Python313/python.exe -m pytest
 ```
@@ -248,4 +251,5 @@ taskkill /PID <PID> /F
 | Run backend tests | `C:/Python313/python.exe -m pytest` |
 | Start frontend | `npm run dev` |
 | Health check | `curl http://localhost:8000/api/v1/healthz` |
+| Metrics endpoint | `curl http://localhost:8000/metrics` |
 | Clean restart | `docker compose down -v && docker compose up -d --build` |

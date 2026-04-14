@@ -76,6 +76,7 @@ Service:
 - API: `http://localhost:8000`
 - Liveness: `http://localhost:8000/api/v1/healthz`
 - Readiness: `http://localhost:8000/api/v1/readyz`
+- Prometheus metrics: `http://localhost:8000/metrics`
 - Razorpay webhook: `POST /api/v1/booking/payments/webhooks/razorpay`
 
 ### Featured index background refresh

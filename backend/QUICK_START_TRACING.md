@@ -68,6 +68,7 @@ docker compose up
 - Trace errors from frontend to backend using request ID
 - Copy request ID from browser network tab → search backend logs
 - Correlate failed requests across distributed calls (future-ready)
+- Check Prometheus metrics: `curl http://localhost:8000/metrics`
 
 ---
 
