@@ -1,3 +1,6 @@
 -r requirements.txt
 pytest==8.3.5
 httpx==0.28.1
+mypy==1.11.2
+types-sqlalchemy==1.4.53
+types-passlib==1.7.7
