@@ -376,6 +376,9 @@ export function ProfileStudioPage() {
                 <TabsContent key={`practice-${saveEpoch}`} value="practice">
                   <ProfilePracticeSection
                     value={editorData}
+                    onFieldChange={(field, nextValue) =>
+                      setEditorData((current) => (current ? { ...current, [field]: nextValue } : current))
+                    }
                     onLanguagesChange={(languages) =>
                       setEditorData((current) => (current ? { ...current, languages } : current))
                     }

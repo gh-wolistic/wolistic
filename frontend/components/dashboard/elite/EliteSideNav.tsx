@@ -222,19 +222,25 @@ export function EliteSideNav({
   onSignOut,
 }: EliteSideNavProps) {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const collapsed = controlledCollapsed ?? internalCollapsed;
   const setCollapsed = onCollapsedChange ?? setInternalCollapsed;
+
+  const handleMobilePageChange = (page: ElitePageView) => {
+    onPageChange?.(page);
+    setMobileOpen(false);
+  };
 
   return (
     <>
       {/* Mobile Menu */}
       <div className="lg:hidden">
-        <Sheet>
+        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="fixed left-4 top-4 z-50 lg:hidden"
+              className="fixed left-4 top-4 z-50 border border-white/20 bg-white/10 text-white backdrop-blur-sm hover:bg-white/20 lg:hidden"
               aria-label="Open menu"
             >
               <Menu className="size-5" />
@@ -249,7 +255,7 @@ export function EliteSideNav({
               collapsed={false}
               userInitials={userInitials}
               currentPage={currentPage}
-              onPageChange={onPageChange}
+              onPageChange={handleMobilePageChange}
               onSignOut={onSignOut}
             />
           </SheetContent>

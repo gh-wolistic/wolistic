@@ -1,6 +1,6 @@
 "use client";
 
-import { Award, Calendar, Clock, IndianRupee, MapPin, MessageCircle, Star } from "lucide-react";
+import { Award, Calendar, Clock, IndianRupee, MapPin, MessageCircle, Phone, Star, Video } from "lucide-react";
 
 import { getProfessionalShortBio } from "@/lib/professionalBio";
 import type { ProfessionalCertificationInput, ProfessionalProfile } from "@/types/professional";
@@ -28,6 +28,38 @@ function certificationName(value: ProfessionalCertificationInput): string {
     return value;
   }
   return value.name;
+}
+
+function getSessionTypeVisual(sessionType: string) {
+  const normalized = sessionType.trim().toLowerCase();
+  const normalizedWords = normalized.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+
+  if (
+    normalizedWords.includes("in person")
+    || normalizedWords.includes("inperson")
+    || normalizedWords.includes("offline")
+    || normalizedWords.includes("onsite")
+  ) {
+    return { label: "In-person", icon: MapPin };
+  }
+
+  if (normalizedWords.includes("video") || normalizedWords.includes("online") || normalizedWords.includes("virtual")) {
+    return { label: "Video call", icon: Video };
+  }
+
+  if (
+    normalizedWords.includes("phone")
+    || normalizedWords.includes("audio")
+    || normalizedWords.includes("voice")
+  ) {
+    return { label: "Phone", icon: Phone };
+  }
+
+  if (normalizedWords.includes("chat") || normalizedWords.includes("message") || normalizedWords.includes("text")) {
+    return { label: "Chat", icon: MessageCircle };
+  }
+
+  return { label: sessionType, icon: MessageCircle };
 }
 
 export function FeaturedExpertModal({
@@ -117,6 +149,29 @@ export function FeaturedExpertModal({
                   {professional.languages.map((lang) => (
                     <Badge key={lang} variant="outline">{lang}</Badge>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {professional.sessionTypes && professional.sessionTypes.length > 0 && (
+              <div>
+                <h4 className="mb-2">Session Types</h4>
+                <div className="flex flex-wrap gap-2.5">
+                  {professional.sessionTypes.map((type) => {
+                    const visual = getSessionTypeVisual(type);
+                    const Icon = visual.icon;
+
+                    return (
+                      <Badge
+                        key={type}
+                        variant="outline"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm"
+                      >
+                        <Icon size={14} />
+                        <span>{visual.label}</span>
+                      </Badge>
+                    );
+                  })}
                 </div>
               </div>
             )}

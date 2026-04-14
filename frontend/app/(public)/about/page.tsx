@@ -26,7 +26,7 @@ export default function AboutPage() {
               Building a trusted ecosystem for holistic wellness
             </h1>
             <p className="mt-5 text-lg text-muted-foreground dark:text-slate-200/75">
-              Wolistic connects certified professionals, curated products, and authentic educators so
+              Wolistic connects certified professionals, credible wellness brands, and trusted educators so
               your wellness journey feels guided, clear, and empowering.
             </p>
           </div>
@@ -44,8 +44,8 @@ export default function AboutPage() {
                 credibility, reduce friction, and make expert guidance accessible without hype.
               </p>
               <p className="text-muted-foreground leading-relaxed dark:text-slate-200/70">
-                Our platform blends human expertise with AI tools that streamline work—so
-                professionals can focus on impact, and seekers can trust the path forward.
+                Our platform blends human expertise with practical tools that streamline discovery,
+                communication, and operations so professionals can focus on impact, and seekers can trust the path forward.
               </p>
               <h2 className="text-3xl lg:text-4xl">Why We Built Wolistic</h2>
               <p className="text-muted-foreground leading-relaxed dark:text-slate-200/70">
@@ -57,8 +57,8 @@ export default function AboutPage() {
                 and quality beats quantity. Professionals can focus on care, not marketing tactics.
               </p>
               <p className="text-muted-foreground leading-relaxed dark:text-slate-200/70">
-                We unite certified experts, vetted products, and authentic educators in one place,
-                while using AI to reduce admin burden—never to replace human expertise.
+                We unite certified experts, credible wellness brands, and authentic educators in one place,
+                with technology that supports smoother operations without replacing human expertise.
               </p>
             </div>
             <div className="grid gap-4">
@@ -95,7 +95,7 @@ export default function AboutPage() {
               </div>
               <h3 className="mb-3 text-lg font-medium">Trust</h3>
               <p className="text-sm text-muted-foreground dark:text-slate-200/70">
-                Verified professionals, curated products, and transparent guidance.
+                Verified professionals, transparent partnerships, and honest guidance.
               </p>
             </div>
             <div className="bg-white rounded-2xl p-8 border border-border text-center dark:bg-slate-950/60 dark:border-slate-800">

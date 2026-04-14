@@ -46,7 +46,11 @@ Last updated: 2026-04-12
 
 **Media**
 - `media_assets` DB table in migration chain (`d42b5f3a1c90`)
-- Supabase Storage bucket policies configured for authenticated owner-scoped access
+- Supabase Storage buckets configured with authenticated owner-scoped access policies
+- Profile and cover image upload/delete fully implemented in Profile Studio
+- Backend media API complete: upload-intent, confirm, delete, list endpoints
+- Signed URL generation with 10-minute cache and 24h TTL for private reads
+- Gallery and feed media upload deferred to Phase 2+ (feature not yet started)
 
 **Admin**
 - Internal admin app and backend admin endpoints present
@@ -73,13 +77,13 @@ Last updated: 2026-04-12
 - Wire live data into all elite dashboard sections (activities, classes, clients); test coverage pending
 - Coins economy hardening: earn-rule catalog, expiry accounting, admin overrides
 - Payment hardening: cryptographic signature verification, webhook reconciliation, provider references
-- Media upload UX: dashboard-only upload/delete with canonical object path contract
 - Maintain mobile-first UX quality across all public and dashboard routes
 
 ## High Priority Open Work
-- Complete media upload UX with production-safe backend contract (canonical path, signed reads, ownership)
 - Complete payment hardening: signature verification, webhook reconciliation
 - Coins economy: lock earn-rule catalog, add expiry accounting, admin tools
+- Media upload: documentation, backfill runbook, E2E testing gates (profile/cover complete)
+- Add route-level tests for holistic-teams endpoints (intake tests complete; prepare/list/get pending)
 - Reduce duplicated auth state ownership on frontend
 - Tighten production CORS and broader security defaults
 - Expand test coverage: subscription, coins, activities, classes, clients

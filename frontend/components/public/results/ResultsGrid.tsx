@@ -201,7 +201,14 @@ export function ResultsGrid({
                     <Badge variant="outline" className={`${roleAccent.badgeClass}`}>
                       {roleAccent.label}
                     </Badge>
-                    {professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null}
+                    {professional.subcategories && professional.subcategories.length > 0 ? (
+                      // Show first 2 subcategories, or fallback to category
+                      professional.subcategories.slice(0, 2).map((subcat) => (
+                        <Badge key={subcat} variant="secondary">{subcat}</Badge>
+                      ))
+                    ) : (
+                      professional.category ? <Badge variant="secondary">{professional.category}</Badge> : null
+                    )}
                     {professional.placementLabel === "Boosted" ? (
                       <Badge variant="outline" className="border-amber-400/60 text-amber-200">
                         Boosted

@@ -57,7 +57,7 @@ export function BookingPanel({ professional, onBookConsultation }: BookingPanelP
 
           <div className="space-y-3">
             <h4 className="text-base font-semibold tracking-tight">Session Types</h4>
-            <p className="text-sm text-muted-foreground">Choose your preferred consultation format.</p>
+            {/* <p className="text-sm text-muted-foreground">Below are the modes of consultation available.</p> */}
             <div className="flex flex-wrap gap-2.5">
               {professional.sessionTypes.map((type) => {
                 const visual = getSessionTypeVisual(type);

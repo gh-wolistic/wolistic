@@ -99,15 +99,15 @@ export default function PartnersPage() {
             <h1 className="mb-6 text-4xl font-bold tracking-tight lg:text-[3.25rem] lg:leading-[1.1]">
               Grow with{" "}
               <span className="bg-linear-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-indigo-300 dark:to-purple-300">
-                AI-powered tools
+                partner tools
               </span>{" "}
               &amp; a thriving wellness network
             </h1>
 
             <p className="mb-10 text-lg leading-relaxed text-muted-foreground dark:text-slate-200/80 lg:text-xl">
               Whether you&apos;re a wellness professional, brand, wellness
-              center, influencer, or certificate provider — Wolistic
-              gives you AI tools, a verified marketplace, and a growing
+              center, influencer, or certificate provider — Wolistic gives
+              you a verified marketplace, operational tools, and a growing
               community to{" "}
               <span className="font-medium text-foreground dark:text-white">
                 scale your impact and revenue.
@@ -151,8 +151,8 @@ export default function PartnersPage() {
             {[
               {
                 icon: <Sparkles size={24} />,
-                title: "AI-Powered Tools",
-                desc: "Smart automation for every partner type — AI-drafted plans, matching, analytics, and insights that save time and boost results.",
+                title: "Built for Growth",
+                desc: "Structured tools for visibility, bookings, analytics, and day-to-day partner operations that help you scale with clarity.",
               },
               {
                 icon: <Shield size={24} />,
@@ -218,8 +218,8 @@ export default function PartnersPage() {
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-muted-foreground dark:text-slate-300">
               Certified trainers, nutritionists, therapists, life coaches,
-              group fitness trainers, and ZUMBA instructors — our AI tools
-              let you serve more clients without burning out.
+              group fitness trainers, and ZUMBA instructors — our platform
+              tools let you serve more clients without burning out.
             </p>
           </div>
 
@@ -227,14 +227,14 @@ export default function PartnersPage() {
             {[
               {
                 icon: <Sparkles size={24} />,
-                title: "AI-Drafted, You-Approved Plans",
-                desc: "AI generates routines, workout, and nutrition plans based on client goals. You review, tweak, and approve — only then does the client see it.",
+                title: "Structured Client Plans",
+                desc: "Create routines, workout plans, and nutrition guidance around client goals with review-friendly workflows and clear delivery steps.",
                 accent: "from-indigo-500 to-purple-500",
               },
               {
                 icon: <MessageSquare size={24} />,
                 title: "Smart Follow-Ups",
-                desc: "AI prepares timely check-ins and progress prompts for your approval. You decide what goes out — no client message is sent without your OK.",
+                desc: "Manage timely check-ins, progress prompts, and client communication from one place so every follow-up stays intentional.",
                 accent: "from-purple-500 to-pink-500",
               },
               {
@@ -252,13 +252,13 @@ export default function PartnersPage() {
               {
                 icon: <Clock size={24} />,
                 title: "Time Saved Per Client",
-                desc: "AI handles the routine drafting — plans, follow-ups, reminders — you just review and approve. Hours saved every week.",
+                desc: "Templates, reminders, and centralized workflows reduce repetitive admin so you can spend more time on care.",
                 accent: "from-orange-500 to-amber-500",
               },
               {
                 icon: <TrendingUp size={24} />,
                 title: "Grow Your Practice",
-                desc: "Get discovered by new clients through our AI matching system. Verified badge builds instant credibility.",
+                desc: "Get discovered by new clients through verified discovery, strong profiles, and platform trust signals that build credibility.",
                 accent: "from-amber-500 to-yellow-500",
               },
             ].map((f) => (
@@ -289,7 +289,7 @@ export default function PartnersPage() {
               <ArrowRight size={18} className="ml-2" />
             </OpenAuthButton>
             <p className="mt-3 text-sm text-muted-foreground dark:text-slate-400">
-              Zero commission on 1-on-1 sessions &bull; AI tools included free
+              Zero commission on 1-on-1 sessions &bull; Partner tools included
             </p>
           </div>
         </div>
@@ -323,9 +323,9 @@ export default function PartnersPage() {
           </div>
 
           {showProfessionalPricing && (
-          <div className="mx-auto grid max-w-4xl gap-8 lg:grid-cols-3">
-            {[
-              {
+            <div className="mx-auto grid max-w-4xl gap-8 lg:grid-cols-3">
+              {[
+                {
                 title: "1-on-1 Sessions",
                 commission: "0%",
                 highlight: true,
@@ -346,7 +346,7 @@ export default function PartnersPage() {
                 desc: "Enterprise wellness contracts sourced and managed by Wolistic. We bring the clients, you deliver the expertise.",
                 tag: "We Bring Clients",
               },
-            ].map((tier) => (
+              ].map((tier) => (
               <Card
                 key={tier.title}
                 className={`relative flex flex-col p-8 dark:bg-slate-950/60 dark:border-slate-800 ${
@@ -375,8 +375,8 @@ export default function PartnersPage() {
                   {tier.desc}
                 </p>
               </Card>
-            ))}
-          </div>
+              ))}
+            </div>
           )}
         </div>
       </section>
@@ -654,7 +654,7 @@ export default function PartnersPage() {
                 {
                   icon: <Globe size={24} />,
                   title: "Local Discovery",
-                  desc: "Appear in location-based search results and AI recommendations for nearby wellness seekers.",
+                  desc: "Appear in location-based search results and discovery surfaces for nearby wellness seekers.",
                   bg: "bg-emerald-50 dark:bg-emerald-500/10",
                   fg: "text-emerald-600 dark:text-emerald-300",
                 },
@@ -923,7 +923,7 @@ export default function PartnersPage() {
                   "Desktop-optimized with full analytics",
                   "Mobile-ready for on-the-go management",
                   "Native app coming soon (iOS & Android)",
-                  "AI insights and recommendations built in",
+                  "Insights and recommendations built in",
                   "Real-time client notifications and updates",
                 ].map((f) => (
                   <div key={f} className="flex items-start gap-3">
@@ -974,7 +974,7 @@ export default function PartnersPage() {
                       ))}
                     </div>
                     <div className="space-y-2">
-                      {["Client check-in sent", "New booking: 2:00 PM", "AI plan ready to review"].map(
+                      {["Client check-in sent", "New booking: 2:00 PM", "Plan ready to review"].map(
                         (item) => (
                           <div
                             key={item}
@@ -1032,8 +1032,8 @@ export default function PartnersPage() {
             {[
               {
                 icon: <Sparkles size={24} />,
-                title: "AI That Actually Helps",
-                desc: "Not just a buzzword. AI drafts plans and follow-ups, you review and approve — nothing reaches clients without your sign-off.",
+                title: "Tools That Support Care",
+                desc: "Plan management, scheduling, and follow-up workflows help you run a stronger practice without extra operational drag.",
                 gradient: "from-indigo-500 to-purple-600",
               },
               {
@@ -1093,11 +1093,11 @@ export default function PartnersPage() {
         </div>
         <div className="container relative z-10 mx-auto px-4 text-center sm:px-6 lg:px-8">
           <h2 className="mb-4 text-3xl font-bold text-white lg:text-4xl">
-            Ready to grow with AI on your side?
+            Ready to grow with the right platform on your side?
           </h2>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-300">
             Join thousands of wellness professionals, brands, and influencers
-            using AI-powered tools to deliver better outcomes — with zero
+            using Wolistic to build stronger visibility, operations, and trust — with zero
             commission on 1-on-1 sessions.
           </p>
 
@@ -1110,8 +1110,8 @@ export default function PartnersPage() {
           </OpenAuthButton>
 
           <p className="mt-6 text-sm text-slate-500">
-            Get started in minutes &bull; Zero commission on 1-on-1 &bull; AI
-            tools included free
+            Get started in minutes &bull; Zero commission on 1-on-1 &bull; Partner
+            tools included
           </p>
         </div>
       </section>

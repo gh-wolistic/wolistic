@@ -746,14 +746,14 @@ export function SettingsPage({ userName, userEmail, membershipTier, onNavigateTo
             iconColor="text-violet-400"
           />
 
-          <div className="flex items-center justify-between gap-6 rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-violet-600/5 p-6">
+          <div className="flex flex-col items-start gap-4 rounded-xl border border-violet-400/20 bg-gradient-to-br from-violet-500/10 to-violet-600/5 p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
             <div>
               <p className="text-sm font-medium text-white mb-1">View your plan, features, and billing history</p>
               <p className="text-xs text-zinc-400">Manage your active subscription and compare available plans</p>
             </div>
             <Button
               onClick={onNavigateToSubscription}
-              className="shrink-0 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white shadow-lg shadow-violet-500/20"
+              className="w-full shrink-0 bg-gradient-to-r from-violet-500 to-violet-600 hover:from-violet-600 hover:to-violet-700 text-white shadow-lg shadow-violet-500/20 sm:w-auto"
             >
               <Gem className="size-4 mr-2" />
               Go to Subscription
@@ -845,8 +845,8 @@ export function SettingsPage({ userName, userEmail, membershipTier, onNavigateTo
 
           <div className="space-y-6">
             {/* Export Data */}
-            <div className="flex items-start justify-between p-5 rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/5 to-transparent hover:border-rose-500/30 hover:bg-rose-500/10 transition-all group">
-              <div className="flex-1 pr-6">
+            <div className="flex flex-col items-start gap-4 p-5 rounded-xl border border-rose-500/20 bg-gradient-to-br from-rose-500/5 to-transparent hover:border-rose-500/30 hover:bg-rose-500/10 transition-all group sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+              <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Download className="size-4 text-rose-400" />
                   <h3 className="text-sm font-semibold text-white">Export My Data</h3>
@@ -858,7 +858,7 @@ export function SettingsPage({ userName, userEmail, membershipTier, onNavigateTo
               <Button
                 onClick={handleExportData}
                 variant="outline"
-                className="gap-2 border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:border-rose-400/60 hover:text-rose-200 shadow-lg shadow-rose-500/10"
+                className="w-full gap-2 border-rose-500/40 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 hover:border-rose-400/60 hover:text-rose-200 shadow-lg shadow-rose-500/10 sm:w-auto"
               >
                 <Download className="size-4" />
                 Request Export
@@ -866,8 +866,8 @@ export function SettingsPage({ userName, userEmail, membershipTier, onNavigateTo
             </div>
 
             {/* Delete Account */}
-            <div className="flex items-start justify-between p-5 rounded-xl border-2 border-rose-500/30 bg-gradient-to-br from-rose-500/10 to-rose-600/5 hover:border-rose-500/50 hover:bg-rose-500/15 transition-all group">
-              <div className="flex-1 pr-6">
+            <div className="flex flex-col items-start gap-4 p-5 rounded-xl border-2 border-rose-500/30 bg-gradient-to-br from-rose-500/10 to-rose-600/5 hover:border-rose-500/50 hover:bg-rose-500/15 transition-all group sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+              <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1.5">
                   <Trash2 className="size-4 text-rose-400" />
                   <h3 className="text-sm font-semibold text-white">Delete Account Permanently</h3>
@@ -878,7 +878,7 @@ export function SettingsPage({ userName, userEmail, membershipTier, onNavigateTo
               </div>
               <Button
                 onClick={() => setDeleteDialogOpen(true)}
-                className="gap-2 bg-gradient-to-r from-rose-500/20 to-rose-600/20 text-rose-300 border-2 border-rose-500/40 hover:from-rose-500/30 hover:to-rose-600/30 hover:border-rose-400/60 hover:text-rose-200 shadow-lg shadow-rose-500/20"
+                className="w-full gap-2 bg-gradient-to-r from-rose-500/20 to-rose-600/20 text-rose-300 border-2 border-rose-500/40 hover:from-rose-500/30 hover:to-rose-600/30 hover:border-rose-400/60 hover:text-rose-200 shadow-lg shadow-rose-500/20 sm:w-auto"
               >
                 <Trash2 className="size-4" />
                 Delete Account

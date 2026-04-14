@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme/theme-provider";
+import { ScrollToTop } from "@/components/scroll-to-top";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") || "http://localhost:3000";
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s | Wolistic",
   },
   description:
-    "Discover trusted wellness professionals, curated products, and evidence-led influencers across body, mind, and diet.",
+    "Discover trusted wellness professionals, credible wellness brands, and evidence-led influencers across body, mind, and diet.",
   keywords: [
     "wellness platform",
     "holistic wellness",
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
     type: "website",
     title: "Wolistic | Body, Mind & Diet Wellness",
     description:
-      "Discover trusted wellness professionals, curated products, and evidence-led influencers across body, mind, and diet.",
+      "Discover trusted wellness professionals, credible wellness brands, and evidence-led influencers across body, mind, and diet.",
     url: siteUrl,
     siteName: "Wolistic",
   },
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Wolistic | Body, Mind & Diet Wellness",
     description:
-      "Discover trusted wellness professionals, curated products, and evidence-led influencers across body, mind, and diet.",
+      "Discover trusted wellness professionals, credible wellness brands, and evidence-led influencers across body, mind, and diet.",
   },
 };
 
@@ -48,6 +49,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen antialiased">
+        <ScrollToTop />
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>

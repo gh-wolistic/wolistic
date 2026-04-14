@@ -1,35 +1,43 @@
 # Canonical Todo and Worklist
 
-Last updated: 2026-04-12
+Last updated: 2026-04-14
 
 This is the single source of truth for active work tracking in `docs/`.
 
 ## P0 Active Work
 
-- [ ] Supabase Storage media migration (dashboard-scoped upload/delete only)
+- [x] Supabase Storage media migration (profile & cover images only)
 	- [x] Next.js image optimization host allowlist configured for Supabase Storage objects
 	- [x] `ImageWithFallback` migrated to `next/image` with fallback handling
 	- [x] `sizes` tuning started on key results/profile cards to reduce over-fetch
 	- [x] Buckets created for media domains (`wolistic-media-profile`, `wolistic-media-feed`)
 	- [x] Bucket policies configured for authenticated owner-scoped access
 	- [x] DB migration for `media_assets` table in place (`d42b5f3a1c90`)
-	- [ ] Canonical object path contract finalized and documented
-		- Required format: `{actor_type}/{auth_uid}/{surface}/{yyyy}/{mm}/{uuid}.{ext}`
-		- Allowed `actor_type`: `clients`, `partners`
-		- Allowed `surface`: `profile`, `cover`, `gallery`, `feed`
-	- [ ] Frontend dashboard-only upload UX implemented
-		- Partner dashboard: profile/cover/gallery upload + delete actions
-		- Client dashboard: feed/media upload + delete actions
-		- Remove manual URL entry paths in dashboard editors once upload UX is live
-	- [ ] Backend media contract implemented (production-safe)
-		- Create upload intent endpoint (path validation, mime/size validation)
-		- Confirm upload endpoint (persist metadata and ownership)
-		- Delete media endpoint (owner auth + DB/storage consistency)
-	- [ ] Private-read strategy completed
-		- Signed read URL generation with bounded TTL
-		- URL refresh behavior for expired assets on dashboard/public surfaces
-	- [ ] Backfill + cleanup runbook executed
-	- [ ] Testing and rollout gates completed
+	- [x] Canonical object path contract finalized and implemented
+		- Format: `{actor_type}/{auth_uid}/{surface}/{yyyy}/{mm}/{uuid}.{ext}`
+		- Allowed `actor_type`: `clients`, `partners` (auto-resolved from user type)
+		- Allowed `surface`: `profile`, `cover` (gallery/feed deferred to future features)
+	- [x] Frontend dashboard upload/delete UX implemented
+		- Profile Studio: profile photo + cover image upload with visual feedback
+		- Remove buttons with confirmation and loading states
+		- Manual URL entry removed from dashboard editors
+	- [x] Backend media contract implemented (production-safe)
+		- POST `/media/upload-intent` - generates canonical path with validation
+		- POST `/media/confirm` - persists metadata and ownership in DB
+		- DELETE `/media/{id}` - owner auth + DB/storage consistency
+		- GET `/media/my` - lists user's uploaded media assets
+	- [x] Private-read strategy completed
+		- Signed URL generation with configurable TTL (default 24h)
+		- 10-minute cache for signed URLs to reduce API calls
+		- Fallback to public URLs if signing fails
+	- [ ] Documentation added to `/docs`
+		- Upload flow diagram (intent → storage → confirm)
+		- Error handling and retry strategies
+		- Path contract specification reference
+	- [ ] Backfill runbook for migrating existing external URLs (operational task)
+	- [ ] E2E testing gates (upload → display → delete scenarios)
+
+	**Note:** Gallery and feed media features are not yet started. Gallery upload UI and feed/posting functionality are deferred to Phase 2+ product roadmap. Current scope covers only professional profile photos and cover images.
 
 - [ ] Payment production hardening
 	- [x] Subscription upgrade payment via Razorpay inline (order + verify endpoints)
@@ -39,9 +47,14 @@ This is the single source of truth for active work tracking in `docs/`.
 	- [ ] Persist and expose provider references needed for support/debug workflows
 
 - [ ] Holistic intake to team flow hardening
-	- [ ] Validate end-to-end expert-review intake to holistic-team redirect behavior across auth states
-	- [ ] Add route-level tests for `/api/v1/intake/expert-review` and `/api/v1/holistic-teams/*`
-	- [ ] Remove any remaining fallback-only behavior in production paths
+	- [x] End-to-end flow implemented and working
+		- Expert-review intake → prepare holistic team → redirect with query params
+		- Auth state preserved across navigation
+		- Frontend: `/expert-review` → `/holistic-team` flow complete
+		- Backend: `POST /intake/expert-review` and `POST /holistic-teams/prepare` endpoints live
+	- [x] Route-level tests for `/api/v1/intake/expert-review` (success, error cases)
+	- [ ] Add route-level tests for `/api/v1/holistic-teams/*` endpoints (prepare, list, get)
+	- [x] No fallback-only behavior found in production paths
 
 - [ ] Frontend auth state consolidation
 	- [ ] Remove duplicated source-of-truth patterns between store/provider layers

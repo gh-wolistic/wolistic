@@ -171,24 +171,6 @@ export function ProfileBasicsSection({
 
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <Field label="Username *" id="editor-username">
-            {usernameLimits && (
-              <div className="mb-1.5 flex items-center gap-2">
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  usernameLimits.changes_today >= usernameLimits.daily_limit
-                    ? "bg-red-500/20 text-red-400"
-                    : "bg-white/10 text-zinc-400"
-                }`}>
-                  Today: {usernameLimits.changes_today}/{usernameLimits.daily_limit}
-                </span>
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                  usernameLimits.changes_this_year >= usernameLimits.yearly_limit
-                    ? "bg-red-500/20 text-red-400"
-                    : "bg-white/10 text-zinc-400"
-                }`}>
-                  This year: {usernameLimits.changes_this_year}/{usernameLimits.yearly_limit}
-                </span>
-              </div>
-            )}
             <Input
               id="editor-username"
               disabled={usernameLimits != null && usernameLimits.changes_this_year >= usernameLimits.yearly_limit}
@@ -222,16 +204,6 @@ export function ProfileBasicsSection({
             {usernameStatus === "checking" && (
               <p className="mt-1 text-xs text-zinc-500">Checking availability…</p>
             )}
-          </Field>
-
-          <Field label="Specialization *" id="editor-specialization">
-            <Input
-              id="editor-specialization"
-              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
-              value={value.specialization}
-              onChange={(event) => onFieldChange("specialization", event.target.value)}
-              placeholder="Certified Wellness Coach"
-            />
           </Field>
 
           <Field label="Experience (Years) *" id="editor-experience">

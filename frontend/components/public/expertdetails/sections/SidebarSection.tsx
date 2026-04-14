@@ -37,15 +37,25 @@ const SOCIAL_ICONS: Record<string, React.ElementType> = {
 function SocialLinkRow({ platform, handle }: { platform: string; handle: string }) {
   const Icon = SOCIAL_ICONS[platform] ?? Globe;
   const href = buildSocialHref(platform, handle);
+  
+  // Platform-specific colors
+  const iconColorClass = {
+    instagram: "text-pink-500",
+    twitter: "text-sky-500",
+    linkedin: "text-blue-600",
+    youtube: "text-red-600",
+    website: "text-emerald-600",
+  }[platform] || "text-zinc-600";
+  
   return (
     <a
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+      className="group flex items-center gap-3 rounded-lg border border-transparent px-3 py-2.5 text-sm transition-all hover:border-zinc-200 hover:bg-zinc-50 dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
     >
-      <Icon size={14} className="shrink-0" />
-      <span className="truncate">{handle}</span>
+      <Icon size={18} className={`shrink-0 ${iconColorClass} transition-transform group-hover:scale-110`} />
+      <span className="truncate text-foreground/80 group-hover:text-foreground">{handle}</span>
     </a>
   );
 }
@@ -82,6 +92,18 @@ export function SidebarSection({ professional }: SidebarSectionProps) {
         <p className="text-2xl text-emerald-600 font-semibold">{professional.experience}</p>
         <p className="text-sm text-muted-foreground mt-1">in professional practice</p>
       </Card>
+
+      {socialEntries.length > 0 && (
+        <Card className="border-zinc-200 p-5 sm:p-6 dark:border-zinc-700">
+          <h3 className="mb-1">Connect</h3>
+          <p className="mb-4 text-sm text-muted-foreground">Follow and stay connected</p>
+          <div className="space-y-1">
+            {socialEntries.map(([platform, handle]) => (
+              <SocialLinkRow key={platform} platform={platform} handle={handle} />
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="p-5 sm:p-6">
         <h3 className="mb-4">Quick Facts</h3>
@@ -138,17 +160,6 @@ export function SidebarSection({ professional }: SidebarSectionProps) {
           </div>
         </div>
       </Card>
-
-      {socialEntries.length > 0 && (
-        <Card className="p-5 sm:p-6">
-          <h3 className="mb-4">Connect</h3>
-          <div className="space-y-3">
-            {socialEntries.map(([platform, handle]) => (
-              <SocialLinkRow key={platform} platform={platform} handle={handle} />
-            ))}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

@@ -92,7 +92,7 @@ class ProfessionalProfileOut(BaseModel):
     # Extended fields
     pronouns: str | None = None
     who_i_work_with: str | None = None
-    client_goals: list[str] = []
+    client_goals: list[str] = Field(default_factory=list, max_length=15)
     response_time_hours: int = 24
     cancellation_hours: int = 24
     social_links: dict = {}
@@ -107,10 +107,10 @@ class ProfessionalProfileOut(BaseModel):
     expertise_areas: list[ExpertiseAreaOut] = []
     # Legacy flat specializations list kept for search/featured compatibility
     specializations: list[str] = []
-    education: list[str] = []
-    languages: list[str] = []
-    session_types: list[str] = []
-    subcategories: list[str] = []
+    education: list[str] = Field(default_factory=list, max_length=5)
+    languages: list[str] = Field(default_factory=list, max_length=5)
+    session_types: list[str] = Field(default_factory=list, max_length=10)
+    subcategories: list[str] = Field(default_factory=list, max_length=5)
     gallery: list[str] = []
     services: list[ServiceOut] = []
     service_areas: list[ServiceAreaOut] = []
@@ -216,22 +216,22 @@ class ProfessionalEditorPayload(BaseModel):
     # Extended fields
     pronouns: str | None = Field(default=None, max_length=64)
     who_i_work_with: str | None = Field(default=None, max_length=5000)
-    client_goals: list[str] = []
+    client_goals: list[str] = Field(default_factory=list, max_length=15)
     response_time_hours: int = Field(default=24, ge=1, le=720)
     cancellation_hours: int = Field(default=24, ge=0, le=720)
     social_links: dict = {}
     video_intro_url: str | None = Field(default=None, max_length=4000)
     default_timezone: str = Field(default="UTC", max_length=100)
 
-    approaches: list[ProfessionalApproachIn] = []
+    approaches: list[ProfessionalApproachIn] = Field(default_factory=list, max_length=5)
     availability_slots: list[ProfessionalAvailabilityIn] = []
-    certifications: list[ProfessionalCertificationIn] = []
-    education: list[str] = []
-    expertise_areas: list[ProfessionalExpertiseAreaIn] = []
+    certifications: list[ProfessionalCertificationIn] = Field(default_factory=list, max_length=5)
+    education: list[str] = Field(default_factory=list, max_length=5)
+    expertise_areas: list[ProfessionalExpertiseAreaIn] = Field(default_factory=list, max_length=5)
     gallery: list[ProfessionalGalleryIn] = []
-    languages: list[str] = []
-    session_types: list[str] = []
-    subcategories: list[str] = []
+    languages: list[str] = Field(default_factory=list, max_length=5)
+    session_types: list[str] = Field(default_factory=list, max_length=10)
+    subcategories: list[str] = Field(default_factory=list, max_length=5)
     services: list[ProfessionalServiceIn] = []
     service_areas: list[ProfessionalServiceAreaIn] = []
     booking_question_templates: list[BookingQuestionTemplateIn] = []

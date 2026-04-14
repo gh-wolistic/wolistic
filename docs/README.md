@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-04-12
+Last updated: 2026-04-14
 
 This folder contains architecture and execution documents for the Wolistic monorepo.
 
@@ -13,6 +13,7 @@ This folder contains architecture and execution documents for the Wolistic monor
 - Active migration chain: 13 migrations after v1.1 baseline (`f577acd2eef7`).
 - Dashboard v2 (Elite shell) is the active partner dashboard surface.
 - Coins, subscriptions, activities, classes, and clients are all backend-live.
+- Media upload: Profile and cover images supported via Supabase Storage with signed URLs. Gallery/feed deferred to Phase 2+.
 
 ## Canonical Docs
 

@@ -158,6 +158,8 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   const [addSessionOpen, setAddSessionOpen] = useState(false);
   const [addLocationOpen, setAddLocationOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
+  const [showConflictsModal, setShowConflictsModal] = useState(false);
+  const [showLocationsModal, setShowLocationsModal] = useState(false);
 
   // Data state
   const [classes, setClasses] = useState<GroupClass[]>([]);
@@ -400,6 +402,26 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     return count;
   })();
 
+  // Get detailed conflicts for modal
+  const getDetailedConflicts = (): Array<{ session1: DaySession; session2: DaySession; date: string }> => {
+    const conflicts: Array<{ session1: DaySession; session2: DaySession; date: string }> = [];
+    sortedDates.forEach((d) => {
+      const daySessions = sessionsByDate[d];
+      for (let i = 0; i < daySessions.length; i++) {
+        for (let j = i + 1; j < daySessions.length; j++) {
+          const t1 = new Date(`${daySessions[i].sessionDate}T${daySessions[i].startTime}`);
+          const t2 = new Date(`${daySessions[j].sessionDate}T${daySessions[j].startTime}`);
+          const e1 = new Date(t1.getTime() + daySessions[i].classItem.duration_minutes * 60000);
+          const e2 = new Date(t2.getTime() + daySessions[j].classItem.duration_minutes * 60000);
+          if (t1 < e2 && e1 > t2) {
+            conflicts.push({ session1: daySessions[i], session2: daySessions[j], date: d });
+          }
+        }
+      }
+    });
+    return conflicts;
+  };
+
   const schedCatBarClass = (category: string) => {
     const map: Record<string, string> = {
       yoga: "bg-violet-400",
@@ -434,26 +456,26 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
         <div className="absolute bottom-20 left-20 size-[400px] rounded-full bg-violet-500/10 blur-[120px]" />
       </div>
 
-      <div className="relative space-y-6 p-6 pb-16 max-w-7xl mx-auto">
+      <div className="relative space-y-6 p-4 sm:p-6 pb-16 max-w-7xl mx-auto">
         {/* Page Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/20 to-orange-500/20 blur-xl rounded-full" />
-              <div className="relative rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-600/10 p-3 border border-amber-400/20 backdrop-blur-sm">
-                <CalendarDays className="size-7 text-amber-400" />
+              <div className="relative rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-amber-600/10 p-2.5 sm:p-3 border border-amber-400/20 backdrop-blur-sm">
+                <CalendarDays className="size-6 sm:size-7 text-amber-400" />
               </div>
             </div>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-white to-zinc-400 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white via-white to-zinc-400 bg-clip-text text-transparent">
                 Classes &amp; Sessions
               </h1>
-              <p className="text-zinc-400 mt-1">Manage your group fitness classes and enrollments</p>
+              <p className="text-sm sm:text-base text-zinc-400 mt-0.5 sm:mt-1">Manage your group fitness classes and enrollments</p>
             </div>
           </div>
           <Button
             onClick={() => setNewClassOpen(true)}
-            className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:via-amber-700 hover:to-orange-600 text-white shadow-lg shadow-amber-500/30"
+            className="w-full sm:w-auto bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:via-amber-700 hover:to-orange-600 text-white shadow-lg shadow-amber-500/30"
           >
             <Plus className="size-4 mr-2" />
             New Class
@@ -465,52 +487,52 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
           <div className="relative overflow-hidden rounded-2xl border border-sky-400/30 bg-gradient-to-br from-sky-500/10 via-sky-600/5 to-transparent backdrop-blur-xl">
             <div className="absolute inset-0 bg-gradient-to-r from-sky-500/5 via-transparent to-cyan-500/5" />
             <div className="absolute top-0 right-0 size-64 bg-sky-500/10 blur-3xl rounded-full" />
-            <div className="relative p-6">
-              <div className="flex items-center justify-between gap-6">
-                <div className="flex items-center gap-6 flex-1">
-                  <div className="relative">
+            <div className="relative p-4 sm:p-6">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 lg:gap-6">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-6 flex-1 w-full">
+                  <div className="relative shrink-0">
                     <div className="absolute inset-0 bg-sky-500/30 blur-xl rounded-full animate-pulse" />
-                    <div className="relative rounded-2xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 p-4 border border-sky-400/30 shadow-lg shadow-sky-500/20">
-                      <CalendarDays className="size-8 text-sky-400" />
+                    <div className="relative rounded-2xl bg-gradient-to-br from-sky-500/20 to-sky-600/10 p-3 sm:p-4 border border-sky-400/30 shadow-lg shadow-sky-500/20">
+                      <CalendarDays className="size-6 sm:size-8 text-sky-400" />
                     </div>
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                       <p className="text-xs font-semibold uppercase tracking-wider text-sky-400">Next Session Coming Up</p>
                       <Badge className={`${categoryBadgeClass(nextSession.cls.category as ClassCategory)} border capitalize text-xs`}>
                         {nextSession.cls.category}
                       </Badge>
                     </div>
-                    <h2 className="text-2xl font-bold text-white mb-3">{nextSession.cls.title}</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-3 truncate">{nextSession.cls.title}</h2>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                       <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-white/5 p-2"><Calendar className="size-4 text-sky-400" /></div>
-                        <div><p className="text-xs text-zinc-500">Date</p><p className="text-sm font-medium text-white">{formatDate(nextSession.date)}</p></div>
+                        <div className="rounded-lg bg-white/5 p-1.5 sm:p-2"><Calendar className="size-3.5 sm:size-4 text-sky-400" /></div>
+                        <div><p className="text-xs text-zinc-500">Date</p><p className="text-xs sm:text-sm font-medium text-white truncate">{formatDate(nextSession.date)}</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-white/5 p-2"><Clock className="size-4 text-emerald-400" /></div>
-                        <div><p className="text-xs text-zinc-500">Time</p><p className="text-sm font-medium text-white">{formatTime(nextSession.time)}</p></div>
+                        <div className="rounded-lg bg-white/5 p-1.5 sm:p-2"><Clock className="size-3.5 sm:size-4 text-emerald-400" /></div>
+                        <div><p className="text-xs text-zinc-500">Time</p><p className="text-xs sm:text-sm font-medium text-white truncate">{formatTime(nextSession.time)}</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-white/5 p-2"><MapPin className="size-4 text-violet-400" /></div>
-                        <div><p className="text-xs text-zinc-500">Location</p><p className="text-sm font-medium text-white truncate">{nextSession.cls.work_location_name ?? "Not set"}</p></div>
+                        <div className="rounded-lg bg-white/5 p-1.5 sm:p-2"><MapPin className="size-3.5 sm:size-4 text-violet-400" /></div>
+                        <div><p className="text-xs text-zinc-500">Location</p><p className="text-xs sm:text-sm font-medium text-white truncate">{nextSession.cls.work_location_name ?? "Not set"}</p></div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="rounded-lg bg-white/5 p-2"><Users className="size-4 text-amber-400" /></div>
-                        <div><p className="text-xs text-zinc-500">Enrolled</p><p className="text-sm font-medium text-white">{nextSession.cls.enrolled_count}/{nextSession.cls.capacity}</p></div>
+                        <div className="rounded-lg bg-white/5 p-1.5 sm:p-2"><Users className="size-3.5 sm:size-4 text-amber-400" /></div>
+                        <div><p className="text-xs text-zinc-500">Enrolled</p><p className="text-xs sm:text-sm font-medium text-white">{nextSession.cls.enrolled_count}/{nextSession.cls.capacity}</p></div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-3">
-                  <div className="text-right">
+                <div className="flex flex-row lg:flex-col items-center lg:items-end gap-3 lg:gap-3 w-full lg:w-auto justify-between lg:justify-start">
+                  <div className="text-left lg:text-right">
                     <p className="text-xs text-zinc-500 mb-1">Duration</p>
-                    <p className="text-xl font-bold text-white">{nextSession.cls.duration_minutes} min</p>
+                    <p className="text-lg sm:text-xl font-bold text-white">{nextSession.cls.duration_minutes} min</p>
                   </div>
-                  <div className="h-px w-16 bg-white/10" />
+                  <div className="h-8 lg:h-px w-px lg:w-16 bg-white/10" />
                   <div className="text-right">
                     <p className="text-xs text-zinc-500 mb-1">Price</p>
-                    <p className="text-2xl font-bold text-emerald-400">₹{nextSession.cls.price}</p>
+                    <p className="text-xl sm:text-2xl font-bold text-emerald-400">₹{nextSession.cls.price}</p>
                   </div>
                 </div>
               </div>
@@ -713,6 +735,16 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                     <p className="text-2xl font-bold text-white">{totalConflicts}</p>
                   </div>
                 </div>
+                {totalConflicts > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowConflictsModal(true)}
+                    className="mt-3 w-full text-sm text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                  >
+                    View Conflicts →
+                  </Button>
+                )}
               </EliteGlassCard>
               <EliteGlassCard className="p-6">
                 <div className="flex items-center gap-4">
@@ -724,6 +756,16 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                     <p className="text-2xl font-bold text-white">{workLocations.length}</p>
                   </div>
                 </div>
+                {workLocations.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowLocationsModal(true)}
+                    className="mt-3 w-full text-sm text-sky-400 hover:text-sky-300 hover:bg-sky-500/10"
+                  >
+                    View Locations →
+                  </Button>
+                )}
               </EliteGlassCard>
             </div>
 
@@ -1258,6 +1300,133 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                   Add Location
                 </>
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── View Conflicts Modal ─────────────────────────────────────────────── */}
+      <AlertDialog open={showConflictsModal} onOpenChange={setShowConflictsModal}>
+        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl sm:max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <AlertCircle className="size-5 text-rose-400" />
+              Schedule Conflicts Detected
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {totalConflicts} session{totalConflicts !== 1 ? 's' : ''} with overlapping times
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-[400px] overflow-y-auto py-4">
+            {getDetailedConflicts().map((conflict, idx) => {
+              const { session1, session2, date } = conflict;
+              return (
+                <div key={idx} className="mb-4 p-4 bg-rose-500/10 border border-rose-400/20 rounded-lg">
+                  <p className="text-sm font-semibold text-white mb-3">
+                    {formatDate(date)}
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 p-2 bg-white/5 rounded">
+                      <Clock className="size-4 text-emerald-400" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">{session1.classItem.title}</p>
+                        <p className="text-xs text-zinc-400">
+                          {formatTime(session1.startTime)} - {formatTime(
+                            new Date(
+                              new Date(`${session1.sessionDate}T${session1.startTime}`).getTime() +
+                                session1.classItem.duration_minutes * 60000
+                            ).toTimeString().slice(0, 5)
+                          )}
+                        </p>
+                      </div>
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-400/30">
+                        {session1.classItem.duration_minutes}m
+                      </Badge>
+                    </div>
+                    <div className="text-center text-xs text-rose-400">⚠️ Overlaps with ⚠️</div>
+                    <div className="flex items-center gap-3 p-2 bg-white/5 rounded">
+                      <Clock className="size-4 text-sky-400" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">{session2.classItem.title}</p>
+                        <p className="text-xs text-zinc-400">
+                          {formatTime(session2.startTime)} - {formatTime(
+                            new Date(
+                              new Date(`${session2.sessionDate}T${session2.startTime}`).getTime() +
+                                session2.classItem.duration_minutes * 60000
+                            ).toTimeString().slice(0, 5)
+                          )}
+                        </p>
+                      </div>
+                      <Badge className="bg-sky-500/20 text-sky-400 border-sky-400/30">
+                        {session2.classItem.duration_minutes}m
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowConflictsModal(false)} className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10">
+              Close
+            </AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── View Locations Modal ──────────────────────────────────────────────── */}
+      <AlertDialog open={showLocationsModal} onOpenChange={setShowLocationsModal}>
+        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <MapPin className="size-5 text-sky-400" />
+              Work Locations
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              All your saved work locations
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-[400px] overflow-y-auto py-4 space-y-3">
+            {workLocations.map((loc) => (
+              <div key={loc.id} className="p-4 bg-white/5 border border-white/10 rounded-lg hover:bg-white/8 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <MapPin className="size-4 text-sky-400" />
+                      <h4 className="font-semibold text-white">{loc.name}</h4>
+                    </div>
+                    {loc.address && (
+                      <p className="text-sm text-zinc-400 mb-2">{loc.address}</p>
+                    )}
+                    <Badge className="bg-sky-500/20 text-sky-400 border-sky-400/30 text-xs capitalize">
+                      {loc.location_type}
+                    </Badge>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleDeleteLocation(loc.id)}
+                    className="text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowLocationsModal(false)} className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10">
+              Close
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowLocationsModal(false);
+                setAddLocationOpen(true);
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+            >
+              <Plus className="size-4 mr-2" />
+              Add Location
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,4 +1,4 @@
-import { Award, CheckCircle2 } from "lucide-react";
+import { Award, CheckCircle2, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -36,6 +36,14 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
   const hasStructuredExpertise = professional.expertiseAreas && professional.expertiseAreas.length > 0;
   const legacySpecializations = !hasStructuredExpertise ? (professional.specializations ?? []) : [];
 
+  // Progressive disclosure: show identity section if ≥2 of 3 fields are filled
+  const identityFieldCount = [
+    professional.pronouns,
+    professional.whoIWorkWith,
+    professional.clientGoals && professional.clientGoals.length > 0,
+  ].filter(Boolean).length;
+  const showIdentitySection = identityFieldCount >= 2;
+
   return (
     <>
       <div id="short-bio" className={sectionAnchorClassName}>
@@ -51,6 +59,43 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
           <p className="break-words text-sm leading-relaxed text-muted-foreground sm:text-base">{about}</p>
         </Card>
       </div>
+
+      {showIdentitySection && (
+        <div id="who-i-help" className={sectionAnchorClassName}>
+          <Card className="p-5 sm:p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users size={20} className="text-emerald-600" />
+              <h2>Who I Help</h2>
+            </div>
+            <div className="space-y-4">
+              {professional.whoIWorkWith && (
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Ideal Clients</p>
+                  <p className="break-words text-sm leading-relaxed text-muted-foreground">
+                    {professional.whoIWorkWith}
+                  </p>
+                </div>
+              )}
+              {professional.clientGoals && professional.clientGoals.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-3">Client Goals I Support</p>
+                  <div className="flex flex-wrap gap-2">
+                    {professional.clientGoals.map((goal) => (
+                      <Badge
+                        key={goal}
+                        variant="outline"
+                        className="border-emerald-600/30 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400"
+                      >
+                        {goal}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {(hasStructuredApproaches || hasLegacyApproach) && (
         <div id="approach" className={sectionAnchorClassName}>

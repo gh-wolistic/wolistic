@@ -150,7 +150,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="mb-1 text-lg font-medium">Phone</h3>
-                      <p className="text-muted-foreground dark:text-slate-200/70">+1 (555) 845-1122</p>
+                      <p className="text-muted-foreground dark:text-slate-200/70">+91 9739 560408</p>
                       <p className="text-sm text-muted-foreground mt-1 dark:text-slate-200/70">Mon–Fri, 9am–6pm</p>
                     </div>
                   </div>
@@ -161,7 +161,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <h3 className="mb-1 text-lg font-medium">Location</h3>
-                      <p className="text-muted-foreground dark:text-slate-200/70">141 Wellness Way, Suite 120, San Francisco, CA</p>
+                      <p className="text-muted-foreground dark:text-slate-200/70">Indiranagar, Bangalore</p>
                       <a className="text-sm text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200" href="https://maps.google.com" target="_blank" rel="noreferrer">
                         Get directions
                       </a>

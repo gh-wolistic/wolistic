@@ -48,6 +48,14 @@ function getInitials(name: string): string {
     .slice(0, 2);
 }
 
+function sortConversationsByLastMessage(conversations: UIConversation[]): UIConversation[] {
+  return [...conversations].sort((a, b) => {
+    const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+    const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+    return bTime - aTime; // Most recent first
+  });
+}
+
 function EliteGlassCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] backdrop-blur-xl ${className}`}>
@@ -319,22 +327,42 @@ function MessageThreadPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Auto-scroll to bottom
+  // Scroll to bottom when conversation first loads or changes
+  useEffect(() => {
+    if (scrollRef.current && conversation) {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'auto'
+        });
+      }, 100);
+    }
+  }, [conversation?.id]);
+
+  // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current && conversation) {
       const scrollContainer = scrollRef.current;
-      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 100;
-
-      if (isNearBottom || conversation.messages.length <= 1) {
+      const isNearBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop - scrollContainer.clientHeight < 150;
+      
+      // Get the last message
+      const lastMessage = conversation.messages[conversation.messages.length - 1];
+      const isMyMessage = lastMessage?.sender_id === currentUserId;
+      
+      // Always scroll to bottom if:
+      // 1. It's my own message (just sent)
+      // 2. User is already near bottom (reading latest messages)
+      // 3. First message in conversation
+      if (isMyMessage || isNearBottom || conversation.messages.length <= 1) {
         setTimeout(() => {
           scrollContainer.scrollTo({
             top: scrollContainer.scrollHeight,
             behavior: 'smooth'
           });
-        }, 100);
+        }, 50);
       }
     }
-  }, [conversation?.messages]);
+  }, [conversation?.messages, currentUserId]);
 
   const handleSend = () => {
     if (messageText.trim()) {
@@ -597,7 +625,7 @@ export function MessagingPage() {
         })
       );
       
-      setConversations(uiConversations);
+      setConversations(sortConversationsByLastMessage(uiConversations));
     } catch (error) {
       console.error('Failed to load conversations:', error);
     } finally {
@@ -611,8 +639,8 @@ export function MessagingPage() {
     
     try {
       const messages = await messagingAPI.getMessages(activeConversationId);
-      setConversations(prev =>
-        prev.map(conv => {
+      setConversations(prev => {
+        const updated = prev.map(conv => {
           if (conv.id === activeConversationId) {
             // Only update if we have new messages
             const existingIds = new Set(conv.messages.map(m => m.id));
@@ -620,16 +648,19 @@ export function MessagingPage() {
             
             if (newMessages.length > 0) {
               console.log('[Polling] Found', newMessages.length, 'new messages');
+              const latestMessage = messages[messages.length - 1];
               return {
                 ...conv,
                 messages: messages.map(m => ({ ...m, status: 'read' as const })),
-                last_message: messages[messages.length - 1] || conv.last_message,
+                last_message: latestMessage || conv.last_message,
+                last_message_at: latestMessage?.created_at || conv.last_message_at,
               };
             }
           }
           return conv;
-        })
-      );
+        });
+        return sortConversationsByLastMessage(updated);
+      });
     } catch (error) {
       console.error('[Polling] Failed to fetch messages:', error);
     }
@@ -687,8 +718,8 @@ export function MessagingPage() {
           
           // Only add if from another user (avoid duplicates from optimistic updates)
           if (newMessage.sender_id !== currentUserId) {
-            setConversations(prev =>
-              prev.map(conv => {
+            setConversations(prev => {
+              const updated = prev.map(conv => {
                 if (conv.id === activeConversationId) {
                   // Check if message already exists
                   const messageExists = conv.messages.some(m => m.id === newMessage.id);
@@ -707,8 +738,9 @@ export function MessagingPage() {
                   };
                 }
                 return conv;
-              })
-            );
+              });
+              return sortConversationsByLastMessage(updated);
+            });
           } else {
             console.log('[Realtime] Message from current user, skipping (optimistic update already applied)');
           }
@@ -786,17 +818,19 @@ export function MessagingPage() {
 
     // Optimistically add message
     setConversations(prev =>
-      prev.map(conv => {
-        if (conv.id === activeConversationId) {
-          return {
-            ...conv,
-            messages: [...conv.messages, tempMessage],
-            last_message: tempMessage,
-            last_message_at: tempMessage.created_at
-          };
-        }
-        return conv;
-      })
+      sortConversationsByLastMessage(
+        prev.map(conv => {
+          if (conv.id === activeConversationId) {
+            return {
+              ...conv,
+              messages: [...conv.messages, tempMessage],
+              last_message: tempMessage,
+              last_message_at: tempMessage.created_at
+            };
+          }
+          return conv;
+        })
+      )
     );
 
     try {
@@ -804,17 +838,19 @@ export function MessagingPage() {
       
       // Replace temp message with real message
       setConversations(prev =>
-        prev.map(conv => {
-          if (conv.id === activeConversationId) {
-            return {
-              ...conv,
-              messages: conv.messages.map(msg =>
-                msg.id === tempId ? { ...sentMessage, status: 'sent' as const } : msg
-              )
-            };
-          }
-          return conv;
-        })
+        sortConversationsByLastMessage(
+          prev.map(conv => {
+            if (conv.id === activeConversationId) {
+              return {
+                ...conv,
+                messages: conv.messages.map(msg =>
+                  msg.id === tempId ? { ...sentMessage, status: 'sent' as const } : msg
+                )
+              };
+            }
+            return conv;
+          })
+        )
       );
 
       // Simulate read status after 2 seconds

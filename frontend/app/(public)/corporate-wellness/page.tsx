@@ -64,12 +64,12 @@ export default function CorporateWellnessPage() {
             <div className="max-w-xl space-y-8">
               <Badge className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/15">
                 <Sparkles size={14} className="mr-1.5" />
-                AI-Powered Wellness Platform
+                Corporate Wellness Platform
               </Badge>
 
               <h1 className="text-4xl font-bold leading-[1.1] tracking-tight lg:text-[3.5rem]">
                 <span className="bg-linear-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
-                  AI-powered
+                  Corporate
                 </span>{" "}
                 wellness, delivered by{" "}
                 <span className="bg-linear-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
@@ -78,10 +78,10 @@ export default function CorporateWellnessPage() {
               </h1>
 
               <p className="text-lg leading-relaxed text-slate-300">
-                The only platform that pairs intelligent AI matching with
+                A structured corporate wellness platform built around
                 verified, certified wellness experts. Personalized programs
-                for fitness, nutrition, and mental health &mdash; designed by
-                real professionals, scaled by smart technology.
+                for fitness, nutrition, and mental health &mdash; designed and
+                delivered by real professionals.
               </p>
 
               <div className="flex flex-wrap items-center gap-4">
@@ -218,8 +218,8 @@ export default function CorporateWellnessPage() {
             {[
               {
                 icon: <Sparkles size={24} />,
-                title: "AI-Powered Matching",
-                desc: "Our algorithm matches your team with the best-fit certified professionals based on goals, preferences, and health data.",
+                title: "Thoughtful Program Matching",
+                desc: "We shape your wellness program around team goals, employee needs, and the right mix of certified professionals.",
               },
               {
                 icon: <Award size={24} />,
@@ -229,7 +229,7 @@ export default function CorporateWellnessPage() {
               {
                 icon: <Brain size={24} />,
                 title: "Personalized at Scale",
-                desc: "AI adapts programs for every employee individually — no one-size-fits-all. Real professionals, smart technology.",
+                desc: "Programs are tailored to your workforce instead of pushed as one-size-fits-all wellness packages.",
               },
             ].map((u) => (
               <div key={u.title} className="flex items-start gap-4">
@@ -320,18 +320,18 @@ export default function CorporateWellnessPage() {
                 The Platform
               </Badge>
               <h2 className="mb-6 text-3xl font-bold lg:text-4xl">
-                AI-driven dashboard, human-led wellness
+                A modern dashboard for human-led wellness
               </h2>
               <p className="mb-8 text-lg text-muted-foreground dark:text-slate-300">
-                Our AI engine matches employees with certified professionals,
-                tracks engagement in real time, and adapts programs
-                automatically &mdash; while verified experts deliver the care.
+                Wolistic helps your team coordinate certified professionals,
+                track engagement in real time, and review program performance
+                clearly &mdash; while verified experts deliver the care.
               </p>
               <div className="space-y-4">
                 {[
-                  "AI matches employees to certified professionals by need",
+                  "Programs are aligned to employee needs and company goals",
                   "Real-time participation & engagement metrics",
-                  "AI-generated wellness insights & recommendations",
+                  "Clear wellness insights and recommendations",
                   "Program ROI tracking and health-cost analytics",
                   "All professionals credential-verified and rated",
                 ].map((f) => (
@@ -441,14 +441,14 @@ export default function CorporateWellnessPage() {
               {
                 icon: <Brain size={24} />,
                 title: "Mental Wellness",
-                desc: "1-on-1 counseling with certified therapists, AI-matched stress workshops, and burnout prevention.",
+                desc: "1-on-1 counseling with certified therapists, stress workshops, and burnout prevention support.",
                 bg: "bg-purple-50 dark:bg-purple-500/10",
                 fg: "text-purple-600 dark:text-purple-300",
               },
               {
                 icon: <Activity size={24} />,
                 title: "Physical Fitness",
-                desc: "On-site yoga, group fitness, and dance led by certified trainers. AI-curated to team preferences.",
+                desc: "On-site yoga, group fitness, and dance led by certified trainers and adapted to team preferences.",
                 bg: "bg-emerald-50 dark:bg-emerald-500/10",
                 fg: "text-emerald-600 dark:text-emerald-300",
               },
@@ -462,14 +462,14 @@ export default function CorporateWellnessPage() {
               {
                 icon: <Heart size={24} />,
                 title: "Preventive Health",
-                desc: "AI-driven risk assessments, certified health check-ups, vaccination drives, and ergonomic audits.",
+                desc: "Certified health check-ups, vaccination drives, ergonomic audits, and preventive health planning.",
                 bg: "bg-rose-50 dark:bg-rose-500/10",
                 fg: "text-rose-600 dark:text-rose-300",
               },
               {
                 icon: <Zap size={24} />,
                 title: "Lifestyle Programs",
-                desc: "AI-personalized sleep, digital detox, and financial wellness programs for every employee.",
+                desc: "Sleep, digital detox, and financial wellness programs shaped around your employee population.",
                 bg: "bg-cyan-50 dark:bg-cyan-500/10",
                 fg: "text-cyan-600 dark:text-cyan-300",
               },
@@ -520,8 +520,8 @@ export default function CorporateWellnessPage() {
               },
               {
                 step: "02",
-                title: "AI Matching",
-                desc: "Our AI pairs your team with certified professionals best suited to your needs.",
+                title: "Program Design",
+                desc: "We assemble the right mix of certified professionals and services for your team.",
               },
               {
                 step: "03",
@@ -531,7 +531,7 @@ export default function CorporateWellnessPage() {
               {
                 step: "04",
                 title: "Optimize",
-                desc: "AI-driven insights help us continuously improve your program.",
+                desc: "Program insights help us continuously improve your wellness rollout.",
               },
             ].map((item, index) => (
               <div key={item.step} className="relative text-center">
@@ -739,7 +739,7 @@ export default function CorporateWellnessPage() {
           <div className="mx-auto mt-12 grid max-w-4xl gap-6 sm:grid-cols-3">
             {[
               { icon: <Headphones size={28} />, title: "Dedicated Support", desc: "Account managers available every step of the way" },
-              { icon: <BarChart3 size={28} />, title: "AI Analytics", desc: "Track engagement and ROI with detailed dashboards" },
+              { icon: <BarChart3 size={28} />, title: "Program Analytics", desc: "Track engagement and ROI with detailed dashboards" },
               { icon: <Award size={28} />, title: "Certified Experts", desc: "All wellness professionals are verified and certified" },
             ].map((s) => (
               <div
@@ -948,8 +948,8 @@ export default function CorporateWellnessPage() {
             Ready to transform your workplace?
           </h2>
           <p className="mx-auto mb-8 max-w-2xl text-lg text-slate-300">
-            Join hundreds of companies using AI-powered matching with certified
-            wellness professionals to build healthier, more productive teams.
+            Join hundreds of companies using certified wellness professionals
+            and structured program delivery to build healthier, more productive teams.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Button

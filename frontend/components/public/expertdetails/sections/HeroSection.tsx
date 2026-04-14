@@ -60,7 +60,12 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
                       <div>
                         <div className="mb-2 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div>
-                            <h1 className="text-2xl leading-tight sm:text-3xl lg:text-4xl">{professional.name}</h1>
+                            <div className="flex items-baseline gap-3 flex-wrap">
+                              <h1 className="text-2xl leading-tight sm:text-3xl lg:text-4xl">{professional.name}</h1>
+                              {professional.pronouns && (
+                                <span className="text-sm text-muted-foreground">({professional.pronouns})</span>
+                              )}
+                            </div>
                             <p className="mt-2 text-base text-muted-foreground sm:text-xl">{professional.specialization}</p>
                           </div>
 
@@ -84,14 +89,29 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
                         </div>
                       </div>
 
+                      {/* Subcategories Row */}
                       <div className="flex flex-wrap gap-2">
-                        {professional.category && <StatusChip label={professional.category} tone="featured" />}
-                        {certificationLabels.map((certificationLabel, index) => (
-                          <Badge key={`${certificationLabel}-${index}`} variant="outline">
-                            {certificationLabel}
-                          </Badge>
-                        ))}
+                        {professional.subcategories && professional.subcategories.length > 0 ? (
+                          // Show subcategories if available
+                          professional.subcategories.map((subcat) => (
+                            <StatusChip key={subcat} label={subcat} tone="featured" />
+                          ))
+                        ) : (
+                          // Fallback to category if no subcategories
+                          professional.category && <StatusChip label={professional.category} tone="featured" />
+                        )}
                       </div>
+
+                      {/* Certifications Row */}
+                      {certificationLabels.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {certificationLabels.map((certificationLabel, index) => (
+                            <Badge key={`${certificationLabel}-${index}`} variant="outline">
+                              {certificationLabel}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="flex w-fit flex-wrap items-center gap-2 rounded-lg px-2 py-1.5">
                         <RatingChip value={professional.rating} textClassName="text-lg" className="px-3 py-1.5" />

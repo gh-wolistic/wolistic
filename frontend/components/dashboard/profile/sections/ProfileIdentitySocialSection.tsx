@@ -1,6 +1,7 @@
 "use client";
 
-import { Link2, Instagram, Linkedin, Youtube, Twitter, Globe, Video } from "lucide-react";
+import { useState } from "react";
+import { Link2, Instagram, Linkedin, Youtube, Twitter, Globe, Video, Plus } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -86,12 +87,28 @@ const fieldClass =
 
 export function ProfileIdentitySocialSection({ value, onFieldChange }: Props) {
   const goals = value.client_goals ?? [];
+  const [customGoal, setCustomGoal] = useState("");
 
   const toggleGoal = (goal: string) => {
     if (goals.includes(goal)) {
       onFieldChange("client_goals", goals.filter((g) => g !== goal));
     } else {
       onFieldChange("client_goals", [...goals, goal]);
+    }
+  };
+
+  const addCustomGoal = () => {
+    const trimmed = customGoal.trim();
+    if (trimmed && !goals.includes(trimmed)) {
+      onFieldChange("client_goals", [...goals, trimmed]);
+      setCustomGoal("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addCustomGoal();
     }
   };
 
@@ -161,8 +178,10 @@ export function ProfileIdentitySocialSection({ value, onFieldChange }: Props) {
         </div>
 
         <div className="space-y-3">
-          <Label className="text-zinc-300">Client Goals I Support</Label>
-          <p className="text-xs text-zinc-500">Select all that apply to your practice.</p>
+          <Label className="text-zinc-300">
+            Client Goals I Support {goals.length >= 15 && <span className="text-amber-400">(Max 15 reached)</span>}
+          </Label>
+          <p className="text-xs text-zinc-500">Select common goals or add your own custom goals. Maximum 15 items.</p>
           <div className="flex flex-wrap gap-2">
             {GOAL_SUGGESTIONS.map((goal) => (
               <button
@@ -179,11 +198,36 @@ export function ProfileIdentitySocialSection({ value, onFieldChange }: Props) {
               </button>
             ))}
           </div>
+
+          {/* Custom Goal Input */}
+          <div className="flex gap-2">
+            <Input
+              type="text"
+              value={customGoal}
+              onChange={(e) => setCustomGoal(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Add custom goal (e.g., Performance optimization)"
+              disabled={goals.length >= 15}
+              className={`${fieldClass} flex-1 disabled:opacity-50 disabled:cursor-not-allowed`}
+            />
+            <Button
+              type="button"
+              onClick={addCustomGoal}
+              disabled={!customGoal.trim() || goals.includes(customGoal.trim()) || goals.length >= 15}
+              className="shrink-0 bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              size="sm"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add
+            </Button>
+          </div>
+
+          {/* Selected Goals (both common and custom) */}
           {goals.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-1">
-              {goals
-                .filter((g) => !GOAL_SUGGESTIONS.includes(g))
-                .map((g) => (
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-500">Selected goals ({goals.length}):</p>
+              <div className="flex flex-wrap gap-2">
+                {goals.map((g) => (
                   <Badge
                     key={g}
                     variant="outline"
@@ -199,6 +243,7 @@ export function ProfileIdentitySocialSection({ value, onFieldChange }: Props) {
                     </button>
                   </Badge>
                 ))}
+              </div>
             </div>
           )}
         </div>

@@ -1,7 +1,8 @@
-import { Award, Check, Globe, GraduationCap, Plus, Target, Trash2 } from "lucide-react";
+import { Award, Check, Globe, GraduationCap, Plus, Target, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,9 +12,11 @@ import type {
   ProfessionalEditorPayload,
   ProfessionalExpertiseAreaInput,
 } from "@/types/professional-editor";
+import { LanguageMultiSelect } from "@/components/dashboard/profile/LanguageMultiSelect";
 
 type ProfilePracticeSectionProps = {
   value: ProfessionalEditorPayload;
+  onFieldChange: (field: keyof ProfessionalEditorPayload, nextValue: string | number) => void;
   onLanguagesChange: (next: string[]) => void;
   onSessionTypesChange: (next: string[]) => void;
   onSubcategoriesChange: (next: string[]) => void;
@@ -89,8 +92,11 @@ function ListTextarea({
   );
 }
 
+const MAX_ITEMS = 5;
+
 export function ProfilePracticeSection({
   value,
+  onFieldChange,
   onLanguagesChange,
   onSessionTypesChange,
   onSubcategoriesChange,
@@ -99,8 +105,104 @@ export function ProfilePracticeSection({
   onExpertiseAreasChange,
   onCertificationsChange,
 }: ProfilePracticeSectionProps) {
+  const [subcategoryInput, setSubcategoryInput] = useState("");
+
+  const addSubcategory = () => {
+    const trimmed = subcategoryInput.trim();
+    if (trimmed && !value.subcategories.includes(trimmed) && value.subcategories.length < MAX_ITEMS) {
+      onSubcategoriesChange([...value.subcategories, trimmed]);
+      setSubcategoryInput("");
+    }
+  };
+
+  const removeSubcategory = (subcat: string) => {
+    onSubcategoriesChange(value.subcategories.filter((s) => s !== subcat));
+  };
+
+  const handleSubcategoryKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSubcategory();
+    }
+  };
+
   return (
     <section className="space-y-6">
+      <div className="rounded-xl border border-white/10 bg-white/5 p-6">
+        <h3 className="mb-6 flex items-center gap-2 text-xl font-semibold text-white">
+          <Target className="h-5 w-5 text-emerald-400" /> Specialization & Subcategories
+        </h3>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+          <div>
+            <Label htmlFor="editor-specialization" className="mb-2 block text-sm text-zinc-300">
+              Specialization *
+            </Label>
+            <Input
+              id="editor-specialization"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white"
+              value={value.specialization}
+              onChange={(event) => onFieldChange("specialization", event.target.value)}
+              placeholder="Certified Wellness Coach"
+            />
+          </div>
+          <div>
+            <Label htmlFor="editor-subcategories" className="mb-2 block text-sm text-zinc-300">
+              Subcategories {value.subcategories.length >= MAX_ITEMS && <span className="text-amber-400">(Max {MAX_ITEMS} reached)</span>}
+            </Label>
+            <p className="mb-3 text-xs text-zinc-500">
+              Add custom subcategories that describe your practice areas. Maximum {MAX_ITEMS} items.
+            </p>
+            <div className="flex gap-2 mb-3">
+              <Input
+                id="editor-subcategories"
+                type="text"
+                value={subcategoryInput}
+                onChange={(e) => setSubcategoryInput(e.target.value)}
+                onKeyDown={handleSubcategoryKeyDown}
+                placeholder="e.g., Prenatal Yoga, HIIT Training"
+                disabled={value.subcategories.length >= MAX_ITEMS}
+                className="h-12 flex-1 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <Button
+                type="button"
+                onClick={addSubcategory}
+                disabled={!subcategoryInput.trim() || value.subcategories.includes(subcategoryInput.trim()) || value.subcategories.length >= MAX_ITEMS}
+                className="shrink-0 h-12 bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                Add
+              </Button>
+            </div>
+            {value.subcategories.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs text-zinc-500">
+                  Your subcategories ({value.subcategories.length}):
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {value.subcategories.map((subcat) => (
+                    <Badge
+                      key={subcat}
+                      variant="outline"
+                      className="gap-1.5 border-emerald-500/40 bg-emerald-500/10 text-emerald-300 pl-3 pr-2 py-1"
+                    >
+                      {subcat}
+                      <button
+                        type="button"
+                        onClick={() => removeSubcategory(subcat)}
+                        className="ml-1 rounded-sm hover:bg-emerald-500/20 focus:outline-hidden"
+                        aria-label={`Remove ${subcat}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <h3 className="mb-6 flex items-center gap-2 text-xl font-semibold text-white">
           <Globe className="h-5 w-5 text-emerald-400" /> Languages & Session Types
@@ -108,14 +210,16 @@ export function ProfilePracticeSection({
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
             <Label htmlFor="editor-languages" className="mb-2 block text-sm text-zinc-300">
-              Languages (one per line)
+              Languages {value.languages.length >= MAX_ITEMS && <span className="text-amber-400">(Max {MAX_ITEMS})</span>}
             </Label>
-            <ListTextarea
-              id="editor-languages"
-              rows={4}
-              placeholder="English&#10;Hindi&#10;French"
-              canonical={value.languages}
+            <p className="mb-3 text-xs text-zinc-500">
+              Select the languages you speak with clients. Maximum {MAX_ITEMS}.
+            </p>
+            <LanguageMultiSelect
+              value={value.languages}
               onChange={onLanguagesChange}
+              placeholder="Select languages..."
+              maxItems={MAX_ITEMS}
             />
           </div>
           <div>
@@ -160,49 +264,43 @@ export function ProfilePracticeSection({
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <h3 className="mb-6 flex items-center gap-2 text-xl font-semibold text-white">
-          <GraduationCap className="h-5 w-5 text-emerald-400" /> Subcategories & Education
+          <GraduationCap className="h-5 w-5 text-emerald-400" /> Education {value.education.length >= MAX_ITEMS && <span className="text-sm text-amber-400">(Max {MAX_ITEMS})</span>}
         </h3>
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-          <div>
-            <Label htmlFor="editor-subcategories" className="mb-2 block text-sm text-zinc-300">
-              Subcategories (one per line)
-            </Label>
-            <ListTextarea
-              id="editor-subcategories"
-              rows={4}
-              placeholder="Yoga&#10;Meditation&#10;Breathwork"
-              canonical={value.subcategories}
-              onChange={onSubcategoriesChange}
-            />
-          </div>
-          <div>
-            <Label htmlFor="editor-education" className="mb-2 block text-sm text-zinc-300">
-              Education (one per line)
-            </Label>
-            <ListTextarea
-              id="editor-education"
-              rows={4}
-              placeholder="MSc Psychology, University of Delhi&#10;Yoga Alliance 200-hr RYT"
-              canonical={value.education}
-              onChange={onEducationChange}
-            />
-          </div>
+        <div>
+          <Label htmlFor="editor-education" className="mb-2 block text-sm text-zinc-300">
+            Education (one per line, max {MAX_ITEMS})
+          </Label>
+          <ListTextarea
+            id="editor-education"
+            rows={4}
+            placeholder="MSc Psychology, University of Delhi&#10;Yoga Alliance 200-hr RYT"
+            canonical={value.education}
+            onChange={(lines) => onEducationChange(lines.slice(0, MAX_ITEMS))}
+          />
+          {value.education.length >= MAX_ITEMS && (
+            <p className="mt-2 text-xs text-amber-400">Maximum {MAX_ITEMS} education entries reached.</p>
+          )}
         </div>
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <Target className="h-5 w-5 text-emerald-400" /> Approaches
+            <Target className="h-5 w-5 text-emerald-400" /> Approaches ({value.approaches.length}/{MAX_ITEMS})
           </h3>
           <Button
             type="button"
-            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white"
+            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onApproachesChange([...value.approaches, { title: "", description: "" }])}
+            disabled={value.approaches.length >= MAX_ITEMS}
           >
             <Plus className="h-4 w-4" /> Add Approach
           </Button>
         </div>
+
+        {value.approaches.length >= MAX_ITEMS && (
+          <p className="mb-4 text-xs text-amber-400">Maximum {MAX_ITEMS} approaches reached.</p>
+        )}
 
         <div className="space-y-4">
           {value.approaches.map((approach, index) => (
@@ -249,16 +347,21 @@ export function ProfilePracticeSection({
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <Award className="h-5 w-5 text-emerald-400" /> Expertise Areas
+            <Award className="h-5 w-5 text-emerald-400" /> Expertise Areas ({value.expertise_areas.length}/{MAX_ITEMS})
           </h3>
           <Button
             type="button"
-            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white"
+            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onExpertiseAreasChange([...value.expertise_areas, { title: "", description: "" }])}
+            disabled={value.expertise_areas.length >= MAX_ITEMS}
           >
             <Plus className="h-4 w-4" /> Add Expertise
           </Button>
         </div>
+
+        {value.expertise_areas.length >= MAX_ITEMS && (
+          <p className="mb-4 text-xs text-amber-400">Maximum {MAX_ITEMS} expertise areas reached.</p>
+        )}
 
         <div className="space-y-4">
           {value.expertise_areas.map((item, index) => (
@@ -305,16 +408,21 @@ export function ProfilePracticeSection({
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <Award className="h-5 w-5 text-emerald-400" /> Certificates
+            <Award className="h-5 w-5 text-emerald-400" /> Certificates ({value.certifications.length}/{MAX_ITEMS})
           </h3>
           <Button
             type="button"
-            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white"
+            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onCertificationsChange([...value.certifications, { name: "", issuer: "", issued_year: undefined }])}
+            disabled={value.certifications.length >= MAX_ITEMS}
           >
             <Plus className="h-4 w-4" /> Add Certificate
           </Button>
         </div>
+
+        {value.certifications.length >= MAX_ITEMS && (
+          <p className="mb-4 text-xs text-amber-400">Maximum {MAX_ITEMS} certificates reached.</p>
+        )}
 
         <div className="space-y-4">
           {value.certifications.map((certification, index) => (
