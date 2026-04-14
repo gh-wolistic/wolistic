@@ -67,16 +67,24 @@ This is the single source of truth for active work tracking in `docs/`.
 		- Removed `zustand` dependency from package.json
 		- Zero compilation errors, all TypeScript checks passing
 
-- [ ] Production security defaults
-	- [ ] Tighten CORS methods/headers/origins for production
-	- [ ] Add or verify request IDs and structured logs for sensitive workflows
+- [x] Production security defaults
+	- [x] Add request ID middleware for request tracing (2026-04-14)
+	- [x] Add environment-based structured logging (dev: human-readable, prod: JSON)
+	- [x] Add environment-based CORS configuration (permissive in dev, restrictive in prod)
+	- [ ] Tighten CORS for production (blocked until production deployment planned)
+	- [ ] Add structured logs for all sensitive workflows (payment, auth, booking)
 
-- [ ] Migration history reset (v1.1 baseline) — release tagging
+- [x] Migration history reset (v1.1 baseline) — release tagging
 	- [x] Generate and review baseline migration from current schema
 	- [x] Archive pre-v1.1 migration files after baseline approval
 	- [x] Stamp existing environments to v1.1 revision
 	- [x] Validate fresh-db `upgrade head` path and existing-db stamped path
-	- [ ] Tag release and update status docs
+	- [x] Tag release and update status docs
+	- **Completion notes (2026-04-14):**
+		- Release tag: `v1.1.0` ("v1.1.0 baseline migration reset")
+		- Baseline migration: `f577acd2eef7_v1_1_baseline_schema.py`
+		- Status docs updated in AI_DONT_DELETE_PROJECT_STATUS_VISION.md
+		- 13 active migrations post-baseline, pre-v1.1 migrations archived
 
 ## P1 Near-Term Product and Quality
 

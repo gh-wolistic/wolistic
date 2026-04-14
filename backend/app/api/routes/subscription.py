@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +41,8 @@ from app.schemas.subscription import (
 )
 from app.services.payments.providers.base import PaymentOrderRequest, PaymentVerificationRequest
 from app.services.payments.service import get_payment_provider
+
+logger = logging.getLogger(__name__)
 
 partner_router = APIRouter(prefix="/partners", tags=["subscription"])
 admin_router = APIRouter(
@@ -226,11 +229,22 @@ async def create_upgrade_order(
 @partner_router.post("/subscription/upgrade/verify", response_model=UpgradeVerifyOut)
 async def verify_upgrade_payment(
     body: UpgradeVerifyIn,
+    request: Request,
     current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
     settings: Settings = Depends(get_settings),
 ) -> UpgradeVerifyOut:
     prof = await _require_professional(current_user, db)
+
+    logger.info(
+        "Payment verification attempted",
+        extra={
+            "user_id": str(current_user.user_id),
+            "razorpay_order_id": body.razorpay_order_id,
+            "razorpay_payment_id": body.razorpay_payment_id,
+            "plan_id": body.plan_id,
+        }
+    )
 
     order_result = await db.execute(
         select(SubscriptionPaymentOrder).where(
@@ -293,6 +307,16 @@ async def verify_upgrade_payment(
         ))
 
         await db.commit()
+        
+        logger.info(
+            "Subscription activated successfully",
+            extra={
+                "user_id": str(prof.user_id),
+                "plan_id": order.plan_id,
+                "payment_id": verification.provider_payment_id,
+            }
+        )
+        
         return UpgradeVerifyOut(status="success", message="Subscription upgraded successfully")
 
     await db.commit()

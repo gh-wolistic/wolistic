@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     SLOW_SQL_THRESHOLD_MS: int = 120
     ADMIN_API_KEY: str = ""
 
+    # CORS configuration (permissive in dev, restrictive in production)
+    CORS_ALLOW_ALL_METHODS: bool = True  # Set to False in production
+    CORS_ALLOW_ALL_HEADERS: bool = True  # Set to False in production
+
     # NoDecode avoids JSON-only parsing so comma-separated env values work.
     BACKEND_CORS_ORIGINS: Annotated[List[str], NoDecode] = ["http://localhost:3000", "http://127.0.0.1:3000"]
 

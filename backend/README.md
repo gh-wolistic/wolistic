@@ -2,6 +2,14 @@
 
 Production-oriented FastAPI service with Docker, Alembic migrations, and a single UUID-based `users` table.
 
+## 📋 Quick Links
+
+- **[QUICK_START_TRACING.md](QUICK_START_TRACING.md)** — Request tracing & logging (2026-04-14)
+- **[REQUEST_TRACING.md](REQUEST_TRACING.md)** — Full observability documentation
+- **[Migration Runbook](alembic/MIGRATION_V1_1_BASELINE_RUNBOOK.md)** — v1.1 baseline migration guide
+
+---
+
 ## What is included
 
 - FastAPI app with versioned routing (`/api/v1`)
