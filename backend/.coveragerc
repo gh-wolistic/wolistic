@@ -1,0 +1,17 @@
+[run]
+source = app/api
+omit =
+    */tests/*
+    */test_*
+    */__pycache__/*
+    */venv/*
+    */migrations/*
+    */alembic/*
+
+[report]
+precision = 2
+show_missing = True
+skip_covered = False
+
+[html]
+directory = htmlcov

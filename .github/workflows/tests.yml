@@ -34,6 +34,17 @@ jobs:
         run: pytest -m smoke --maxfail=1 -v
         if: success()
 
+      - name: Smoke tests with coverage tracking
+        run: pytest -m smoke --cov=app/api --cov-report=term-missing --cov-report=html
+        if: success()
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: backend/htmlcov/
+        if: success()
+
   frontend-tests:
     runs-on: ubuntu-latest
     defaults:
