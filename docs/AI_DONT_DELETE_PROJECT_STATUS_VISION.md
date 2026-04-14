@@ -84,7 +84,6 @@ Last updated: 2026-04-12
 - Coins economy: lock earn-rule catalog, add expiry accounting, admin tools
 - Media upload: documentation, backfill runbook, E2E testing gates (profile/cover complete)
 - Add route-level tests for holistic-teams endpoints (intake tests complete; prepare/list/get pending)
-- Reduce duplicated auth state ownership on frontend
 - Tighten production CORS and broader security defaults
 - Expand test coverage: subscription, coins, activities, classes, clients
 - Professional verification matrix design and rollout strategy

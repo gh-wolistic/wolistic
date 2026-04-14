@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useSessionStore } from "@/store/session";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { getCoinTransactions } from "@/components/dashboard/coins/coinApi";
 import type { CoinTransaction, CoinTransactionPage } from "@/types/coins";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,7 +64,7 @@ function TransactionRow({ txn }: { txn: CoinTransaction }) {
 }
 
 export function CoinHistoryTable() {
-  const token = useSessionStore((s) => s.token);
+  const { accessToken: token } = useAuthSession();
   const [page, setPage] = useState(1);
   const [data, setData] = useState<CoinTransactionPage | null>(null);
   const [loading, setLoading] = useState(false);

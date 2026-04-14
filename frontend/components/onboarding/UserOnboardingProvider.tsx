@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { updateUserOnboardingSelection } from "@/components/public/data/authApi";
-import { useSessionStore } from "@/store/session";
 import { UserOnboardingFlow } from "./UserOnboardingFlow";
 import {
   clearBookingFlowAutoClientSelection,
   hasBookingFlowAutoClientSelection,
 } from "./storage";
-import { mapUserProfileToDashboardRole, type OnboardingSelection } from "./types";
+import { type OnboardingSelection } from "./types";
 
 type UserOnboardingProviderProps = {
   children: ReactNode;
@@ -20,8 +19,6 @@ type UserOnboardingProviderProps = {
 export function UserOnboardingProvider({ children }: UserOnboardingProviderProps) {
   const router = useRouter();
   const { status, user, accessToken, refreshSession } = useAuthSession();
-  const setAuthSession = useSessionStore((state) => state.setAuthSession);
-  const setRole = useSessionStore((state) => state.setRole);
   const [isOpen, setIsOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,26 +43,12 @@ export function UserOnboardingProvider({ children }: UserOnboardingProviderProps
 
       void (async () => {
         try {
-          const profile = await updateUserOnboardingSelection(
+          await updateUserOnboardingSelection(
             { userType: "client", userSubtype: "client" },
             accessToken,
           );
-
-          setAuthSession({
-            token: accessToken,
-            user: {
-              id: profile.id,
-              email: profile.email,
-              name: profile.full_name,
-              type: profile.user_type ?? undefined,
-              userSubtype: profile.user_subtype,
-              userRole: profile.user_role,
-              onboardingRequired: profile.onboarding_required,
-            },
-          });
-          setRole(mapUserProfileToDashboardRole(profile.user_type, profile.user_subtype));
-          clearBookingFlowAutoClientSelection();
           await refreshSession();
+          clearBookingFlowAutoClientSelection();
           setIsOpen(false);
         } catch (caughtError) {
           setError(caughtError instanceof Error ? caughtError.message : "Unable to save your profile right now.");
@@ -79,7 +62,7 @@ export function UserOnboardingProvider({ children }: UserOnboardingProviderProps
     }
 
     setIsOpen(true);
-  }, [accessToken, refreshSession, setAuthSession, setRole, status, user?.id, user?.onboardingRequired]);
+  }, [accessToken, refreshSession, status, user?.id, user?.onboardingRequired]);
 
   const handleSubmit = async (selection: OnboardingSelection) => {
     if (!accessToken || !user) {
@@ -91,21 +74,7 @@ export function UserOnboardingProvider({ children }: UserOnboardingProviderProps
     setError(null);
 
     try {
-      const profile = await updateUserOnboardingSelection(selection, accessToken);
-
-      setAuthSession({
-        token: accessToken,
-        user: {
-          id: profile.id,
-          email: profile.email,
-          name: profile.full_name,
-          type: profile.user_type ?? undefined,
-          userSubtype: profile.user_subtype,
-          userRole: profile.user_role,
-          onboardingRequired: profile.onboarding_required,
-        },
-      });
-      setRole(mapUserProfileToDashboardRole(profile.user_type, profile.user_subtype));
+      await updateUserOnboardingSelection(selection, accessToken);
       await refreshSession();
       setIsOpen(false);
       router.push("/authorized");

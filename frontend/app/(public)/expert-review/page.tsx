@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { useSessionStore } from "@/store/session";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { Sparkles, Send, Loader2, ShieldCheck, Clock } from "lucide-react";
 import {
   buildHolisticTeamListCacheKey,
@@ -85,7 +85,7 @@ function normalizeMode(value: string): string | undefined {
 export default function ExpertReviewPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const authToken = useSessionStore((state) => state.token);
+  const { accessToken: authToken } = useAuthSession();
   const query = searchParams.get("q") ?? "";
   const scope = searchParams.get("scope") ?? "wolistic";
 

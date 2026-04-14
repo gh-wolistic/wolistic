@@ -56,9 +56,16 @@ This is the single source of truth for active work tracking in `docs/`.
 	- [ ] Add route-level tests for `/api/v1/holistic-teams/*` endpoints (prepare, list, get)
 	- [x] No fallback-only behavior found in production paths
 
-- [ ] Frontend auth state consolidation
-	- [ ] Remove duplicated source-of-truth patterns between store/provider layers
-	- [ ] Keep one canonical session/profile state model
+- [x] Frontend auth state consolidation
+	- [x] Remove duplicated source-of-truth patterns between store/provider layers
+	- [x] Keep one canonical session/profile state model
+	- **Completion notes (2026-04-14):**
+		- Removed Zustand session store (`frontend/store/session.ts`) entirely
+		- Migrated all 7 components to use `AuthSessionProvider` (Context API) exclusively
+		- Replaced manual auth state writes with `refreshSession()` pattern
+		- Single source of truth: `useAuthSession()` hook for all auth state access
+		- Removed `zustand` dependency from package.json
+		- Zero compilation errors, all TypeScript checks passing
 
 - [ ] Production security defaults
 	- [ ] Tighten CORS methods/headers/origins for production

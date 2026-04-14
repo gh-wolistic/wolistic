@@ -18,11 +18,10 @@ import {
   type PersistedBookingDraft,
 } from "@/components/onboarding/booking/storage";
 import { useBookingOnboarding } from "@/components/onboarding/booking/useBookingOnboarding";
-import { mapUserProfileToDashboardRole, type OnboardingSelection } from "@/components/onboarding/types";
+import { type OnboardingSelection } from "@/components/onboarding/types";
 import { PaymentStep } from "@/components/payment/PaymentStep";
 import { usePaymentFlow } from "@/components/payment/hooks/usePaymentFlow";
 import type { PaymentStatus } from "@/components/payment/types";
-import { useSessionStore } from "@/store/session";
 import type { ProfessionalProfile } from "@/types/professional";
 import { updateUserOnboardingSelection } from "@/components/public/data/authApi";
 import { getPromotionalEligibility } from "@/components/public/data/bookingApi";
@@ -48,33 +47,8 @@ const BOOKING_FLOW_STEPS: ReadonlyArray<{ step: BookingStep; label: string }> = 
 
 export function ServicesBookingSection({ professional, bookingStartSignal }: ServicesBookingSectionProps) {
   const router = useRouter();
-  const user = useSessionStore((state) => state.user);
-  const token = useSessionStore((state) => state.token);
-  const { user: authSessionUser, accessToken: authSessionToken, status: authStatus } = useAuthSession();
+  const { user, accessToken, status: authStatus, refreshSession } = useAuthSession();
   const { openAuthSidebar } = useAuthModal();
-  const setAuthSession = useSessionStore((state) => state.setAuthSession);
-  const setRole = useSessionStore((state) => state.setRole);
-
-  const effectiveUser = useMemo(() => {
-    if (user) {
-      return user;
-    }
-
-    if (!authSessionUser) {
-      return null;
-    }
-
-    return {
-      id: authSessionUser.id,
-      email: authSessionUser.email,
-      name: authSessionUser.name,
-      type: authSessionUser.userType === "unknown" ? undefined : authSessionUser.userType,
-      userSubtype: authSessionUser.userSubtype,
-      userRole: authSessionUser.userRole,
-      onboardingRequired: authSessionUser.onboardingRequired,
-    };
-  }, [authSessionUser, user]);
-  const effectiveToken = token ?? authSessionToken;
 
   const servicesToDisplay = useMemo(() => professional.services, [professional.services]);
 
@@ -131,7 +105,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   } = useBookingOnboarding({
     showBookingFlow,
     professionalUsername: professional.username,
-    token: effectiveToken ?? undefined,
+    token: accessToken ?? undefined,
   });
 
   const selectedService = servicesToDisplay[selectedServiceIndex] ?? servicesToDisplay[0] ?? null;
@@ -255,11 +229,11 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     professionalUsername: professional.username,
     professionalName: professional.name,
     serviceName: selectedServiceName,
-    customerName: effectiveUser?.name || undefined,
-    customerEmail: effectiveUser?.email || undefined,
+    customerName: user?.name || undefined,
+    customerEmail: user?.email || undefined,
     bookingAt: selectedSchedule.bookingAtIso || undefined,
     isImmediate: isImmediateBooking,
-    token: effectiveToken ?? undefined,
+    token: accessToken ?? undefined,
     onStatusResolved: (status, nextRoute) => {
       redirectToPaymentStatus(status, nextRoute);
     },
@@ -338,7 +312,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   useEffect(() => {
     const draft = resumeAfterAuthRef.current;
 
-    if (!draft || isAutoResumingAfterAuthRef.current || !effectiveUser || !effectiveToken || !showBookingFlow) {
+    if (!draft || isAutoResumingAfterAuthRef.current || !user || !accessToken || !showBookingFlow) {
       return;
     }
 
@@ -353,7 +327,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
         if (needsMandatoryQuestions) {
           const result = await persistQuestionAnswers({
             professionalUsername: professional.username,
-            userId: effectiveUser.id,
+            userId: user.id,
           });
 
           if (!result.ok) {
@@ -362,7 +336,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
           }
         }
 
-        setBookingStep(effectiveUser.onboardingRequired ? "user-onboarding" : "payment");
+        setBookingStep(user.onboardingRequired ? "user-onboarding" : "payment");
         clearBookingFlowDraft();
         resumeAfterAuthRef.current = null;
       } finally {
@@ -370,8 +344,8 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
       }
     })();
   }, [
-    effectiveToken,
-    effectiveUser,
+    accessToken,
+    user,
     needsMandatoryQuestions,
     persistQuestionAnswers,
     professional.username,
@@ -425,14 +399,14 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   }, [bookingStep, showBookingFlow]);
 
   useEffect(() => {
-    if (!effectiveToken) {
+    if (!accessToken) {
       setPromotionalAlreadyClaimed(false);
       return;
     }
 
     let isMounted = true;
 
-    void getPromotionalEligibility(professional.username, effectiveToken)
+    void getPromotionalEligibility(professional.username, accessToken)
       .then((result) => {
         if (!isMounted) {
           return;
@@ -449,7 +423,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     return () => {
       isMounted = false;
     };
-  }, [effectiveToken, professional.username]);
+  }, [accessToken, professional.username]);
 
   const handleScheduleContinue = () => {
     if (questionsLoading) {
@@ -515,18 +489,18 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
       return;
     }
 
-    if (authStatus === "loading" || effectiveUser || authSidebarOpenedForStepRef.current) {
+    if (authStatus === "loading" || user || authSidebarOpenedForStepRef.current) {
       return;
     }
 
     authSidebarOpenedForStepRef.current = true;
     openBookingAuthSidebar();
-  }, [authStatus, bookingStep, effectiveUser, openBookingAuthSidebar]);
+  }, [authStatus, bookingStep, user, openBookingAuthSidebar]);
 
   const handleQuestionsSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!effectiveUser) {
+    if (!user) {
       setBookingStep("auth");
       openBookingAuthSidebar();
       return;
@@ -534,13 +508,13 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
 
     const result = await persistQuestionAnswers({
       professionalUsername: professional.username,
-      userId: effectiveUser.id,
+      userId: user.id,
     });
     if (!result.ok) {
       return;
     }
 
-    if (effectiveUser.onboardingRequired) {
+    if (user.onboardingRequired) {
       setBookingStep("user-onboarding");
       return;
     }
@@ -554,7 +528,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   const handlePaymentSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!effectiveUser) {
+    if (!user) {
       setBookingStep("auth");
       openBookingAuthSidebar();
       return;
@@ -564,7 +538,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
   };
 
   const handleUserOnboardingSubmit = async (selection: OnboardingSelection) => {
-    if (!effectiveToken) {
+    if (!accessToken) {
       setUserOnboardingError("Please sign in again to continue.");
       return;
     }
@@ -573,22 +547,8 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     setUserOnboardingError(null);
 
     try {
-      const resolvedUser = await updateUserOnboardingSelection(selection, effectiveToken);
-
-      setAuthSession({
-        user: {
-          id: resolvedUser.id,
-          email: resolvedUser.email,
-          name: resolvedUser.full_name,
-          type: resolvedUser.user_type ?? undefined,
-          userSubtype: resolvedUser.user_subtype,
-          userRole: resolvedUser.user_role,
-          onboardingRequired: resolvedUser.onboarding_required,
-          onboardingComplete: user?.onboardingComplete,
-        },
-        token: effectiveToken,
-      });
-      setRole(mapUserProfileToDashboardRole(resolvedUser.user_type, resolvedUser.user_subtype));
+      await updateUserOnboardingSelection(selection, accessToken);
+      await refreshSession();
       setBookingStep("payment");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unable to save your onboarding details.";
@@ -619,7 +579,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
     }
 
     if (bookingStep === "payment") {
-      if (effectiveUser?.onboardingRequired) {
+      if (user?.onboardingRequired) {
         return "user-onboarding";
       }
       if (needsMandatoryQuestions) {
@@ -877,7 +837,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                 questionAnswers={questionAnswers}
                 questionError={questionError}
                 questionsLoading={questionsLoading}
-                continueLabel={effectiveUser ? (effectiveUser.onboardingRequired ? "Profile Setup" : "Payment") : "Signup"}
+                continueLabel={user ? (user.onboardingRequired ? "Profile Setup" : "Payment") : "Signup"}
                 onSubmit={handleQuestionsSubmit}
                 onChange={(field, value) => setQuestionForm((previous) => ({ ...previous, [field]: value }))}
                 onQuestionAnswerChange={(questionId, value) =>
@@ -906,9 +866,9 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
               <div className="mt-5">
                 <UserOnboardingFlow
                   compact
-                  userName={effectiveUser?.name}
-                  initialUserType={effectiveUser?.type ?? null}
-                  initialUserSubtype={effectiveUser?.userSubtype ?? null}
+                  userName={user?.name}
+                  initialUserType={user?.type ?? null}
+                  initialUserSubtype={user?.userSubtype ?? null}
                   error={userOnboardingError}
                   isSubmitting={userOnboardingSubmitting}
                   submitLabel="Continue to Payment"

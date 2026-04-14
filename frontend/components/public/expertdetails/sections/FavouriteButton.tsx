@@ -5,7 +5,6 @@ import { Heart } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
-import { useSessionStore } from "@/store/session";
 import {
   addFavourite,
   fetchFavouriteStatus,
@@ -17,9 +16,7 @@ type FavouriteButtonProps = {
 };
 
 export function FavouriteButton({ professionalId }: FavouriteButtonProps) {
-  const { accessToken: sessionToken } = useAuthSession();
-  const storeToken = useSessionStore((state) => state.token);
-  const token = storeToken ?? sessionToken;
+  const { accessToken: token } = useAuthSession();
 
   const [isFavourited, setIsFavourited] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

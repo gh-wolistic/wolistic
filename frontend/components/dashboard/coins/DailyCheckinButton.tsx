@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { CalendarCheck, Coins } from "lucide-react";
-import { useSessionStore } from "@/store/session";
+import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { dailyCheckin } from "@/components/dashboard/coins/coinApi";
 import type { CoinWallet } from "@/types/coins";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ type DailyCheckinButtonProps = {
 };
 
 export function DailyCheckinButton({ onCheckin }: DailyCheckinButtonProps) {
-  const token = useSessionStore((s) => s.token);
+  const { accessToken: token } = useAuthSession();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "info" | "error" } | null>(
     null,
