@@ -42,9 +42,20 @@ This is the single source of truth for active work tracking in `docs/`.
 - [ ] Payment production hardening
 	- [x] Subscription upgrade payment via Razorpay inline (order + verify endpoints)
 	- [x] Priority ticket raise post-upgrade (partner route)
-	- [ ] Confirm cryptographic signature verification and strict failure handling for all payment paths
-	- [ ] Ensure webhook reconciliation paths are fully tested and observable
-	- [ ] Persist and expose provider references needed for support/debug workflows
+	- [x] Cryptographic signature verification (HMAC SHA256) for all payment paths
+	- [x] Webhook reconciliation paths fully tested (failure scenarios, idempotency)
+	- [x] Provider references stored and exposed via admin APIs
+	- [x] Structured logging for all payment operations (order, verify, webhook)
+	- [x] Idempotency protection for webhook duplicate delivery
+	- [x] Test mode indicator (detects rzp_test_ vs rzp_live_ key prefix)
+	- [x] Admin payment history API (GET /admin/payments/booking/{reference})
+	- [x] Admin subscription billing API (GET /admin/subscriptions/billing with filters)
+	- [x] Subscription webhook handler (POST /partners/subscription/webhooks/razorpay)
+	**Completion notes (2026-04-14):**
+		- Phase 1 complete: Structured logging throughout payment service, order creation, verification, webhook processing
+		- Phase 2 complete: Idempotency protection prevents duplicate webhook coin awards; 3 new tests (payment.failed, duplicate delivery, conflicting payment_id)
+		- Phase 3 complete: Admin APIs require ADMIN_API_KEY, support filtering by professional_id and date ranges
+		- Ready for production: Test mode auto-detected via key prefix, signatures verified on all paths, full observability
 
 - [ ] Holistic intake to team flow hardening
 	- [x] End-to-end flow implemented and working

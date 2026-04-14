@@ -40,7 +40,7 @@ from app.schemas.subscription import (
     UpgradeVerifyOut,
 )
 from app.services.payments.providers.base import PaymentOrderRequest, PaymentVerificationRequest
-from app.services.payments.service import get_payment_provider
+from app.services.payments.service import get_payment_provider, process_subscription_webhook as process_subscription_webhook_service
 
 logger = logging.getLogger(__name__)
 
@@ -323,6 +323,30 @@ async def verify_upgrade_payment(
     return UpgradeVerifyOut(status="failure", message="Payment verification failed. Please contact support.")
 
 
+@partner_router.post("/subscription/webhooks/razorpay", status_code=status.HTTP_202_ACCEPTED)
+async def process_subscription_razorpay_webhook(
+    request: Request,
+    razorpay_signature: str | None = None,
+    db: AsyncSession = Depends(get_db_session),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, object]:
+    """Process Razorpay webhooks for subscription upgrade payments."""
+    # Try header with alias first, then query parameter
+    if razorpay_signature is None:
+        from fastapi import Header
+        razorpay_signature = request.headers.get("X-Razorpay-Signature")
+    
+    if not razorpay_signature:
+        raise HTTPException(status_code=400, detail="Missing Razorpay webhook signature")
+
+    return await process_subscription_webhook_service(
+        payload=await request.body(),
+        signature=razorpay_signature,
+        db=db,
+        settings=settings,
+    )
+
+
 # ── Partner: raise priority ticket (unverified users) ────────────────────────
 
 @partner_router.post("/subscription/priority-ticket", response_model=PriorityTicketOut, status_code=status.HTTP_201_CREATED)
@@ -520,15 +544,35 @@ async def delete_assigned_subscription(
 @admin_router.get("/billing", response_model=List[BillingRecordOut])
 async def list_billing_records(
     professional_id: str | None = Query(None),
+    from_date: datetime | None = Query(None, alias="from"),
+    to_date: datetime | None = Query(None, alias="to"),
     db: AsyncSession = Depends(get_db_session),
+    _admin_check: None = Depends(require_admin_api_key),
 ) -> List[BillingRecordOut]:
+    """
+    List subscription billing records with optional filters.
+    Requires ADMIN_API_KEY header.
+    
+    Query parameters:
+    - professional_id: Filter by professional UUID
+    - from: Filter records paid on or after this date (ISO 8601)
+    - to: Filter records paid on or before this date (ISO 8601)
+    """
     q = select(SubscriptionBillingRecord).order_by(SubscriptionBillingRecord.paid_at.desc())
+    
     if professional_id:
         try:
             prof_uuid = uuid.UUID(professional_id)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid professional_id UUID")
         q = q.where(SubscriptionBillingRecord.professional_id == prof_uuid)
+    
+    if from_date:
+        q = q.where(SubscriptionBillingRecord.paid_at >= from_date)
+    
+    if to_date:
+        q = q.where(SubscriptionBillingRecord.paid_at <= to_date)
+    
     result = await db.execute(q)
     records = result.scalars().all()
     return [await _build_billing_out(r, db) for r in records]

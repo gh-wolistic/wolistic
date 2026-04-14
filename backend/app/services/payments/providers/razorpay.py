@@ -37,6 +37,11 @@ class RazorpayPaymentProvider(PaymentProvider):
             )
         return key_id, key_secret
 
+    def _is_test_mode(self) -> bool:
+        """Detect if Razorpay is in test mode based on key ID prefix."""
+        key_id = self._settings.RAZORPAY_KEY_ID
+        return key_id.startswith("rzp_test_") if key_id else False
+
     def _auth_header(self) -> str:
         key_id, key_secret = self._get_api_credentials()
         encoded = base64.b64encode(f"{key_id}:{key_secret}".encode("utf-8")).decode("ascii")
@@ -86,9 +91,11 @@ class RazorpayPaymentProvider(PaymentProvider):
         if not order_id:
             raise HTTPException(status_code=502, detail="Razorpay order API did not return an order id")
 
+        mode = "test" if self._is_test_mode() else "live"
+
         return PaymentOrderResult(
             provider=self.provider_name,
-            mode="live",
+            mode=mode,
             key_id=self._settings.RAZORPAY_KEY_ID,
             order_id=order_id,
             amount_subunits=int(response_amount),

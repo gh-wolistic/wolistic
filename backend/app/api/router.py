@@ -5,6 +5,7 @@ from app.api.routes.admin import router as admin_router
 from app.api.routes.ai import router as ai_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.booking import router as booking_router
+from app.api.routes.booking import admin_router as booking_admin_router
 from app.api.routes.catalog import router as catalog_router
 from app.api.routes.favourites import router as favourites_router
 from app.api.routes.health import router as health_router
@@ -32,6 +33,7 @@ api_router.include_router(auth_router)
 api_router.include_router(health_router, tags=["health"])
 api_router.include_router(holistic_teams_router)
 api_router.include_router(booking_router)
+api_router.include_router(booking_admin_router)
 api_router.include_router(favourites_router)
 api_router.include_router(media_router)
 api_router.include_router(partner_dashboard_router)

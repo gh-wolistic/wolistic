@@ -450,3 +450,276 @@ def test_webhook_updates_payment_and_booking() -> None:
     assert payment.verified_at is not None
     assert booking.status == "confirmed"
     assert session.commit_count == 1
+
+
+def test_webhook_payment_failed_updates_booking_status() -> None:
+    """Test that payment.failed webhook updates payment and booking to failed status."""
+    settings = get_settings().model_copy(
+        update={
+            "PAYMENT_PROVIDER": "razorpay",
+            "RAZORPAY_KEY_ID": "rzp_test_example",
+            "RAZORPAY_KEY_SECRET": "secret_123",
+            "RAZORPAY_WEBHOOK_SECRET": "webhook_secret_123",
+        }
+    )
+    created_at = datetime(2026, 3, 13, 10, 0, tzinfo=timezone.utc)
+    booking = Booking(
+        id=18,
+        booking_reference="bk_webhook_failed",
+        professional_id=PROFESSIONAL_ID,
+        client_user_id=USER_ID,
+        service_name="Consultation",
+        status="pending",
+        scheduled_for=None,
+        is_immediate=False,
+        created_at=created_at,
+    )
+    payment = BookingPayment(
+        id=22,
+        booking_id=18,
+        booking=booking,
+        provider="razorpay",
+        provider_order_id="order_fail_123",
+        amount=Decimal("1500.00"),
+        currency="INR",
+        status="created",
+        created_at=created_at,
+        updated_at=created_at,
+    )
+    session = PaymentWebhookSession(payment)
+    payload = {
+        "event": "payment.failed",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_fail_123",
+                    "order_id": "order_fail_123",
+                    "error_code": "BAD_REQUEST_ERROR",
+                    "error_description": "Payment failed",
+                }
+            }
+        },
+    }
+    body = json.dumps(payload).encode("utf-8")
+    import hashlib
+    import hmac
+
+    signature = hmac.new(b"webhook_secret_123", body, hashlib.sha256).hexdigest()
+
+    async def override_get_db_session() -> AsyncGenerator[PaymentWebhookSession, None]:
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    from app.api.routes import booking as booking_routes
+    from app.services.payments import service as payment_service
+
+    original_get_settings = booking_routes.get_settings
+    original_get_payment_provider = payment_service.get_payment_provider
+    booking_routes.get_settings = lambda: settings
+    payment_service.get_payment_provider = lambda _settings: RazorpayPaymentProvider(settings)
+    client = TestClient(app)
+
+    try:
+        response = client.post(
+            "/api/v1/booking/payments/webhooks/razorpay",
+            content=body,
+            headers={"X-Razorpay-Signature": signature, "Content-Type": "application/json"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+        booking_routes.get_settings = original_get_settings
+        payment_service.get_payment_provider = original_get_payment_provider
+
+    assert response.status_code == 202
+    result = response.json()
+    assert result["processed"] is True
+    assert payment.status == "failure"
+    assert payment.provider_payment_id == "pay_fail_123"
+    assert booking.status == "failed"
+    assert session.commit_count == 1
+
+
+def test_webhook_duplicate_delivery_is_idempotent() -> None:
+    """Test that duplicate webhook delivery with same payment_id and status is idempotent."""
+    settings = get_settings().model_copy(
+        update={
+            "PAYMENT_PROVIDER": "razorpay",
+            "RAZORPAY_KEY_ID": "rzp_test_example",
+            "RAZORPAY_KEY_SECRET": "secret_123",
+            "RAZORPAY_WEBHOOK_SECRET": "webhook_secret_123",
+        }
+    )
+    created_at = datetime(2026, 3, 13, 10, 0, tzinfo=timezone.utc)
+    verified_at = datetime(2026, 3, 13, 10, 5, tzinfo=timezone.utc)
+    booking = Booking(
+        id=19,
+        booking_reference="bk_webhook_dup",
+        professional_id=PROFESSIONAL_ID,
+        client_user_id=USER_ID,
+        service_name="Follow-up",
+        status="confirmed",
+        scheduled_for=None,
+        is_immediate=False,
+        created_at=created_at,
+    )
+    # Payment already verified with payment_id
+    payment = BookingPayment(
+        id=23,
+        booking_id=19,
+        booking=booking,
+        provider="razorpay",
+        provider_order_id="order_dup_123",
+        provider_payment_id="pay_dup_123",  # Already set
+        amount=Decimal("800.00"),
+        currency="INR",
+        status="success",  # Already success
+        verified_at=verified_at,
+        created_at=created_at,
+        updated_at=verified_at,
+    )
+    session = PaymentWebhookSession(payment)
+    original_updated_at = payment.updated_at
+    
+    # Send duplicate webhook with same payment_id and status
+    payload = {
+        "event": "payment.captured",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_dup_123",  # Same as already stored
+                    "order_id": "order_dup_123",
+                }
+            }
+        },
+    }
+    body = json.dumps(payload).encode("utf-8")
+    import hashlib
+    import hmac
+
+    signature = hmac.new(b"webhook_secret_123", body, hashlib.sha256).hexdigest()
+
+    async def override_get_db_session() -> AsyncGenerator[PaymentWebhookSession, None]:
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    from app.api.routes import booking as booking_routes
+    from app.services.payments import service as payment_service
+
+    original_get_settings = booking_routes.get_settings
+    original_get_payment_provider = payment_service.get_payment_provider
+    booking_routes.get_settings = lambda: settings
+    payment_service.get_payment_provider = lambda _settings: RazorpayPaymentProvider(settings)
+    client = TestClient(app)
+
+    try:
+        response = client.post(
+            "/api/v1/booking/payments/webhooks/razorpay",
+            content=body,
+            headers={"X-Razorpay-Signature": signature, "Content-Type": "application/json"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+        booking_routes.get_settings = original_get_settings
+        payment_service.get_payment_provider = original_get_payment_provider
+
+    assert response.status_code == 202
+    result = response.json()
+    assert result["processed"] is True
+    assert result["duplicate"] is True
+    assert result["status"] == "success"
+    # Verify no state change occurred
+    assert payment.status == "success"
+    assert payment.provider_payment_id == "pay_dup_123"
+    assert booking.status == "confirmed"
+    # No commit should have happened for duplicate
+    assert session.commit_count == 0
+
+
+def test_webhook_conflicting_payment_id_raises_409() -> None:
+    """Test that webhook with different payment_id for same order raises 409 conflict."""
+    settings = get_settings().model_copy(
+        update={
+            "PAYMENT_PROVIDER": "razorpay",
+            "RAZORPAY_KEY_ID": "rzp_test_example",
+            "RAZORPAY_KEY_SECRET": "secret_123",
+            "RAZORPAY_WEBHOOK_SECRET": "webhook_secret_123",
+        }
+    )
+    created_at = datetime(2026, 3, 13, 10, 0, tzinfo=timezone.utc)
+    verified_at = datetime(2026, 3, 13, 10, 5, tzinfo=timezone.utc)
+    booking = Booking(
+        id=20,
+        booking_reference="bk_webhook_conflict",
+        professional_id=PROFESSIONAL_ID,
+        client_user_id=USER_ID,
+        service_name="Session",
+        status="confirmed",
+        scheduled_for=None,
+        is_immediate=False,
+        created_at=created_at,
+    )
+    # Payment already verified with a different payment_id
+    payment = BookingPayment(
+        id=24,
+        booking_id=20,
+        booking=booking,
+        provider="razorpay",
+        provider_order_id="order_conflict_123",
+        provider_payment_id="pay_original_123",  # Original payment ID
+        amount=Decimal("1200.00"),
+        currency="INR",
+        status="success",
+        verified_at=verified_at,
+        created_at=created_at,
+        updated_at=verified_at,
+    )
+    session = PaymentWebhookSession(payment)
+    
+    # Send webhook with DIFFERENT payment_id for same order
+    payload = {
+        "event": "payment.captured",
+        "payload": {
+            "payment": {
+                "entity": {
+                    "id": "pay_different_456",  # Different from stored pay_original_123
+                    "order_id": "order_conflict_123",
+                }
+            }
+        },
+    }
+    body = json.dumps(payload).encode("utf-8")
+    import hashlib
+    import hmac
+
+    signature = hmac.new(b"webhook_secret_123", body, hashlib.sha256).hexdigest()
+
+    async def override_get_db_session() -> AsyncGenerator[PaymentWebhookSession, None]:
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_get_db_session
+    from app.api.routes import booking as booking_routes
+    from app.services.payments import service as payment_service
+
+    original_get_settings = booking_routes.get_settings
+    original_get_payment_provider = payment_service.get_payment_provider
+    booking_routes.get_settings = lambda: settings
+    payment_service.get_payment_provider = lambda _settings: RazorpayPaymentProvider(settings)
+    client = TestClient(app)
+
+    try:
+        response = client.post(
+            "/api/v1/booking/payments/webhooks/razorpay",
+            content=body,
+            headers={"X-Razorpay-Signature": signature, "Content-Type": "application/json"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+        booking_routes.get_settings = original_get_settings
+        payment_service.get_payment_provider = original_get_payment_provider
+
+    assert response.status_code == 409
+    result = response.json()
+    assert "payment id does not match" in result["detail"].lower()
+    # Original state should be unchanged
+    assert payment.provider_payment_id == "pay_original_123"
+    assert session.commit_count == 0

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import AuthenticatedUser, get_current_user, get_optional_current_user
+from app.core.auth import AuthenticatedUser, get_current_user, get_optional_current_user, require_admin_api_key
 from app.core.database import get_db_session
 from app.models.booking import Booking, BookingPayment, BookingQuestionResponse, BookingQuestionTemplate
 from app.models.professional import Professional, ProfessionalService
@@ -34,6 +34,7 @@ from app.services.payments.service import process_payment_webhook as process_pay
 from app.services.payments.service import verify_payment as verify_payment_service
 
 router = APIRouter(prefix="/booking", tags=["booking"])
+admin_router = APIRouter(prefix="/admin/payments", tags=["admin-payments"])
 
 
 def _normalize_required_question_ids(templates: list[BookingQuestionTemplate]) -> list[int]:
@@ -476,3 +477,59 @@ async def get_booking_history(
         upcoming_bookings=upcoming,
         past_bookings=past,
     )
+
+
+# ── Admin: Payment History ────────────────────────────────────────────────────
+
+@admin_router.get("/booking/{booking_reference}")
+async def get_payment_history(
+    booking_reference: str,
+    db: AsyncSession = Depends(get_db_session),
+    _admin_check: None = Depends(require_admin_api_key),
+) -> dict[str, object]:
+    """
+    Get payment history for a booking by booking reference.
+    Requires ADMIN_API_KEY header.
+    """
+    booking_result = await db.execute(
+        select(Booking).where(Booking.booking_reference == booking_reference)
+    )
+    booking = booking_result.scalar_one_or_none()
+    
+    if booking is None:
+        raise HTTPException(status_code=404, detail="Booking not found")
+
+    payment_result = await db.execute(
+        select(BookingPayment).where(BookingPayment.booking_id == booking.id)
+        .order_by(BookingPayment.created_at.desc())
+    )
+    payments = payment_result.scalars().all()
+
+    return {
+        "booking_reference": booking.booking_reference,
+        "booking_id": booking.id,
+        "professional_id": str(booking.professional_id),
+        "client_user_id": str(booking.client_user_id) if booking.client_user_id else None,
+        "service_name": booking.service_name,
+        "booking_status": booking.status,
+        "scheduled_for": booking.scheduled_for.isoformat() if booking.scheduled_for else None,
+        "is_immediate": booking.is_immediate,
+        "created_at": booking.created_at.isoformat(),
+        "payments": [
+            {
+                "id": payment.id,
+                "provider": payment.provider,
+                "provider_order_id": payment.provider_order_id,
+                "provider_payment_id": payment.provider_payment_id,
+                "provider_signature": payment.provider_signature,
+                "provider_payload": payment.provider_payload,
+                "amount": str(payment.amount),
+                "currency": payment.currency,
+                "status": payment.status,
+                "verified_at": payment.verified_at.isoformat() if payment.verified_at else None,
+                "created_at": payment.created_at.isoformat(),
+                "updated_at": payment.updated_at.isoformat(),
+            }
+            for payment in payments
+        ],
+    }
