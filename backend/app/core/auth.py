@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 import json
+import logging
 import secrets
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -18,6 +19,7 @@ from app.core.config import get_settings
 
 settings = get_settings()
 bearer_scheme = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -89,7 +91,11 @@ def _fetch_user_from_supabase(token: str) -> dict[str, Any]:
     try:
         with urlopen(request, timeout=5) as response:
             payload = response.read().decode("utf-8")
-    except (HTTPError, URLError) as exc:
+    except (HTTPError, URLError, TimeoutError, OSError) as exc:
+        # HTTPError: 4xx/5xx from Supabase
+        # URLError: Network/DNS errors
+        # TimeoutError: Request timeout
+        # OSError: Connection errors, socket errors
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired authentication token",
@@ -169,7 +175,19 @@ def get_optional_current_user(
     if credentials is None or credentials.scheme.lower() != "bearer" or not credentials.credentials:
         return None
 
-    return _resolve_current_user(credentials.credentials)
+    try:
+        result = _resolve_current_user(credentials.credentials)
+        logger.debug(f"Auth successful for user {result.user_id}")
+        return result
+    except HTTPException as exc:
+        # Auth failed - treat as unauthenticated, not as error
+        logger.debug(f"Auth failed with HTTPException: {exc.status_code} - {exc.detail}")
+        return None
+    except Exception as exc:
+        # Unexpected error during auth - treat as unauthenticated to avoid 500
+        # This handles edge cases like network issues, malformed tokens, etc.
+        logger.warning(f"Unexpected auth error: {type(exc).__name__}: {exc}", exc_info=True)
+        return None
 
 
 def require_admin_api_key(x_admin_key: str | None = Header(default=None, alias="X-Admin-Key")) -> None:
