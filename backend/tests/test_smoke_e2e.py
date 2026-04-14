@@ -209,6 +209,11 @@ def test_smoke_optional_auth_routes_authenticated() -> None:
                 "source": "smoke_test",
             },
         ),
+        (
+            "GET",
+            "/api/v1/reviews/eligibility/00000000-0000-0000-0000-000000000001",
+            None,
+        ),
     ]
 
     for method, path, payload in optional_routes:
@@ -250,6 +255,11 @@ def test_smoke_optional_auth_routes_unauthenticated() -> None:
                 "answers": {},
                 "source": "smoke_test",
             },
+        ),
+        (
+            "GET",
+            "/api/v1/reviews/eligibility/00000000-0000-0000-0000-000000000001",
+            None,
         ),
     ]
 
