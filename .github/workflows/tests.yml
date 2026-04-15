@@ -26,9 +26,8 @@ jobs:
       - name: Run backend tests
         run: pytest
 
-      - name: Run type checking
+      - name: Run type checking (strict)
         run: mypy app/api app/core --config-file mypy.ini
-        continue-on-error: true
 
       - name: Run smoke tests (E2E)
         run: pytest -m smoke --maxfail=1 -v
