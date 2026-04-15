@@ -34,6 +34,7 @@ from app.models.user import User, UserFavourite
 from app.models.wolistic_content import WolisticArticle, WolisticProduct, WolisticService
 from app.models.classes import WorkLocation, GroupClass, ClassSession, ClassEnrollment
 from app.models.subscription import SubscriptionPlan, ProfessionalSubscription, SubscriptionBillingRecord, SubscriptionPaymentOrder, SubscriptionPriorityTicket
+from app.models.offer import Offer, OfferAssignment
 from app.models.messaging import Conversation, ConversationParticipant, Message
 from app.models.notification import Notification
 
@@ -75,4 +76,6 @@ __all__ = [
     "ConversationParticipant",
     "Message",
     "Notification",
+    "Offer",
+    "OfferAssignment",
 ]

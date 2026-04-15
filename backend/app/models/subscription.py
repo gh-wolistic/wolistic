@@ -62,6 +62,16 @@ class ProfessionalSubscription(Base):
     starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     auto_renew: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # self_paid | admin_upgrade | offer_redemption | partner_sponsored
+    subscription_type: Mapped[str] = mapped_column(String(32), nullable=False, server_default="self_paid")
+    offer_assignment_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("offer_assignments.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    auto_downgrade_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    auto_downgrade_to_tier: Mapped[str | None] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

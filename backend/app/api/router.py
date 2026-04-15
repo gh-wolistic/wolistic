@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes.activities import router as activities_router
 from app.api.routes.admin import router as admin_router
+from app.api.routes.admin import auth_router as admin_auth_router
 from app.api.routes.ai import router as ai_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.booking import router as booking_router
@@ -28,6 +29,7 @@ from app.api.routes.notification import router as notification_router
 from app.api.routes.review import router as review_router
 
 api_router = APIRouter()
+api_router.include_router(admin_auth_router)  # Session-based admin auth (no API key)
 api_router.include_router(admin_router)
 api_router.include_router(auth_router)
 api_router.include_router(health_router, tags=["health"])
