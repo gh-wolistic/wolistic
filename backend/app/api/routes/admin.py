@@ -7,12 +7,13 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_admin_api_key
+from app.core.audit import log_admin_action
 from app.core.config import get_settings
 from app.core.database import get_db_session
 from app.models.professional import Professional
@@ -640,6 +641,8 @@ async def get_professional_detail(
 async def update_professional_status(
     user_id: uuid.UUID,
     new_status: AdminProfessionalStatus = Query(alias="status"),
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     result = await db.execute(select(User).where(User.id == user_id, User.user_type == "partner"))
@@ -664,6 +667,18 @@ async def update_professional_status(
         )
         await db.commit()
 
+    # Audit log
+    if request:
+        await log_admin_action(
+            action=f"update_professional_status_{new_status}",
+            resource_type="professional",
+            resource_id=str(user_id),
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={"new_status": new_status},
+        )
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -673,13 +688,35 @@ async def update_professional_status(
 
 
 @router.post("/professionals/{user_id}/approve")
-async def approve_professional(user_id: uuid.UUID, db: AsyncSession = Depends(get_db_session)) -> dict:
-    return await update_professional_status(user_id=user_id, new_status="verified", db=db)
+async def approve_professional(
+    user_id: uuid.UUID,
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    return await update_professional_status(
+        user_id=user_id,
+        new_status="verified",
+        admin_email=admin_email,
+        request=request,
+        db=db,
+    )
 
 
 @router.post("/professionals/{user_id}/suspend")
-async def suspend_professional(user_id: uuid.UUID, db: AsyncSession = Depends(get_db_session)) -> dict:
-    return await update_professional_status(user_id=user_id, new_status="suspended", db=db)
+async def suspend_professional(
+    user_id: uuid.UUID,
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    return await update_professional_status(
+        user_id=user_id,
+        new_status="suspended",
+        admin_email=admin_email,
+        request=request,
+        db=db,
+    )
 
 
 @router.post("/professionals/{user_id}/tier")
@@ -689,6 +726,7 @@ async def update_professional_tier(
     duration_months: int = Query(default=1, ge=1, le=36, description="Subscription duration in months"),
     offer_code: str | None = Query(default=None, max_length=50, description="Promotion/offer code"),
     admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Update professional tier with subscription duration and offer tracking."""
@@ -742,6 +780,22 @@ async def update_professional_tier(
     await db.commit()
     await db.refresh(professional)
 
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="update_professional_tier",
+            resource_type="professional",
+            resource_id=str(user_id),
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={
+                "tier": tier,
+                "duration_months": duration_months,
+                "offer_code": offer_code,
+            },
+        )
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -762,6 +816,7 @@ async def admin_list_offers(db: AsyncSession = Depends(get_db_session)) -> list[
 async def admin_create_offer(
     payload: OfferCreateRequest,
     admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Create a centralized offer in the catalog."""
@@ -795,6 +850,23 @@ async def admin_create_offer(
     await db.commit()
     await db.refresh(offer)
 
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="create_offer",
+            resource_type="offer",
+            resource_id=str(offer.id),
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={
+                "code": offer.code,
+                "name": offer.name,
+                "target_tier": offer.target_tier,
+                "duration_months": offer.duration_months,
+            },
+        )
+
     return {
         "id": offer.id,
         "code": offer.code,
@@ -816,6 +888,7 @@ async def admin_create_offer(
 async def admin_assign_offer(
     payload: OfferAssignRequest,
     admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Assign an offer to a professional and optionally auto-activate it."""
@@ -861,6 +934,23 @@ async def admin_assign_offer(
 
     await db.commit()
     await db.refresh(assignment)
+
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="assign_offer",
+            resource_type="offer_assignment",
+            resource_id=str(assignment.id),
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={
+                "offer_code": payload.offer_code,
+                "professional_id": str(payload.professional_id),
+                "auto_activate": payload.auto_activate,
+                "notes": payload.notes,
+            },
+        )
 
     return {
         "id": assignment.id,
@@ -930,11 +1020,26 @@ async def admin_list_offer_assignments(
 
 @router.post("/offers/maintenance/auto-downgrade")
 async def admin_run_offer_maintenance(
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Run auto-downgrade and grace-period notification maintenance job."""
     report = await run_auto_downgrade_job(db)
     await db.commit()
+
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="run_offer_maintenance",
+            resource_type="offer_maintenance",
+            resource_id="auto_downgrade_job",
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload=report,
+        )
+
     return {
         "status": "ok",
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -945,6 +1050,8 @@ async def admin_run_offer_maintenance(
 @router.post("/professionals/bulk-approve")
 async def bulk_approve_professionals(
     payload: BulkApproveProfessionalsRequest,
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     unique_ids = list(dict.fromkeys(payload.user_ids))
@@ -980,6 +1087,23 @@ async def bulk_approve_professionals(
         )
     if updated_ids:
         await db.commit()
+
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="bulk_approve_professionals",
+            resource_type="professional",
+            resource_id="bulk",
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={
+                "requested": len(unique_ids),
+                "approved": len(updated_ids),
+                "min_profile_completeness": payload.min_profile_completeness,
+                "updated_ids": updated_ids,
+            },
+        )
 
     return {
         "requested": len(unique_ids),
@@ -1047,6 +1171,8 @@ async def list_coin_rules(db: AsyncSession = Depends(get_db_session)) -> list[di
 @router.post("/coins/rules")
 async def create_coin_rule(
     payload: CoinRuleCreate,
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Create a new coin earning rule."""
@@ -1072,6 +1198,22 @@ async def create_coin_rule(
     db.add(rule)
     await db.commit()
     await db.refresh(rule)
+
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="create_coin_rule",
+            resource_type="coin_rule",
+            resource_id=rule.event_type,
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={
+                "event_type": rule.event_type,
+                "coins_awarded": rule.coins_awarded,
+                "is_active": rule.is_active,
+            },
+        )
     
     return {
         "event_type": rule.event_type,
@@ -1088,6 +1230,8 @@ async def create_coin_rule(
 async def update_coin_rule(
     event_type: str,
     payload: CoinRuleUpdate,
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Update an existing coin rule."""
@@ -1102,20 +1246,39 @@ async def update_coin_rule(
             detail=f"Rule for event_type '{event_type}' not found",
         )
     
+    # Track changes for audit log
+    changes = {}
+    
     # Update fields if provided
     if payload.coins_awarded is not None:
+        changes["coins_awarded"] = {"old": rule.coins_awarded, "new": payload.coins_awarded}
         rule.coins_awarded = payload.coins_awarded
     if payload.is_active is not None:
+        changes["is_active"] = {"old": rule.is_active, "new": payload.is_active}
         rule.is_active = payload.is_active
     if payload.max_per_user is not None:
+        changes["max_per_user"] = {"old": rule.max_per_user, "new": payload.max_per_user}
         rule.max_per_user = payload.max_per_user
     if payload.cooldown_days is not None:
+        changes["cooldown_days"] = {"old": rule.cooldown_days, "new": payload.cooldown_days}
         rule.cooldown_days = payload.cooldown_days
     if payload.description is not None:
         rule.description = payload.description
     
     await db.commit()
     await db.refresh(rule)
+
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="update_coin_rule",
+            resource_type="coin_rule",
+            resource_id=event_type,
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload=changes,
+        )
     
     return {
         "event_type": rule.event_type,
@@ -1131,6 +1294,8 @@ async def update_coin_rule(
 @router.delete("/coins/rules/{event_type}")
 async def delete_coin_rule(
     event_type: str,
+    admin_email: str = Depends(require_admin_session),
+    request: Request = None,
     db: AsyncSession = Depends(get_db_session),
 ) -> dict:
     """Delete a coin rule."""
@@ -1147,5 +1312,199 @@ async def delete_coin_rule(
     
     await db.delete(rule)
     await db.commit()
+
+    # Audit log
+    if request:
+        await log_admin_action(
+            action="delete_coin_rule",
+            resource_type="coin_rule",
+            resource_id=event_type,
+            admin_email=admin_email,
+            request=request,
+            db=db,
+            payload={"event_type": event_type},
+        )
     
     return {"status": "deleted", "event_type": event_type}
+
+
+# ============================================================================
+# Audit Logs
+# ============================================================================
+
+@router.get("/audit-logs")
+async def list_audit_logs(
+    admin_email_filter: str | None = Query(default=None, alias="admin_email"),
+    resource_type_filter: str | None = Query(default=None, alias="resource_type"),
+    action_filter: str | None = Query(default=None, alias="action"),
+    from_date: datetime | None = Query(default=None),
+    to_date: datetime | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    List audit logs with filtering and pagination.
+    
+    Supports filtering by:
+    - admin_email: Filter by who performed the action
+    - resource_type: Filter by type of resource (professional, offer, coin_rule, etc.)
+    - action: Filter by action name
+    - from_date: Filter by created_at >= this date
+    - to_date: Filter by created_at <= this date
+    
+    Returns paginated results ordered by created_at DESC (newest first).
+    """
+    from app.models.admin_audit import AdminAuditLog
+    
+    # Build query with filters
+    filters = []
+    
+    if admin_email_filter:
+        filters.append(AdminAuditLog.admin_email == admin_email_filter)
+    
+    if resource_type_filter:
+        filters.append(AdminAuditLog.resource_type == resource_type_filter)
+    
+    if action_filter:
+        filters.append(AdminAuditLog.action == action_filter)
+    
+    if from_date:
+        filters.append(AdminAuditLog.created_at >= from_date)
+    
+    if to_date:
+        filters.append(AdminAuditLog.created_at <= to_date)
+    
+    # Count total matching logs
+    count_query = select(func.count()).select_from(AdminAuditLog)
+    if filters:
+        count_query = count_query.where(*filters)
+    
+    total = (await db.execute(count_query)).scalar_one()
+    
+    # Get paginated logs
+    query = select(AdminAuditLog)
+    if filters:
+        query = query.where(*filters)
+    
+    query = query.order_by(AdminAuditLog.created_at.desc()).offset(offset).limit(limit)
+    
+    result = await db.execute(query)
+    logs = result.scalars().all()
+    
+    return {
+        "items": [
+            {
+                "id": log.id,
+                "action": log.action,
+                "resource_type": log.resource_type,
+                "resource_id": log.resource_id,
+                "admin_email": log.admin_email,
+                "request_method": log.request_method,
+                "request_path": log.request_path,
+                "payload": log.payload,
+                "client_ip": log.client_ip,
+                "user_agent": log.user_agent,
+                "created_at": log.created_at.isoformat(),
+            }
+            for log in logs
+        ],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@router.get("/audit-logs/export")
+async def export_audit_logs_csv(
+    admin_email_filter: str | None = Query(default=None, alias="admin_email"),
+    resource_type_filter: str | None = Query(default=None, alias="resource_type"),
+    action_filter: str | None = Query(default=None, alias="action"),
+    from_date: datetime | None = Query(default=None),
+    to_date: datetime | None = Query(default=None),
+    db: AsyncSession = Depends(get_db_session),
+) -> Response:
+    """
+    Export audit logs as CSV with same filtering as list endpoint.
+    
+    Returns CSV file with all matching audit logs (no pagination).
+    Useful for compliance reports and forensics.
+    """
+    import csv
+    import io
+    from app.models.admin_audit import AdminAuditLog
+    
+    # Build query with filters (same as list endpoint)
+    filters = []
+    
+    if admin_email_filter:
+        filters.append(AdminAuditLog.admin_email == admin_email_filter)
+    
+    if resource_type_filter:
+        filters.append(AdminAuditLog.resource_type == resource_type_filter)
+    
+    if action_filter:
+        filters.append(AdminAuditLog.action == action_filter)
+    
+    if from_date:
+        filters.append(AdminAuditLog.created_at >= from_date)
+    
+    if to_date:
+        filters.append(AdminAuditLog.created_at <= to_date)
+    
+    # Get all matching logs (no limit for export)
+    query = select(AdminAuditLog).order_by(AdminAuditLog.created_at.desc())
+    if filters:
+        query = query.where(*filters)
+    
+    result = await db.execute(query)
+    logs = result.scalars().all()
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write header
+    writer.writerow([
+        "ID",
+        "Timestamp",
+        "Admin Email",
+        "Action",
+        "Resource Type",
+        "Resource ID",
+        "HTTP Method",
+        "Request Path",
+        "Client IP",
+        "User Agent",
+        "Payload (JSON)",
+    ])
+    
+    # Write data rows
+    for log in logs:
+        writer.writerow([
+            log.id,
+            log.created_at.isoformat(),
+            log.admin_email,
+            log.action,
+            log.resource_type,
+            log.resource_id,
+            log.request_method,
+            log.request_path,
+            log.client_ip or "",
+            log.user_agent or "",
+            json.dumps(log.payload) if log.payload else "",
+        ])
+    
+    # Return CSV as download
+    csv_content = output.getvalue()
+    output.close()
+    
+    filename = f"audit_logs_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+    
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
+    )

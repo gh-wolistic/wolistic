@@ -464,6 +464,42 @@ export const RESOURCE_TYPES = [
   "subscription",
   "subscription_plan",
   "billing",
+  "offer",
+  "offer_assignment",
+  "offer_maintenance",
 ] as const;
 
 export type ResourceType = typeof RESOURCE_TYPES[number];
+
+// ============================================================================
+// Audit Logs
+// ============================================================================
+
+export interface AuditLog {
+  id: number;
+  action: string;
+  resource_type: string;
+  resource_id: string;
+  admin_email: string;
+  request_method: string;
+  request_path: string;
+  payload: Record<string, unknown> | null;
+  client_ip: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLog[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AuditLogFilters extends PaginationParams {
+  admin_email?: string;
+  resource_type?: string;
+  action?: string;
+  from_date?: string;
+  to_date?: string;
+}
