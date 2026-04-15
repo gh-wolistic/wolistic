@@ -67,7 +67,7 @@ export function ProfileStudioPage() {
         const mediaAssets = await listMyMediaAssets(accessToken);
         if (!active) return;
         setEditorData(payload);
-        setIsPublished(Boolean(payload.profile_completeness && payload.profile_completeness >= 100));
+        setIsPublished(false); // TODO: Add published status to backend API
         const nextBySurface: Record<string, MediaAsset> = {};
         for (const asset of mediaAssets) {
           if ((asset.surface === "profile" || asset.surface === "cover") && !nextBySurface[asset.surface]) {
@@ -139,6 +139,17 @@ export function ProfileStudioPage() {
       const updated = await updateProfessionalEditorPayload(accessToken, editorData);
       setEditorData(updated);
       await publishProfessionalProfile(accessToken);
+      
+      // Reload media assets to reflect any removals
+      const mediaAssets = await listMyMediaAssets(accessToken);
+      const nextBySurface: Record<string, MediaAsset> = {};
+      for (const asset of mediaAssets) {
+        if ((asset.surface === "profile" || asset.surface === "cover") && !nextBySurface[asset.surface]) {
+          nextBySurface[asset.surface] = asset;
+        }
+      }
+      setMediaBySurface(nextBySurface);
+      
       setSaveEpoch((n) => n + 1);
       setIsPublished(true);
       setSaveMessage("Profile published and live.");
@@ -159,8 +170,9 @@ export function ProfileStudioPage() {
       setMediaBySurface((current) => ({ ...current, [surface]: uploaded.media }));
       setEditorData((current) => {
         if (!current) return current;
-        if (surface === "profile") return { ...current, profile_image_url: uploaded.signedUrl };
-        return { ...current, cover_image_url: uploaded.signedUrl };
+        // Store the relative object_path, not the full signed URL
+        if (surface === "profile") return { ...current, profile_image_url: uploaded.media.object_path };
+        return { ...current, cover_image_url: uploaded.media.object_path };
       });
       setSaveMessage(`${surface === "profile" ? "Profile" : "Cover"} image uploaded.`);
     } catch (caughtError) {

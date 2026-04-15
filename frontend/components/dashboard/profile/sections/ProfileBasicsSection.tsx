@@ -31,6 +31,18 @@ function initialsFromName(name: string): string {
     .join("");
 }
 
+// Helper to convert relative storage path to full public URL
+function toPublicImageUrl(path: string): string {
+  if (!path) return "";
+  // If already a full URL, return as-is
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  // Otherwise, construct the public URL
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${supabaseUrl}/storage/v1/object/public/wolistic-media-profile/${path}`;
+}
+
 export function ProfileBasicsSection({
   value,
   onFieldChange,
@@ -81,7 +93,7 @@ export function ProfileBasicsSection({
       <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
         <div className="relative h-40 sm:h-56 bg-linear-to-r from-emerald-500 via-teal-500 to-blue-500">
           {value.cover_image_url ? (
-            <Image src={value.cover_image_url} alt="Cover" fill className="object-cover" />
+            <Image src={toPublicImageUrl(value.cover_image_url)} alt="Cover" fill className="object-cover" />
           ) : null}
           <div className="absolute right-3 top-3 flex items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-black/50 px-3 py-1.5 text-xs font-medium text-white hover:bg-black/70 sm:gap-2 sm:px-4 sm:py-2 sm:text-sm">
@@ -123,7 +135,7 @@ export function ProfileBasicsSection({
             <div className="relative shrink-0">
               <div className="relative flex h-20 w-20 sm:h-32 sm:w-32 items-center justify-center rounded-2xl border-4 border-[#0d1526] bg-linear-to-br from-emerald-500 to-teal-600 text-2xl sm:text-4xl font-semibold text-white shadow-xl">
                 {value.profile_image_url ? (
-                  <Image src={value.profile_image_url} alt="Profile" fill className="rounded-2xl object-cover" />
+                  <Image src={toPublicImageUrl(value.profile_image_url)} alt="Profile" fill className="rounded-2xl object-cover" sizes="(max-width: 640px) 80px, 128px" />
                 ) : (
                   initials
                 )}

@@ -1180,6 +1180,7 @@ export function BodyExpertDashboardContent({
                   mode: "online",
                   duration_value: 30,
                   duration_unit: "mins",
+                  session_count: 1,
                   is_active: true,
                 },
               ])

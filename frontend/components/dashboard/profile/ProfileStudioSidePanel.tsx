@@ -17,6 +17,18 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { ProfessionalEditorPayload } from "@/types/professional-editor";
 
+// Helper to convert relative storage path to full public URL
+function toPublicImageUrl(path: string): string {
+  if (!path) return "";
+  // If already a full URL, return as-is
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  // Otherwise, construct the public URL
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return `${supabaseUrl}/storage/v1/object/public/wolistic-media-profile/${path}`;
+}
+
 interface ProfileStudioSidePanelProps {
   editorData: ProfessionalEditorPayload;
   username: string;
@@ -41,7 +53,7 @@ export function ProfileStudioSidePanel({
         <div className="relative h-20 bg-linear-to-br from-emerald-500/30 via-cyan-500/20 to-sky-500/10">
           {editorData.cover_image_url && (
             <Image
-              src={editorData.cover_image_url}
+              src={toPublicImageUrl(editorData.cover_image_url)}
               alt="Cover"
               fill
               className="object-cover"
@@ -50,7 +62,7 @@ export function ProfileStudioSidePanel({
           )}
         </div>
         <Avatar className="absolute -bottom-6 left-4 size-16 border-2 border-emerald-500/60 ring-2 ring-[#0d1526]">
-          <AvatarImage src={editorData.profile_image_url || undefined} alt="Profile" />
+          <AvatarImage src={toPublicImageUrl(editorData.profile_image_url || "")} alt="Profile" />
           <AvatarFallback className="bg-emerald-500/20 text-lg font-semibold text-emerald-400">
             {initials}
           </AvatarFallback>

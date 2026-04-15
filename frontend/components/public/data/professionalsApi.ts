@@ -271,4 +271,4 @@ export async function searchProfessionals(query: string, limit = 24): Promise<Pr
   throw new Error(`API error ${res.status}`);
 }
 
-export type { ProfessionalReview };
+export type { ProfessionalReview, ReviewsSummary };

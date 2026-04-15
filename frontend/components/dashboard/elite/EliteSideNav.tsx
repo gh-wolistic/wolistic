@@ -21,7 +21,7 @@ import {
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/components/ui/utils";
 import logoLightText from "@/assets/logo_light_text.png";
 import { notificationAPI } from "@/lib/notification-api";
@@ -113,6 +113,7 @@ function NavContent({
             alt="Wolistic"
             height={32}
             className="h-8 w-auto object-contain"
+            style={{ width: "auto", height: "auto" }}
           />
         )}
       </div>
@@ -251,6 +252,7 @@ export function EliteSideNav({
             className="w-64 border-white/8 bg-[#080d1a]/95 p-0 backdrop-blur-2xl"
           >
             <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
+            <SheetDescription className="sr-only">Access navigation options and settings</SheetDescription>
             <NavContent
               collapsed={false}
               userInitials={userInitials}

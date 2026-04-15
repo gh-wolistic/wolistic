@@ -412,7 +412,7 @@ function MessageThreadPanel({
 
     const isGrouped =
       lastSenderId === message.sender_id &&
-      lastTimestamp &&
+      lastTimestamp !== null &&
       (messageDate.getTime() - lastTimestamp.getTime()) < 120000; // 2 minutes
 
     const isLastInGroup =
@@ -595,7 +595,7 @@ export function MessagingPage() {
           const otherUserId = otherParticipant?.user_id || '';
           
           // Use user_profile from backend if available, otherwise fetch from Supabase
-          let userName = otherParticipant?.user_profile?.name;
+          let userName: string = otherParticipant?.user_profile?.name || '';
           
           if (!userName) {
             // Fallback to Supabase query if profile not loaded
@@ -746,7 +746,7 @@ export function MessagingPage() {
           }
         }
       )
-      .on('subscribe', (status, err) => {
+      .subscribe((status, err) => {
         console.log('[Realtime] Subscribe callback - Status:', status, 'Error:', err);
         if (status === 'SUBSCRIBED') {
           console.log('✅ [Realtime] SUCCESSFULLY SUBSCRIBED - Real-time is working!');
@@ -758,9 +758,7 @@ export function MessagingPage() {
           console.error('⏱️ [Realtime] Connection timed out - Using polling fallback.');
           setRealtimeConnected(false);
         }
-      })
-      .subscribe((status, err) => {
-        console.log('[Realtime] Initial subscribe - Status:', status, 'Error:', err);
+        
         if (err) {
           console.error('❌ [Realtime] Subscription error:', err);
           console.error('[Realtime] Make sure you ran: ALTER PUBLICATION supabase_realtime ADD TABLE messages;');

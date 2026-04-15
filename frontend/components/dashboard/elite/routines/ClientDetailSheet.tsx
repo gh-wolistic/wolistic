@@ -102,7 +102,7 @@ export function ClientDetailSheet({
             <div className="col-span-2 space-y-6">
               {/* Hero: Active Routine */}
               <ActiveRoutineSection 
-                routine={activeRoutine}
+                routine={activeRoutine ?? undefined}
                 onCreateRoutine={() => console.log('Create routine')}
                 onViewDetails={() => console.log('View details')}
                 onEdit={() => console.log('Edit routine')}

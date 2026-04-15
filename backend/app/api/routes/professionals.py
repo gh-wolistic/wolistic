@@ -1556,6 +1556,7 @@ async def update_my_professional_editor_payload(
 
     prof.username = new_username
     prof.cover_image_url = normalize_profile_media_path(payload.cover_image_url)
+    prof.profile_image_url = normalize_profile_media_path(payload.profile_image_url)
     prof.membership_tier = await _resolve_membership_tier(db, current_user.user_id, prof.user.user_status)
     prof.experience_years = payload.experience_years
     prof.sex = payload.sex.strip()

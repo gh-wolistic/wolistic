@@ -867,7 +867,7 @@ export function ServicesBookingSection({ professional, bookingStartSignal }: Ser
                 <UserOnboardingFlow
                   compact
                   userName={user?.name}
-                  initialUserType={user?.type ?? null}
+                  initialUserType={user?.userType === "unknown" ? null : user?.userType ?? null}
                   initialUserSubtype={user?.userSubtype ?? null}
                   error={userOnboardingError}
                   isSubmitting={userOnboardingSubmitting}

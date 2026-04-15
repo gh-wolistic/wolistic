@@ -341,6 +341,17 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     }
   }
 
+  async function handleDeleteLocation(locationId: number) {
+    if (!accessToken) return;
+    try {
+      await deleteWorkLocation(accessToken, locationId);
+      toast.success("Location deleted successfully");
+      await loadAll();
+    } catch {
+      toast.error("Failed to delete location");
+    }
+  }
+
   async function handleUpdateEnrollment(id: number, patch: { status?: string; payment_status?: string }) {
     if (!accessToken) return;
     try {

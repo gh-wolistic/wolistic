@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, UserCheck, UserClock, Mail, StickyNote, Users } from "lucide-react";
+import { Plus, Trash2, UserCheck, Clock, Mail, StickyNote, Users } from "lucide-react";
 
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { Badge } from "@/components/ui/badge";
@@ -98,7 +98,7 @@ async function removeClient(token: string, clientId: number): Promise<void> {
 const statusConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
   pending: {
     label: "Pending",
-    icon: <UserClock className="h-3 w-3" />,
+    icon: <Clock className="h-3 w-3" />,
     className: "bg-amber-100 text-amber-700 border-amber-200",
   },
   registered: {
@@ -229,7 +229,7 @@ export function ClientListManager() {
             )}
             {pendingCount > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs text-amber-700">
-                <UserClock className="h-3 w-3" />
+                <Clock className="h-3 w-3" />
                 <span className="font-semibold">{pendingCount}</span> pending
               </span>
             )}
