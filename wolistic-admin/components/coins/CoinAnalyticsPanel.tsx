@@ -1,10 +1,38 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { TrendingUp, TrendingDown, Coins, Users } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { Card } from "@/components/ui/card";
+import { adminApi } from "@/lib/admin-api-client";
+
+interface CoinAnalytics {
+  total_circulating: number;
+  active_wallets: number;
+  total_earned_30d: number;
+  total_spent_30d: number;
+  earned_change_percent: number;
+  spent_change_percent: number;
+}
 
 export function CoinAnalyticsPanel() {
+  const [analytics, setAnalytics] = useState<CoinAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAnalytics() {
+      try {
+        const data = await adminApi.coins.getAnalytics();
+        setAnalytics(data);
+      } catch (error) {
+        console.error("Failed to load coin analytics:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadAnalytics();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -19,31 +47,35 @@ export function CoinAnalyticsPanel() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Total Circulating"
-          value="0"
+          value={analytics?.total_circulating.toLocaleString() ?? "—"}
           subtitle="Coins in user wallets"
           icon={Coins}
           variant="default"
+          loading={loading}
         />
         <MetricCard
           title="Total Earned (30d)"
-          value="0"
-          subtitle="+0% from last month"
+          value={analytics?.total_earned_30d.toLocaleString() ?? "—"}
+          subtitle={analytics ? `${analytics.earned_change_percent > 0 ? "+" : ""}${analytics.earned_change_percent}% from last month` : undefined}
           icon={TrendingUp}
           variant="success"
+          loading={loading}
         />
         <MetricCard
           title="Total Spent (30d)"
-          value="0"
-          subtitle="+0% from last month"
+          value={analytics?.total_spent_30d.toLocaleString() ?? "—"}
+          subtitle={analytics ? `${analytics.spent_change_percent > 0 ? "+" : ""}${analytics.spent_change_percent}% from last month` : undefined}
           icon={TrendingDown}
           variant="primary"
+          loading={loading}
         />
         <MetricCard
           title="Active Wallets"
-          value="0"
+          value={analytics?.active_wallets.toLocaleString() ?? "—"}
           subtitle="Users with >0 coins"
           icon={Users}
           variant="default"
+          loading={loading}
         />
       </div>
 

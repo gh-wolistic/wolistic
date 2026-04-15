@@ -346,6 +346,16 @@ export const analyticsApi = {
       "/admin/metrics/revenue",
       { days }
     ),
+
+  getCoinAnalytics: (days: number = 30) =>
+    client.get<{
+      total_circulating: number;
+      earned_last_30d: number;
+      spent_last_30d: number;
+      active_wallets: number;
+      lifetime_earned: number;
+      lifetime_redeemed: number;
+    }>("/admin/metrics/coin-analytics", { days }),
 };
 
 // ============================================================================

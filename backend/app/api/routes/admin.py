@@ -232,17 +232,41 @@ async def get_dashboard_metrics(db: AsyncSession = Depends(get_db_session)) -> d
     )
     pending_verifications = (await db.execute(pending_query)).scalar_one()
     
-    # Count active subscriptions (placeholder - implement when subscription table exists)
-    active_subscriptions = 0
+    # Count active subscriptions
+    active_subs_query = select(func.count()).select_from(ProfessionalSubscription).where(
+        ProfessionalSubscription.status == "active"
+    )
+    active_subscriptions = (await db.execute(active_subs_query)).scalar_one()
     
     # Count total users
     user_count_query = select(func.count()).select_from(User)
     total_users = (await db.execute(user_count_query)).scalar_one()
     
-    # Total coins circulated (placeholder)
-    total_coins_circulated = 0
+    # Total coins circulated (sum of all wallet balances)
+    from app.models.coin import CoinWallet
+    coins_query = select(func.coalesce(func.sum(CoinWallet.balance), 0)).select_from(CoinWallet)
+    total_coins_circulated = (await db.execute(coins_query)).scalar_one()
     
-    # Total revenue (placeholder)
+    # Count professionals by tier - treat NULL as "free"
+    tier_query = select(
+        Professional.membership_tier,
+        func.count().label("count")
+    ).select_from(User).join(
+        Professional, User.id == Professional.user_id, isouter=True
+    ).where(
+        User.user_type == "partner"
+    ).group_by(
+        Professional.membership_tier
+    )
+    tier_results = (await db.execute(tier_query)).all()
+    
+    professionals_by_tier = {"free": 0, "pro": 0, "elite": 0, "celeb": 0}
+    for tier, count in tier_results:
+        tier_key = tier if tier else "free"  # Handle NULL as "free"
+        if tier_key in professionals_by_tier:
+            professionals_by_tier[tier_key] = count
+    
+    # Total revenue (placeholder for now - implement when billing records exist)
     revenue_total = 0
     revenue_monthly = 0
     
@@ -254,12 +278,7 @@ async def get_dashboard_metrics(db: AsyncSession = Depends(get_db_session)) -> d
         "total_coins_circulated": total_coins_circulated,
         "revenue_total": revenue_total,
         "revenue_monthly": revenue_monthly,
-        "professionals_by_tier": {
-            "free": 0,
-            "pro": 0,
-            "elite": 0,
-            "celeb": 0,
-        },
+        "professionals_by_tier": professionals_by_tier,
     }
 
 
@@ -269,8 +288,36 @@ async def get_registration_trend(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict]:
     """Get registration trend data."""
-    # Placeholder - return empty array for now
-    return []
+    from datetime import timedelta
+    
+    # Calculate start date
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Query registrations grouped by date and user type
+    query = select(
+        func.date(User.created_at).label("date"),
+        User.user_type.label("type"),
+        func.count().label("count")
+    ).where(
+        User.created_at >= start_date
+    ).group_by(
+        func.date(User.created_at),
+        User.user_type
+    ).order_by(
+        func.date(User.created_at)
+    )
+    
+    results = (await db.execute(query)).all()
+    
+    return [
+        {
+            "date": row.date.isoformat(),
+            "type": row.type,
+            "count": row.count
+        }
+        for row in results
+    ]
 
 
 @router.get("/metrics/revenue")
@@ -279,8 +326,155 @@ async def get_revenue_trend(
     db: AsyncSession = Depends(get_db_session),
 ) -> list[dict]:
     """Get revenue trend data."""
-    # Placeholder - return empty array for now
-    return []
+    # Placeholder - implement when billing records exist
+    # For now, return mock data based on subscriptions
+    from datetime import timedelta
+    
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Query active subscriptions by tier
+    query = select(
+        func.date(ProfessionalSubscription.created_at).label("date"),
+        func.coalesce(Professional.membership_tier, "free").label("tier"),
+        func.count().label("count")
+    ).select_from(ProfessionalSubscription).join(
+        Professional, ProfessionalSubscription.professional_id == Professional.id
+    ).where(
+        ProfessionalSubscription.created_at >= start_date,
+        ProfessionalSubscription.status == "active"
+    ).group_by(
+        func.date(ProfessionalSubscription.created_at),
+        func.coalesce(Professional.membership_tier, "free")
+    ).order_by(
+        func.date(ProfessionalSubscription.created_at)
+    )
+    
+    results = (await db.execute(query)).all()
+    
+    # Convert to revenue (tier prices)
+    tier_prices = {"free": 0, "pro": 999, "elite": 2499, "celeb": 9999}
+    
+    return [
+        {
+            "date": row.date.isoformat(),
+            "tier": row.tier,
+            "amount": tier_prices.get(row.tier, 0) * row.count
+        }
+        for row in results
+    ]
+
+
+# ============================================================================
+# Coin Analytics Endpoints (Session Protected)
+# ============================================================================
+
+@router.get("/coins/analytics")
+async def get_coin_analytics(
+    days: int = Query(default=30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """Get coin economy analytics."""
+    from app.models.coin import CoinWallet, CoinTransaction
+    
+    # Total circulating (sum of all wallet balances)
+    circulating_query = select(func.coalesce(func.sum(CoinWallet.balance), 0))
+    total_circulating = (await db.execute(circulating_query)).scalar_one()
+    
+    # Active wallets (wallets with balance > 0)
+    active_wallets_query = select(func.count()).select_from(CoinWallet).where(
+        CoinWallet.balance > 0
+    )
+    active_wallets = (await db.execute(active_wallets_query)).scalar_one()
+    
+    # Calculate date range for trends
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Total earned in period (positive transactions)
+    earned_query = select(func.coalesce(func.sum(CoinTransaction.amount), 0)).where(
+        CoinTransaction.amount > 0,
+        CoinTransaction.created_at >= start_date
+    )
+    total_earned = (await db.execute(earned_query)).scalar_one()
+    
+    # Total spent in period (negative transactions)
+    spent_query = select(func.coalesce(func.sum(func.abs(CoinTransaction.amount)), 0)).where(
+        CoinTransaction.amount < 0,
+        CoinTransaction.created_at >= start_date
+    )
+    total_spent = (await db.execute(spent_query)).scalar_one()
+    
+    # Calculate previous period for comparison
+    prev_start = start_date - timedelta(days=days)
+    prev_end = start_date
+    
+    # Previous period earned
+    prev_earned_query = select(func.coalesce(func.sum(CoinTransaction.amount), 0)).where(
+        CoinTransaction.amount > 0,
+        CoinTransaction.created_at >= prev_start,
+        CoinTransaction.created_at < prev_end
+    )
+    prev_earned = (await db.execute(prev_earned_query)).scalar_one()
+    
+    # Previous period spent
+    prev_spent_query = select(func.coalesce(func.sum(func.abs(CoinTransaction.amount)), 0)).where(
+        CoinTransaction.amount < 0,
+        CoinTransaction.created_at >= prev_start,
+        CoinTransaction.created_at < prev_end
+    )
+    prev_spent = (await db.execute(prev_spent_query)).scalar_one()
+    
+    # Calculate percentage changes
+    earned_change = ((total_earned - prev_earned) / prev_earned * 100) if prev_earned > 0 else 0
+    spent_change = ((total_spent - prev_spent) / prev_spent * 100) if prev_spent > 0 else 0
+    
+    return {
+        "total_circulating": total_circulating,
+        "active_wallets": active_wallets,
+        "total_earned_30d": total_earned,
+        "total_spent_30d": total_spent,
+        "earned_change_percent": round(earned_change, 1),
+        "spent_change_percent": round(spent_change, 1),
+    }
+
+
+@router.get("/coins/top-events")
+async def get_top_coin_events(
+    days: int = Query(default=30, ge=1, le=365),
+    limit: int = Query(default=10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[dict]:
+    """Get top coin earning/spending events."""
+    from app.models.coin import CoinTransaction
+    
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=days)
+    
+    # Group by event type and sum amounts
+    query = select(
+        CoinTransaction.event_type.label("event"),
+        func.count().label("count"),
+        func.sum(CoinTransaction.amount).label("total_coins")
+    ).where(
+        CoinTransaction.created_at >= start_date,
+        CoinTransaction.event_type.isnot(None)
+    ).group_by(
+        CoinTransaction.event_type
+    ).order_by(
+        func.sum(CoinTransaction.amount).desc()
+    ).limit(limit)
+    
+    results = (await db.execute(query)).all()
+    
+    return [
+        {
+            "event": row.event,
+            "count": row.count,
+            "total_coins": row.total_coins
+        }
+        for row in results
+    ]
 
 
 # ============================================================================
