@@ -224,12 +224,12 @@ export const coinApi = {
   getAnalytics: (days: number = 30) =>
     client.get<{
       total_circulating: number;
-      earned_last_30d: number;
-      spent_last_30d: number;
       active_wallets: number;
-      lifetime_earned: number;
-      lifetime_redeemed: number;
-    }>("/admin/metrics/coin-analytics", { days }),
+      total_earned_30d: number;
+      total_spent_30d: number;
+      earned_change_percent: number;
+      spent_change_percent: number;
+    }>("/admin/coins/analytics", { days }),
 };
 
 // ============================================================================

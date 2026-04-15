@@ -9,10 +9,10 @@ import { adminApi } from "@/lib/admin-api-client";
 interface CoinAnalytics {
   total_circulating: number;
   active_wallets: number;
-  earned_last_30d: number;
-  spent_last_30d: number;
-  lifetime_earned: number;
-  lifetime_redeemed: number;
+  total_earned_30d: number;
+  total_spent_30d: number;
+  earned_change_percent: number;
+  spent_change_percent: number;
 }
 
 export function CoinAnalyticsPanel() {
@@ -55,16 +55,16 @@ export function CoinAnalyticsPanel() {
         />
         <MetricCard
           title="Total Earned (30d)"
-          value={analytics?.earned_last_30d.toLocaleString() ?? "—"}
-          subtitle="Coins earned in last 30 days"
+          value={analytics?.total_earned_30d.toLocaleString() ?? "—"}
+          subtitle={analytics ? `${analytics.earned_change_percent > 0 ? "+" : ""}${analytics.earned_change_percent}% from last month` : undefined}
           icon={TrendingUp}
           variant="success"
           loading={loading}
         />
         <MetricCard
           title="Total Spent (30d)"
-          value={analytics?.spent_last_30d.toLocaleString() ?? "—"}
-          subtitle="Coins spent in last 30 days"
+          value={analytics?.total_spent_30d.toLocaleString() ?? "—"}
+          subtitle={analytics ? `${analytics.spent_change_percent > 0 ? "+" : ""}${analytics.spent_change_percent}% from last month` : undefined}
           icon={TrendingDown}
           variant="primary"
           loading={loading}
