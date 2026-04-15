@@ -56,6 +56,7 @@ export function ProfileBasicsSection({
   const [usernameStatus, setUsernameStatus] = useState<"idle" | "checking" | "available" | "taken">("idle");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [usernameLimits, setUsernameLimits] = useState<UsernameChangeLimits | null>(null);
+  const [originalUsername, setOriginalUsername] = useState<string>("");
 
   useEffect(() => {
     if (!accessToken) return;
@@ -64,9 +65,18 @@ export function ProfileBasicsSection({
       .catch(() => null);
   }, [accessToken]);
 
+  // Track the original username on mount
+  useEffect(() => {
+    if (value.username && !originalUsername) {
+      setOriginalUsername(value.username);
+    }
+  }, [value.username, originalUsername]);
+
   useEffect(() => {
     const username = (value.username || "").trim();
-    if (username.length < 2) {
+    
+    // Don't check availability if username is empty, too short, or unchanged from original
+    if (username.length < 2 || username === originalUsername) {
       setUsernameStatus("idle");
       return;
     }
@@ -86,7 +96,7 @@ export function ProfileBasicsSection({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [value.username, accessToken]);
+  }, [value.username, accessToken, originalUsername]);
 
   return (
     <section className="w-full max-w-full space-y-6 overflow-hidden">
