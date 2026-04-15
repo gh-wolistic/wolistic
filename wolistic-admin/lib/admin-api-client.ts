@@ -219,6 +219,17 @@ export const coinApi = {
 
   deleteRule: (eventType: string) =>
     client.delete<{ status: string }>(`/admin/coins/rules/${eventType}`),
+
+  // Coin Analytics
+  getAnalytics: (days: number = 30) =>
+    client.get<{
+      total_circulating: number;
+      earned_last_30d: number;
+      spent_last_30d: number;
+      active_wallets: number;
+      lifetime_earned: number;
+      lifetime_redeemed: number;
+    }>("/admin/metrics/coin-analytics", { days }),
 };
 
 // ============================================================================
