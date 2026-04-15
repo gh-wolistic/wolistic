@@ -38,16 +38,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const user = await backendAdminFetch<UserLookupResult>(
-      `/api/v1/admin/users/by-email?email=${encodeURIComponent(email)}`,
+    // Use the new combined lookup endpoint at the correct path
+    const result = await backendAdminFetch<{
+      user_id: string;
+      email: string;
+      wallet: CoinWallet;
+      transactions: TransactionPage;
+    }>(
+      `/api/v1/coins/admin/lookup?email=${encodeURIComponent(email)}`,
     );
-    const [wallet, transactions] = await Promise.all([
-      backendAdminFetch<CoinWallet>(`/api/v1/coins/admin/wallet/${user.user_id}`),
-      backendAdminFetch<TransactionPage>(
-        `/api/v1/coins/admin/transactions/${user.user_id}?page=1&size=20`,
-      ),
-    ]);
-    return NextResponse.json({ user_id: user.user_id, wallet, transactions });
+    return NextResponse.json(result);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Lookup failed";
     const status = message.includes("not found") || message.includes("404") ? 404 : 500;

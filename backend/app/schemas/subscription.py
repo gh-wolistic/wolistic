@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 # ── Plans ─────────────────────────────────────────────────────────────────────
@@ -20,6 +20,7 @@ class SubscriptionPlanOut(BaseModel):
     limits: dict[str, Any]
     display_order: int
     is_active: bool
+    coming_soon: bool
     created_at: datetime
     updated_at: datetime
 
@@ -37,6 +38,7 @@ class SubscriptionPlanIn(BaseModel):
     limits: dict[str, Any] = Field(default_factory=dict)
     display_order: int = Field(0, ge=0)
     is_active: bool = True
+    coming_soon: bool = False
 
 
 class SubscriptionPlanPatch(BaseModel):
@@ -50,6 +52,7 @@ class SubscriptionPlanPatch(BaseModel):
     limits: dict[str, Any] | None = None
     display_order: int | None = Field(None, ge=0)
     is_active: bool | None = None
+    coming_soon: bool | None = None
 
 
 # ── Professional Subscriptions ────────────────────────────────────────────────
@@ -77,6 +80,13 @@ class ProfessionalSubscriptionAssign(BaseModel):
     starts_at: datetime
     ends_at: datetime | None = None
     auto_renew: bool = False
+    
+    @model_validator(mode='after')
+    def validate_dates(self) -> 'ProfessionalSubscriptionAssign':
+        """Validate that ends_at is after starts_at if provided."""
+        if self.ends_at is not None and self.ends_at <= self.starts_at:
+            raise ValueError("ends_at must be after starts_at")
+        return self
 
 
 class ProfessionalSubscriptionPatch(BaseModel):

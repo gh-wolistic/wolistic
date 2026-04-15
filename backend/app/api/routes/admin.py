@@ -168,6 +168,7 @@ async def admin_login(payload: AdminLoginRequest, response: Response) -> dict:
         secure=False,  # Set to True in production with HTTPS
         samesite="lax",
         max_age=SESSION_EXPIRY_DAYS * 86400,  # 7 days
+        domain=None,  # Allow cookies to work across localhost variations
     )
     
     return {
@@ -340,13 +341,13 @@ async def get_revenue_trend(
         func.coalesce(Professional.membership_tier, "free").label("tier"),
         func.count().label("count")
     ).select_from(ProfessionalSubscription).join(
-        Professional, ProfessionalSubscription.professional_id == Professional.id
+        Professional, ProfessionalSubscription.professional_id == Professional.user_id
     ).where(
         ProfessionalSubscription.created_at >= start_date,
         ProfessionalSubscription.status == "active"
     ).group_by(
         func.date(ProfessionalSubscription.created_at),
-        func.coalesce(Professional.membership_tier, "free")
+        Professional.membership_tier  # PostgreSQL requires the base column in GROUP BY
     ).order_by(
         func.date(ProfessionalSubscription.created_at)
     )

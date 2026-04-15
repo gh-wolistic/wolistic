@@ -50,7 +50,13 @@ export default function DashboardPage() {
         setRevenueData(aggregatedRevenue);
       } catch (err) {
         console.error("Failed to load dashboard data:", err);
-        setError(err instanceof Error ? err.message : "Failed to load dashboard data");
+        const errorMsg = err instanceof Error ? err.message : "Failed to load dashboard data";
+        // Check if it's an authentication error
+        if (errorMsg.includes("authenticated") || errorMsg.includes("login")) {
+          // Don't show error - user will be redirected by layout
+          return;
+        }
+        setError(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -162,7 +168,7 @@ export default function DashboardPage() {
           loading={loading}
         />
         <MetricCard
-          title="Total Revenue"
+          title="Booking Revenue"
           value={metrics ? `₹${formatCompactNumber(metrics.revenue_total)}` : "—"}
           subtitle={metrics ? `₹${formatCompactNumber(metrics.revenue_monthly)} this month` : undefined}
           loading={loading}
@@ -181,7 +187,7 @@ export default function DashboardPage() {
         />
 
         <TrendChart
-          title="Revenue Trend (Last 30 Days)"
+          title="Subscription Revenue Trend (Last 30 Days)"
           data={revenueData}
           loading={loading}
           type="area"

@@ -20,6 +20,15 @@ type SubscriptionPlan = {
 
 export async function GET(request: Request) {
   const session = await readAdminSession();
+  
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Subscriptions API] Session check:', { 
+      hasSession: !!session, 
+      email: session?.email 
+    });
+  }
+  
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const url = new URL(request.url);

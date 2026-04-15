@@ -470,6 +470,19 @@ async def delete_plan(
     plan = result.scalar_one_or_none()
     if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found")
+    
+    # Check for active assignments before deleting
+    assignments_result = await db.execute(
+        select(ProfessionalSubscription).where(ProfessionalSubscription.plan_id == plan_id)
+    )
+    active_assignments = assignments_result.scalars().all()
+    if active_assignments:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cannot delete plan '{plan.name}' - it has {len(active_assignments)} active assignment(s). "
+                   f"Remove or reassign subscriptions first."
+        )
+    
     await db.delete(plan)
     await db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -489,6 +502,205 @@ async def list_assigned_subscriptions(
     result = await db.execute(q)
     subs = result.scalars().all()
     return [await _build_subscription_out(s, db) for s in subs]
+
+
+@admin_router.get("/limits/schema")
+async def get_limits_schema() -> dict:
+    """
+    Return comprehensive limits schema with metadata.
+    Used by admin UI to render limit editor dynamically.
+    
+    Returns limit field definitions grouped by category:
+    - profile_limits: Profile infrastructure limits
+    - operational_limits: Tier-based operational limits
+    - feature_flags: Boolean feature access flags
+    - multipliers: Performance boost multipliers
+    
+    Each field includes:
+    - type: 'integer', 'boolean', or 'float'
+    - description: Human-readable explanation
+    - defaults: Default values for each tier (free, pro, elite, celeb)
+    """
+    return {
+        "profile_limits": {
+            "certificates_limit": {
+                "type": "integer",
+                "description": "Maximum verified certifications",
+                "defaults": {"free": 3, "pro": 10, "elite": 25, "celeb": 9999},
+            },
+            "languages_limit": {
+                "type": "integer",
+                "description": "Maximum languages offered",
+                "defaults": {"free": 2, "pro": 5, "elite": 10, "celeb": 9999},
+            },
+            "education_items_limit": {
+                "type": "integer",
+                "description": "Maximum education entries",
+                "defaults": {"free": 2, "pro": 5, "elite": 10, "celeb": 9999},
+            },
+            "expertise_areas_limit": {
+                "type": "integer",
+                "description": "Maximum expertise tags",
+                "defaults": {"free": 3, "pro": 10, "elite": 20, "celeb": 9999},
+            },
+            "approaches_limit": {
+                "type": "integer",
+                "description": "Maximum therapeutic approaches",
+                "defaults": {"free": 2, "pro": 5, "elite": 10, "celeb": 9999},
+            },
+            "subcategories_limit": {
+                "type": "integer",
+                "description": "Maximum service subcategories",
+                "defaults": {"free": 2, "pro": 5, "elite": 10, "celeb": 9999},
+            },
+            "gallery_items_limit": {
+                "type": "integer",
+                "description": "Maximum gallery photos/videos",
+                "defaults": {"free": 5, "pro": 20, "elite": 50, "celeb": 9999},
+            },
+            "booking_questions_limit": {
+                "type": "integer",
+                "description": "Maximum custom booking questions",
+                "defaults": {"free": 0, "pro": 3, "elite": 10, "celeb": 9999},
+            },
+        },
+        "operational_limits": {
+            "services_limit": {
+                "type": "integer",
+                "description": "Maximum active service offerings",
+                "defaults": {"free": 2, "pro": 5, "elite": 15, "celeb": 9999},
+            },
+            "booking_slots_limit": {
+                "type": "integer",
+                "description": "Maximum availability slots per month",
+                "defaults": {"free": 10, "pro": 50, "elite": 200, "celeb": 9999},
+            },
+            "client_invites_per_day": {
+                "type": "integer",
+                "description": "Maximum client invites per day",
+                "defaults": {"free": 1, "pro": 5, "elite": 20, "celeb": 9999},
+            },
+            "client_invites_per_month": {
+                "type": "integer",
+                "description": "Maximum client invites per month",
+                "defaults": {"free": 5, "pro": 30, "elite": 100, "celeb": 9999},
+            },
+            "leads_per_day": {
+                "type": "integer",
+                "description": "Maximum new leads accepted per day",
+                "defaults": {"free": 2, "pro": 10, "elite": 50, "celeb": 9999},
+            },
+            "leads_total_limit": {
+                "type": "integer",
+                "description": "Maximum total active leads",
+                "defaults": {"free": 10, "pro": 50, "elite": 200, "celeb": 9999},
+            },
+            "followups_per_day": {
+                "type": "integer",
+                "description": "Maximum follow-ups created per day",
+                "defaults": {"free": 3, "pro": 20, "elite": 100, "celeb": 9999},
+            },
+            "followups_total_limit": {
+                "type": "integer",
+                "description": "Maximum active follow-ups",
+                "defaults": {"free": 20, "pro": 100, "elite": 500, "celeb": 9999},
+            },
+            "routines_limit": {
+                "type": "integer",
+                "description": "Maximum active client routines",
+                "defaults": {"free": 0, "pro": 10, "elite": 50, "celeb": 9999},
+            },
+            "routine_templates_limit": {
+                "type": "integer",
+                "description": "Maximum reusable routine templates",
+                "defaults": {"free": 0, "pro": 5, "elite": 25, "celeb": 9999},
+            },
+            "group_classes_limit": {
+                "type": "integer",
+                "description": "Maximum active group classes",
+                "defaults": {"free": 0, "pro": 3, "elite": 15, "celeb": 9999},
+            },
+            "activity_manager_yet_to_start_cap": {
+                "type": "integer",
+                "description": "Maximum 'yet to start' items in activity manager",
+                "defaults": {"free": 10, "pro": 30, "elite": 100, "celeb": 9999},
+            },
+            "activity_manager_in_progress_cap": {
+                "type": "integer",
+                "description": "Maximum 'in progress' items in activity manager",
+                "defaults": {"free": 10, "pro": 30, "elite": 100, "celeb": 9999},
+            },
+            "classes_sessions_limit": {
+                "type": "integer",
+                "description": "Maximum total classes/sessions",
+                "defaults": {"free": 5, "pro": 25, "elite": 100, "celeb": 9999},
+            },
+            "messages_retention_days": {
+                "type": "integer",
+                "description": "Chat history retention period (days)",
+                "defaults": {"free": 30, "pro": 90, "elite": 365, "celeb": 9999},
+            },
+        },
+        "feature_flags": {
+            "can_reply_to_reviews": {
+                "type": "boolean",
+                "description": "Can respond to client reviews",
+                "defaults": {"free": True, "pro": True, "elite": True, "celeb": True},
+            },
+            "can_receive_reviews": {
+                "type": "boolean",
+                "description": "Can receive client reviews",
+                "defaults": {"free": True, "pro": True, "elite": True, "celeb": True},
+            },
+            "featured_in_search": {
+                "type": "boolean",
+                "description": "Boosted search ranking",
+                "defaults": {"free": False, "pro": True, "elite": True, "celeb": True},
+            },
+            "priority_support": {
+                "type": "boolean",
+                "description": "Access to priority customer support",
+                "defaults": {"free": False, "pro": False, "elite": True, "celeb": True},
+            },
+            "ai_routine_privacy": {
+                "type": "boolean",
+                "description": "AI cannot read routines for suggestions",
+                "defaults": {"free": False, "pro": False, "elite": False, "celeb": True},
+            },
+            "white_label_branding": {
+                "type": "boolean",
+                "description": "Custom branding on client-facing pages",
+                "defaults": {"free": False, "pro": False, "elite": False, "celeb": True},
+            },
+            "dedicated_account_manager": {
+                "type": "boolean",
+                "description": "Personal account manager",
+                "defaults": {"free": False, "pro": False, "elite": False, "celeb": True},
+            },
+            "brand_collaboration_priority": {
+                "type": "boolean",
+                "description": "Priority brand partnership access",
+                "defaults": {"free": False, "pro": False, "elite": True, "celeb": True},
+            },
+        },
+        "multipliers": {
+            "coin_multiplier": {
+                "type": "float",
+                "description": "Coin earn rate multiplier",
+                "defaults": {"free": 1.0, "pro": 1.5, "elite": 2.0, "celeb": 3.0},
+            },
+            "search_ranking_boost": {
+                "type": "float",
+                "description": "Search result ranking boost",
+                "defaults": {"free": 1.0, "pro": 1.25, "elite": 1.75, "celeb": 2.5},
+            },
+            "review_weight_multiplier": {
+                "type": "float",
+                "description": "Review credibility weight",
+                "defaults": {"free": 1.0, "pro": 1.1, "elite": 1.3, "celeb": 1.5},
+            },
+        },
+    }
 
 
 @admin_router.post("/assigned", response_model=ProfessionalSubscriptionOut, status_code=status.HTTP_201_CREATED)
@@ -512,8 +724,17 @@ async def assign_subscription(
     plan_result = await db.execute(
         select(SubscriptionPlan).where(SubscriptionPlan.id == body.plan_id)
     )
-    if plan_result.scalar_one_or_none() is None:
+    plan = plan_result.scalar_one_or_none()
+    if plan is None:
         raise HTTPException(status_code=404, detail="Plan not found")
+    
+    # Prevent assigning coming_soon tiers
+    if plan.coming_soon:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot assign '{plan.tier}' tier - marked as coming soon. "
+                   f"Remove 'coming_soon' flag from plan first.",
+        )
 
     # Upsert: if subscription exists update it, otherwise create
     existing_result = await db.execute(
@@ -558,7 +779,24 @@ async def patch_assigned_subscription(
     sub = result.scalar_one_or_none()
     if sub is None:
         raise HTTPException(status_code=404, detail="Subscription not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    
+    # If plan_id is being updated, check if new plan is coming_soon
+    patch_data = body.model_dump(exclude_unset=True)
+    if "plan_id" in patch_data:
+        plan_result = await db.execute(
+            select(SubscriptionPlan).where(SubscriptionPlan.id == patch_data["plan_id"])
+        )
+        new_plan = plan_result.scalar_one_or_none()
+        if new_plan is None:
+            raise HTTPException(status_code=404, detail="Plan not found")
+        if new_plan.coming_soon:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cannot assign '{new_plan.tier}' tier - marked as coming soon. "
+                       f"Remove 'coming_soon' flag from plan first.",
+            )
+    
+    for field, value in patch_data.items():
         setattr(sub, field, value)
     await db.commit()
     await db.refresh(sub)

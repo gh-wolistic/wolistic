@@ -16,6 +16,7 @@ type SubscriptionPlan = {
   limits: Record<string, unknown>;
   display_order: number;
   is_active: boolean;
+  coming_soon: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -50,7 +51,7 @@ type Tab = "plans" | "assigned" | "billing";
 type ExpertType = "all" | "body" | "mind" | "diet";
 
 const EXPERT_TYPES: ExpertType[] = ["all", "body", "mind", "diet"];
-const TIERS = ["free", "pro", "elite"];
+const TIERS = ["free", "pro", "elite", "celeb"];
 const STATUSES = ["active", "grace", "expired", "cancelled"];
 const DEFAULT_FEATURES = [
   "search_boost",
@@ -90,6 +91,7 @@ function PlanForm({
   );
   const [displayOrder, setDisplayOrder] = useState(String(initial?.display_order ?? "0"));
   const [isActive, setIsActive] = useState(initial?.is_active ?? true);
+  const [comingSoon, setComingSoon] = useState(initial?.coming_soon ?? false);
   const [limitsError, setLimitsError] = useState<string | null>(null);
 
   function toggleFeature(f: string) {
@@ -119,6 +121,7 @@ function PlanForm({
       limits: parsedLimits,
       display_order: parseInt(displayOrder) || 0,
       is_active: isActive,
+      coming_soon: comingSoon,
     });
   }
 
@@ -236,16 +239,29 @@ function PlanForm({
         {limitsError && <p className="text-xs text-red-600 mt-1">{limitsError}</p>}
       </div>
 
-      <div className="flex items-center gap-2">
-        <input
-          type="checkbox"
-          id="is_active"
-          checked={isActive}
-          onChange={(e) => setIsActive(e.target.checked)}
-        />
-        <label htmlFor="is_active" className="text-sm text-gray-700 cursor-pointer">
-          Active (visible to experts)
-        </label>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="is_active"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
+          <label htmlFor="is_active" className="text-sm text-gray-700 cursor-pointer">
+            Active (visible to experts)
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="coming_soon"
+            checked={comingSoon}
+            onChange={(e) => setComingSoon(e.target.checked)}
+          />
+          <label htmlFor="coming_soon" className="text-sm text-gray-700 cursor-pointer">
+            Coming Soon (prevents assignment to professionals)
+          </label>
+        </div>
       </div>
 
       <div className="flex gap-2 justify-end pt-2">
@@ -309,24 +325,24 @@ function AssignForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 border rounded p-4 bg-white">
+    <form onSubmit={handleSubmit} className="space-y-4 border border-slate-700 rounded p-4 bg-slate-800/50">
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label className="text-xs font-medium text-gray-700">Professional ID (UUID) *</label>
+          <label className="text-xs font-medium text-gray-300">Professional ID (UUID) *</label>
           <input
             required
             value={professionalId}
             onChange={(e) => setProfessionalId(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm font-mono"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm font-mono bg-slate-700 text-white placeholder-gray-400"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Plan *</label>
+          <label className="text-xs font-medium text-gray-300">Plan *</label>
           <select
             value={planId}
             onChange={(e) => setPlanId(Number(e.target.value))}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white"
           >
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
@@ -336,11 +352,11 @@ function AssignForm({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Status</label>
+          <label className="text-xs font-medium text-gray-300">Status</label>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white"
           >
             {STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -350,22 +366,22 @@ function AssignForm({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Starts At *</label>
+          <label className="text-xs font-medium text-gray-300">Starts At *</label>
           <input
             type="datetime-local"
             required
             value={startsAt}
             onChange={(e) => setStartsAt(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Ends At (optional)</label>
+          <label className="text-xs font-medium text-gray-300">Ends At (optional)</label>
           <input
             type="datetime-local"
             value={endsAt}
             onChange={(e) => setEndsAt(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white"
           />
         </div>
       </div>
@@ -377,7 +393,7 @@ function AssignForm({
           checked={autoRenew}
           onChange={(e) => setAutoRenew(e.target.checked)}
         />
-        <label htmlFor="auto_renew" className="text-sm text-gray-700 cursor-pointer">
+        <label htmlFor="auto_renew" className="text-sm text-gray-300 cursor-pointer">
           Auto Renew
         </label>
       </div>
@@ -387,14 +403,14 @@ function AssignForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="px-4 py-1.5 text-sm rounded border text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          className="px-4 py-1.5 text-sm rounded border border-slate-600 text-gray-300 hover:bg-slate-700 disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-1.5 text-sm rounded bg-gray-900 text-white disabled:opacity-50"
+          className="px-4 py-1.5 text-sm rounded bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Assign Plan"}
         </button>
@@ -446,24 +462,24 @@ function BillingForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 border rounded p-4 bg-white">
+    <form onSubmit={handleSubmit} className="space-y-4 border border-slate-700 rounded p-4 bg-slate-800/50">
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label className="text-xs font-medium text-gray-700">Professional ID (UUID) *</label>
+          <label className="text-xs font-medium text-gray-300">Professional ID (UUID) *</label>
           <input
             required
             value={professionalId}
             onChange={(e) => setProfessionalId(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm font-mono"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm font-mono bg-slate-700 text-white placeholder-gray-400"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Plan *</label>
+          <label className="text-xs font-medium text-gray-300">Plan *</label>
           <select
             value={planId}
             onChange={(e) => setPlanId(Number(e.target.value))}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white"
           >
             {plans.map((p) => (
               <option key={p.id} value={p.id}>
@@ -473,54 +489,54 @@ function BillingForm({
           </select>
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Amount *</label>
+          <label className="text-xs font-medium text-gray-300">Amount *</label>
           <input
             required
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white placeholder-gray-400"
             min={0}
             step="0.01"
             placeholder="999"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Currency</label>
+          <label className="text-xs font-medium text-gray-300">Currency</label>
           <input
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white placeholder-gray-400"
             placeholder="INR"
             maxLength={8}
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Payment Method</label>
+          <label className="text-xs font-medium text-gray-300">Payment Method</label>
           <input
             value={method}
             onChange={(e) => setMethod(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white placeholder-gray-400"
             placeholder="razorpay / manual / bank"
           />
         </div>
         <div>
-          <label className="text-xs font-medium text-gray-700">Invoice Ref</label>
+          <label className="text-xs font-medium text-gray-300">Invoice Ref</label>
           <input
             value={invoiceRef}
             onChange={(e) => setInvoiceRef(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white placeholder-gray-400"
             placeholder="INV-2025-001"
           />
         </div>
         <div className="col-span-2">
-          <label className="text-xs font-medium text-gray-700">Paid At *</label>
+          <label className="text-xs font-medium text-gray-300">Paid At *</label>
           <input
             type="datetime-local"
             required
             value={paidAt}
             onChange={(e) => setPaidAt(e.target.value)}
-            className="mt-1 w-full border rounded px-3 py-1.5 text-sm"
+            className="mt-1 w-full border border-slate-600 rounded px-3 py-1.5 text-sm bg-slate-700 text-white"
           />
         </div>
       </div>
@@ -530,14 +546,14 @@ function BillingForm({
           type="button"
           onClick={onCancel}
           disabled={saving}
-          className="px-4 py-1.5 text-sm rounded border text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+          className="px-4 py-1.5 text-sm rounded border border-slate-600 text-gray-300 hover:bg-slate-700 disabled:opacity-50"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={saving}
-          className="px-4 py-1.5 text-sm rounded bg-gray-900 text-white disabled:opacity-50"
+          className="px-4 py-1.5 text-sm rounded bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
         >
           {saving ? "Saving…" : "Log Payment"}
         </button>
@@ -770,18 +786,21 @@ export function SubscriptionAdminPanel() {
   return (
     <div className="space-y-6">
       {/* Tabs */}
-      <div className="flex gap-2 border-b pb-2">
+      <div className="flex gap-1 border-b-2 border-slate-700">
         {(["plans", "assigned", "billing"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`px-4 py-1.5 text-sm rounded-t font-medium transition-colors ${
+            className={`px-5 py-3 text-sm font-semibold transition-all relative ${
               tab === t
-                ? "bg-gray-900 text-white"
-                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                ? "text-white bg-slate-800/50"
+                : "text-gray-400 hover:text-gray-300 hover:bg-slate-800/30"
             }`}
           >
             {t === "plans" ? "Subscription Plans" : t === "assigned" ? "Assigned" : "Billing Records"}
+            {tab === t && (
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-cyan-500"></div>
+            )}
           </button>
         ))}
       </div>
@@ -789,13 +808,13 @@ export function SubscriptionAdminPanel() {
       {/* ── Plans Tab ─────────────────────────────────────────────────────── */}
       {tab === "plans" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between bg-slate-800/50 p-4 rounded-lg border border-slate-700">
             <div className="flex items-center gap-3">
-              <label className="text-sm font-medium text-gray-700">Expert Type:</label>
+              <label className="text-sm font-semibold text-gray-300">Filter by Expert Type:</label>
               <select
                 value={expertTypeFilter}
                 onChange={(e) => setExpertTypeFilter(e.target.value as ExpertType)}
-                className="border rounded px-3 py-1.5 text-sm"
+                className="border border-slate-600 rounded-lg px-4 py-2 text-sm font-medium bg-slate-700 text-white hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               >
                 {EXPERT_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -809,7 +828,7 @@ export function SubscriptionAdminPanel() {
                 setEditingPlan(null);
                 setShowNewPlanForm(true);
               }}
-              className="px-4 py-1.5 text-sm rounded bg-gray-900 text-white hover:bg-gray-700"
+              className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 transition-colors shadow-sm"
             >
               + New Plan
             </button>
@@ -832,77 +851,185 @@ export function SubscriptionAdminPanel() {
             />
           )}
 
-          {plansLoading && <p className="text-sm text-gray-500">Loading plans…</p>}
-          {plansError && <p className="text-sm text-red-600">{plansError}</p>}
-
-          {!plansLoading && plans.length === 0 && (
-            <p className="text-sm text-gray-500">No plans found for this expert type.</p>
+          {plansLoading && (
+            <div className="text-center py-12">
+              <p className="text-sm text-gray-400">Loading plans...</p>
+            </div>
+          )}
+          
+          {plansError && (
+            <div className="bg-red-900/20 border-2 border-red-600 rounded-lg p-4">
+              <p className="text-sm text-red-400 font-medium">{plansError}</p>
+            </div>
           )}
 
-          {plans.map((plan) => (
-            <div key={plan.id} className="rounded border p-4 space-y-2 bg-white">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{plan.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 font-medium capitalize">
-                      {plan.tier}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                      {plan.expert_type}
-                    </span>
-                    {!plan.is_active && (
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-600">
-                        Inactive
+          {!plansLoading && plans.length === 0 && (
+            <div className="text-center py-12 bg-slate-800/30 rounded-lg border-2 border-dashed border-slate-600">
+              <p className="text-sm text-gray-300 font-medium">No plans found for this expert type.</p>
+              <p className="text-xs text-gray-500 mt-1">Click "+ New Plan" above to create one.</p>
+            </div>
+          )}
+          
+          {!plansLoading && plans.length > 0 && (
+            <div className="mb-3">
+              <p className="text-sm text-white font-medium">
+                Showing <span className="font-bold">{plans.length}</span> plan{plans.length !== 1 ? "s" : ""} for{" "}
+                <span className="font-bold capitalize">{expertTypeFilter}</span> experts
+              </p>
+            </div>
+          )}
+
+          {plans.map((plan) => {
+            // Tier color schemes (dark theme)
+            const tierColors = {
+              free: "bg-slate-800/50 border-gray-600",
+              pro: "bg-slate-800/50 border-cyan-500",
+              elite: "bg-slate-800/50 border-purple-500",
+              celeb: "bg-slate-800/50 border-amber-500",
+            };
+            const tierBadgeColors = {
+              free: "bg-gray-600 text-gray-100",
+              pro: "bg-cyan-600 text-cyan-100",
+              elite: "bg-purple-600 text-purple-100",
+              celeb: "bg-amber-600 text-amber-100",
+            };
+            
+            const limitKeys = Object.keys(plan.limits);
+            const limitCount = limitKeys.length;
+            const displayLimits = limitKeys.slice(0, 3);
+            
+            return (
+              <div
+                key={plan.id}
+                className={`rounded-lg border-2 p-5 space-y-3 ${
+                  tierColors[plan.tier as keyof typeof tierColors] || "bg-slate-800/50 border-gray-600"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    {/* Header */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-xl text-white">{plan.name}</h3>
+                      <span
+                        className={`text-xs px-2.5 py-1 rounded-full font-semibold uppercase tracking-wide ${
+                          tierBadgeColors[plan.tier as keyof typeof tierBadgeColors] || "bg-gray-600 text-gray-100"
+                        }`}
+                      >
+                        {plan.tier}
                       </span>
+                      {plan.coming_soon && (
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-orange-600 text-orange-100 font-semibold">
+                          🔒 COMING SOON
+                        </span>
+                      )}
+                      {!plan.is_active && (
+                        <span className="text-xs px-2.5 py-1 rounded-full bg-red-600 text-red-100 font-semibold">
+                          ⚠️ INACTIVE
+                        </span>
+                      )}
+                      <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-gray-300 font-medium border border-slate-600">
+                        {plan.expert_type}
+                      </span>
+                    </div>
+
+                    {/* Description */}
+                    {plan.description && (
+                      <p className="text-sm text-gray-300 mt-2 leading-relaxed">{plan.description}</p>
+                    )}
+
+                    {/* Pricing */}
+                    <div className="flex items-baseline gap-3 mt-3">
+                      <span className="text-2xl font-bold text-white">₹{plan.price_monthly}</span>
+                      <span className="text-sm text-gray-400 font-medium">/month</span>
+                      {plan.price_yearly && (
+                        <>
+                          <span className="text-gray-600">•</span>
+                          <span className="text-sm text-gray-300 font-medium">
+                            ₹{plan.price_yearly}/year
+                            <span className="ml-1 text-xs text-green-400 font-semibold">
+                              (Save {Math.round((1 - (plan.price_yearly / (plan.price_monthly * 12))) * 100)}%)
+                            </span>
+                          </span>
+                        </>
+                      )}
+                      <span className="ml-auto text-xs text-gray-400 font-medium">Display Order: {plan.display_order}</span>
+                    </div>
+
+                    {/* Features */}
+                    {plan.features.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-bold text-gray-300 uppercase tracking-wide mb-1.5">Features</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {plan.features.map((feature: string, idx: number) => (
+                            <span
+                              key={idx}
+                              className="text-xs px-2 py-1 rounded bg-slate-700 text-gray-200 border border-slate-600 font-medium"
+                            >
+                              {feature.replace(/_/g, " ")}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Limits Preview */}
+                    {limitCount > 0 && (
+                      <div className="mt-3">
+                        <p className="text-xs font-bold text-gray-300 uppercase tracking-wide mb-1.5">
+                          Limits ({limitCount} configured)
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {displayLimits.map((key) => (
+                            <div key={key} className="text-xs bg-slate-700/50 rounded px-2 py-1.5 border border-slate-600">
+                              <span className="text-gray-400 font-medium">{key.replace(/_/g, " ")}:</span>{" "}
+                              <span className="font-bold text-white">{String(plan.limits[key])}</span>
+                            </div>
+                          ))}
+                          {limitCount > 3 && (
+                            <div className="text-xs bg-slate-700/50 rounded px-2 py-1.5 border border-slate-600 text-gray-400 italic font-medium">
+                              +{limitCount - 3} more limits...
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {plan.description && (
-                    <p className="text-xs text-gray-500 mt-1">{plan.description}</p>
-                  )}
-                  <p className="text-xs text-gray-600 mt-1">
-                    ₹{plan.price_monthly}/mo
-                    {plan.price_yearly ? ` · ₹${plan.price_yearly}/yr` : ""}
-                    {" · "}Order: {plan.display_order}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Features: {plan.features.length > 0 ? plan.features.join(", ") : "none"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    Limits: {JSON.stringify(plan.limits)}
-                  </p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    onClick={() => {
-                      setShowNewPlanForm(false);
-                      setEditingPlan(plan);
-                    }}
-                    className="text-xs px-3 py-1 rounded border hover:bg-gray-50"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => void handleDeletePlan(plan.id)}
-                    className="text-xs px-3 py-1 rounded border border-red-200 text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
+
+                  {/* Actions */}
+                  <div className="flex flex-col gap-2 shrink-0">
+                    <button
+                      onClick={() => {
+                        setShowNewPlanForm(false);
+                        setEditingPlan(plan);
+                      }}
+                      className="text-sm px-4 py-2 rounded-lg border border-slate-600 bg-slate-700 hover:bg-slate-600 text-white font-medium transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => void handleDeletePlan(plan.id)}
+                      className="text-sm px-4 py-2 rounded-lg border border-red-600 bg-slate-700 text-red-400 hover:bg-red-900/30 font-medium transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* ── Assigned Tab ─────────────────────────────────────────────────── */}
       {tab === "assigned" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600">{assigned.length} subscription(s) assigned</p>
+          <div className="flex items-center justify-between bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+            <p className="text-sm font-semibold text-white">
+              {assigned.length} subscription{assigned.length !== 1 ? "s" : ""} assigned
+            </p>
             <button
               onClick={() => setShowAssignForm(true)}
-              className="px-4 py-1.5 text-sm rounded bg-gray-900 text-white hover:bg-gray-700"
+              className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 transition-colors shadow-sm"
             >
               + Assign Plan
             </button>
@@ -917,17 +1044,17 @@ export function SubscriptionAdminPanel() {
             />
           )}
 
-          {assignedLoading && <p className="text-sm text-gray-500">Loading…</p>}
-          {assignedError && <p className="text-sm text-red-600">{assignedError}</p>}
+          {assignedLoading && <p className="text-sm text-gray-400">Loading…</p>}
+          {assignedError && <p className="text-sm text-red-400">{assignedError}</p>}
 
           {!assignedLoading && assigned.length === 0 && (
-            <p className="text-sm text-gray-500">No subscriptions assigned yet.</p>
+            <p className="text-sm text-gray-400">No subscriptions assigned yet.</p>
           )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left border-b text-xs text-gray-500 uppercase tracking-wide">
+                <tr className="text-left border-b border-slate-700 text-xs text-gray-400 uppercase tracking-wide">
                   <th className="px-3 py-2">Professional ID</th>
                   <th className="px-3 py-2">Plan</th>
                   <th className="px-3 py-2">Tier</th>
@@ -939,13 +1066,13 @@ export function SubscriptionAdminPanel() {
               </thead>
               <tbody>
                 {assigned.map((s) => (
-                  <tr key={s.id} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-mono text-xs text-gray-600 max-w-[200px] truncate">
+                  <tr key={s.id} className="border-b border-slate-800 hover:bg-slate-800/30">
+                    <td className="px-3 py-2 font-mono text-xs text-gray-400 max-w-[200px] truncate">
                       {s.professional_id}
                     </td>
-                    <td className="px-3 py-2 font-medium">{s.plan.name}</td>
+                    <td className="px-3 py-2 font-medium text-white">{s.plan.name}</td>
                     <td className="px-3 py-2">
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 capitalize">
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-700 text-gray-300 capitalize border border-slate-600">
                         {s.plan.tier}
                       </span>
                     </td>
@@ -953,25 +1080,25 @@ export function SubscriptionAdminPanel() {
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           s.status === "active"
-                            ? "bg-green-100 text-green-700"
+                            ? "bg-green-600 text-green-100"
                             : s.status === "expired" || s.status === "cancelled"
-                            ? "bg-red-100 text-red-600"
-                            : "bg-amber-100 text-amber-700"
+                            ? "bg-red-600 text-red-100"
+                            : "bg-amber-600 text-amber-100"
                         }`}
                       >
                         {s.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-500">
+                    <td className="px-3 py-2 text-xs text-gray-400">
                       {new Date(s.starts_at).toLocaleDateString()}
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-500">
+                    <td className="px-3 py-2 text-xs text-gray-400">
                       {s.ends_at ? new Date(s.ends_at).toLocaleDateString() : "—"}
                     </td>
                     <td className="px-3 py-2">
                       <button
                         onClick={() => void handleDeleteAssigned(s.id)}
-                        className="text-xs text-red-600 hover:underline"
+                        className="text-xs text-red-400 hover:text-red-300 hover:underline"
                       >
                         Remove
                       </button>
@@ -987,24 +1114,24 @@ export function SubscriptionAdminPanel() {
       {/* ── Billing Tab ──────────────────────────────────────────────────── */}
       {tab === "billing" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 flex-1 max-w-sm">
+          <div className="flex items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-lg border border-slate-700">
+            <div className="flex items-center gap-2 flex-1 max-w-md">
               <input
                 value={billingProfFilter}
                 onChange={(e) => setBillingProfFilter(e.target.value)}
-                placeholder="Filter by Professional UUID…"
-                className="flex-1 border rounded px-3 py-1.5 text-sm font-mono"
+                placeholder="Filter by Professional UUID..."
+                className="flex-1 border border-slate-600 rounded-lg px-4 py-2 text-sm font-mono bg-slate-700 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
               <button
                 onClick={() => void loadBilling(billingProfFilter)}
-                className="px-3 py-1.5 text-sm rounded bg-gray-900 text-white"
+                className="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-700 border border-slate-600 text-white hover:bg-slate-600 transition-colors"
               >
                 Filter
               </button>
             </div>
             <button
               onClick={() => setShowBillingForm(true)}
-              className="px-4 py-1.5 text-sm rounded bg-gray-900 text-white hover:bg-gray-700"
+              className="px-5 py-2.5 text-sm font-semibold rounded-lg bg-cyan-600 text-white hover:bg-cyan-500 transition-colors shadow-sm"
             >
               + Log Payment
             </button>
@@ -1019,17 +1146,17 @@ export function SubscriptionAdminPanel() {
             />
           )}
 
-          {billingLoading && <p className="text-sm text-gray-500">Loading…</p>}
-          {billingError && <p className="text-sm text-red-600">{billingError}</p>}
+          {billingLoading && <p className="text-sm text-gray-400">Loading...</p>}
+          {billingError && <p className="text-sm text-red-400">{billingError}</p>}
 
           {!billingLoading && billing.length === 0 && (
-            <p className="text-sm text-gray-500">No billing records found.</p>
+            <p className="text-sm text-gray-400">No billing records found.</p>
           )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left border-b text-xs text-gray-500 uppercase tracking-wide">
+                <tr className="text-left border-b border-slate-700 text-xs text-gray-400 uppercase tracking-wide">
                   <th className="px-3 py-2">Professional ID</th>
                   <th className="px-3 py-2">Plan</th>
                   <th className="px-3 py-2">Amount</th>
@@ -1040,18 +1167,18 @@ export function SubscriptionAdminPanel() {
               </thead>
               <tbody>
                 {billing.map((r) => (
-                  <tr key={r.id} className="border-b hover:bg-gray-50">
-                    <td className="px-3 py-2 font-mono text-xs text-gray-600 max-w-[200px] truncate">
+                  <tr key={r.id} className="border-b border-slate-800 hover:bg-slate-800/30">
+                    <td className="px-3 py-2 font-mono text-xs text-gray-400 max-w-[200px] truncate">
                       {r.professional_id}
                     </td>
-                    <td className="px-3 py-2 font-medium">{r.plan_name}</td>
-                    <td className="px-3 py-2 font-medium">
+                    <td className="px-3 py-2 font-medium text-white">{r.plan_name}</td>
+                    <td className="px-3 py-2 font-medium text-white">
                       {r.currency === "INR" ? "₹" : r.currency}
                       {r.amount}
                     </td>
-                    <td className="px-3 py-2 text-gray-500">{r.method ?? "—"}</td>
-                    <td className="px-3 py-2 text-gray-500 text-xs">{r.invoice_ref ?? "—"}</td>
-                    <td className="px-3 py-2 text-xs text-gray-500">
+                    <td className="px-3 py-2 text-gray-400">{r.method ?? "—"}</td>
+                    <td className="px-3 py-2 text-gray-400 text-xs">{r.invoice_ref ?? "—"}</td>
+                    <td className="px-3 py-2 text-xs text-gray-400">
                       {new Date(r.paid_at).toLocaleDateString("en-US", {
                         day: "numeric",
                         month: "short",

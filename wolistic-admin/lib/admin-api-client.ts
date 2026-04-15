@@ -44,6 +44,7 @@ import type {
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 const API_BASE = `${BACKEND_URL}/api/v1`;
+const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ADMIN_API_KEY || "MochaMaple@26"; // Fallback for client-side
 
 // ============================================================================
 // HTTP Client
@@ -56,9 +57,19 @@ class ApiClient {
   ): Promise<T> {
     const url = endpoint.startsWith("http") ? endpoint : `${API_BASE}${endpoint}`;
 
+    // Debug: Log the URL being fetched in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[API Request]', { url, method: options.method || 'GET' });
+    }
+
     // Merge headers
     const headers = new Headers(options.headers);
     headers.set("Content-Type", "application/json");
+    
+    // Add admin API key for all requests
+    if (ADMIN_API_KEY) {
+      headers.set("X-Admin-Key", ADMIN_API_KEY);
+    }
 
     const config: RequestInit = {
       ...options,
@@ -87,6 +98,33 @@ class ApiClient {
 
       return response.json();
     } catch (error) {
+      // Check if it's a TypeError from fetch (network error)
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        console.error('[API Error] Network failure', {
+          url,
+          method: options.method || 'GET',
+          backendUrl: BACKEND_URL,
+        });
+        throw new Error(
+          `Network error: Cannot connect to backend at ${BACKEND_URL}. ` +
+          `Please ensure the backend is running and accessible.`
+        );
+      }
+
+      // Only log non-authentication errors in detail
+      const isAuthError = error instanceof Error && 
+        (error.message.includes('authenticated') || error.message.includes('login'));
+      
+      if (!isAuthError && process.env.NODE_ENV === 'development') {
+        console.error('[API Error]', {
+          url,
+          method: options.method || 'GET',
+          errorType: error?.constructor?.name || typeof error,
+          errorMessage: error instanceof Error ? error.message : String(error),
+          backendUrl: BACKEND_URL,
+        });
+      }
+
       if (error instanceof Error) {
         throw error;
       }
@@ -189,19 +227,19 @@ export const userApi = {
 
 export const coinApi = {
   lookupWallet: (email: string) =>
-    client.get<{ user_id: string; wallet: CoinWallet; transactions: CoinTransactionPage }>(
-      "/admin/coins/lookup",
+    client.get<{ user_id: string; email: string; wallet: CoinWallet; transactions: CoinTransactionPage }>(
+      "/coins/admin/lookup",
       { email }
     ),
 
   getWallet: (userId: string) =>
-    client.get<CoinWallet>(`/admin/wallet/${userId}`),
+    client.get<CoinWallet>(`/coins/admin/wallet/${userId}`),
 
   getTransactions: (userId: string, limit: number = 50, offset: number = 0) =>
-    client.get<CoinTransactionPage>(`/admin/transactions/${userId}`, { limit, offset }),
+    client.get<CoinTransactionPage>(`/coins/admin/transactions/${userId}`, { limit, offset }),
 
   adjust: (userId: string, amount: number, notes?: string) =>
-    client.post<CoinAdjustResult>("/admin/adjust", {
+    client.post<CoinAdjustResult>("/coins/admin/adjust", {
       user_id: userId,
       amount,
       notes,
@@ -209,16 +247,16 @@ export const coinApi = {
 
   // Coin Rules
   listRules: () =>
-    client.get<CoinRule[]>("/admin/coins/rules"),
+    client.get<CoinRule[]>("/coins/rules"),
 
   createRule: (rule: CoinRuleCreate) =>
-    client.post<CoinRule>("/admin/coins/rules", rule),
+    client.post<CoinRule>("/coins/admin/rules", rule),
 
   updateRule: (eventType: string, updates: CoinRuleUpdate) =>
-    client.patch<CoinRule>(`/admin/coins/rules/${eventType}`, updates),
+    client.patch<CoinRule>(`/coins/admin/rules/${eventType}`, updates),
 
   deleteRule: (eventType: string) =>
-    client.delete<{ status: string }>(`/admin/coins/rules/${eventType}`),
+    client.delete<{ status: string }>(`/coins/admin/rules/${eventType}`),
 
   // Coin Analytics
   getAnalytics: (days: number = 30) =>
@@ -370,21 +408,38 @@ export const analyticsApi = {
 };
 
 // ============================================================================
-// Session Management
+// Session Management (Next.js API Routes, not backend)
 // ============================================================================
 
 export const sessionApi = {
-  check: () =>
-    client.get<{ authenticated: boolean; email?: string }>("/admin/session"),
+  check: async () => {
+    const response = await fetch("/api/admin/session", { credentials: "include" });
+    if (!response.ok) throw new Error("Session check failed");
+    return response.json() as Promise<{ authenticated: boolean; email?: string }>;
+  },
 
-  login: (email: string, password: string) =>
-    client.post<{ authenticated: boolean; email: string }>("/admin/login", {
-      email,
-      password,
-    }),
+  login: async (email: string, password: string) => {
+    const response = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email, password }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: "Login failed" }));
+      throw new Error(error.detail || "Login failed");
+    }
+    return response.json() as Promise<{ authenticated: boolean; email: string }>;
+  },
 
-  logout: () =>
-    client.post<{ status: string }>("/admin/logout"),
+  logout: async () => {
+    const response = await fetch("/api/admin/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    if (!response.ok) throw new Error("Logout failed");
+    return response.json() as Promise<{ status: string }>;
+  },
 };
 
 // ============================================================================

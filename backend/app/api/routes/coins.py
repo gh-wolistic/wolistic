@@ -158,6 +158,49 @@ async def admin_get_user_wallet(
 
 
 @router.get(
+    "/admin/lookup",
+    dependencies=[Depends(require_admin_api_key)],
+)
+async def admin_lookup_user_by_email(
+    email: str = Query(..., description="User email address"),
+    db: AsyncSession = Depends(get_db_session),
+) -> dict:
+    """
+    Lookup user by email and return their coin wallet + recent transactions.
+    
+    Returns:
+        {
+            "user_id": "uuid",
+            "email": "user@example.com",
+            "wallet": {...},
+            "transactions": {...}
+        }
+    """
+    # Find user by email
+    user_result = await db.execute(
+        select(User).where(User.email == email.strip().lower())
+    )
+    user = user_result.scalar_one_or_none()
+    
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with email '{email}' not found"
+        )
+    
+    # Get wallet and transactions
+    wallet = await get_wallet(db, user_id=user.id)
+    transactions = await get_transactions(db, user_id=user.id, page=1, size=20)
+    
+    return {
+        "user_id": str(user.id),
+        "email": user.email,
+        "wallet": wallet.model_dump(),
+        "transactions": transactions.model_dump(),
+    }
+
+
+@router.get(
     "/admin/transactions/{user_id}",
     response_model=CoinTransactionPageOut,
     dependencies=[Depends(require_admin_api_key)],
