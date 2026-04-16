@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Backend Connection Test</title>
+</head>
+<body>
+    <h1>Backend Connection Test</h1>
+    <button onclick="testBackend()">Test Backend Connection</button>
+    <pre id="result"></pre>
+    
+    <script>
+        async function testBackend() {
+            const result = document.getElementById('result');
+            result.textContent = 'Testing...';
+            
+            try {
+                console.log('Fetching from http://localhost:8000/api/v1/health');
+                const response = await fetch('http://localhost:8000/api/v1/health', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+                
+                console.log('Response:', response);
+                const data = await response.json();
+                result.textContent = `✓ Success!\nStatus: ${response.status}\nData: ${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                console.error('Error:', error);
+                result.textContent = `✗ Failed!\nError: ${error.message}\nType: ${error.constructor.name}\nStack: ${error.stack}`;
+            }
+        }
+    </script>
+</body>
+</html>

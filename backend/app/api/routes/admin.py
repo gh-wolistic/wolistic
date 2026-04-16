@@ -106,11 +106,11 @@ def require_admin_session(admin_session: str | None = Cookie(default=None)) -> s
 # Session-based auth router (for login/logout/session check)
 auth_router = APIRouter(prefix="/admin", tags=["admin-auth"])
 
-# Session-protected admin data router (requires session cookie)
+# Admin data router (protected by API key)
 router = APIRouter(
     prefix="/admin",
     tags=["admin"],
-    dependencies=[Depends(require_admin_session)],  # Changed from API key to session
+    dependencies=[Depends(require_admin_api_key)],  # Use API key for data endpoints
 )
 
 AdminProfessionalStatus = Literal["pending", "verified", "suspended"]
