@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
+import dynamic from "next/dynamic";
+import type { CallBackProps, Step } from "react-joyride";
 import {
   CalendarDays,
   Plus,
@@ -17,12 +19,20 @@ import {
   ClipboardList,
   Trash2,
   AlertCircle,
+  AlertTriangle,
   CalendarCheck,
+  Send,
+  UserCheck,
+  Ban,
+  Lock,
+  ChevronDown,
+  HelpCircle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { classesManagerTutorialSteps, tutorialStyles } from "./ClassesManagerTutorial";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -63,10 +73,17 @@ import {
   deleteClass,
   listEnrollments,
   createSession,
+  bulkCreateSessions,
+  deleteSession,
   updateEnrollment,
+  getTierLimits,
+  publishSession,
+  cancelSession,
+  markAttendance,
   type WorkLocation,
   type GroupClass,
   type ClassEnrollment,
+  type TierLimits,
 } from "./classesApi";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -121,7 +138,24 @@ function formatTime(timeStr: string): string {
   const [h, m] = timeStr.split(":").map(Number);
   const ampm = h >= 12 ? "PM" : "AM";
   const hour = h % 12 || 12;
-  return `${hour}:${String(m).padStart(2, "0")} ${ampm}`;
+  return `${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function getDaysUntilExpiry(expiryDate: string | null): number | null {
+  if (!expiryDate) return null;
+  const now = new Date();
+  const expiry = new Date(expiryDate);
+  const diffTime = expiry.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays;
+}
+
+function getExpiryWarningLevel(daysUntil: number | null): "critical" | "warning" | "ok" | null {
+  if (daysUntil === null) return null;
+  if (daysUntil < 0) return "critical"; // Already expired
+  if (daysUntil <= 7) return "critical"; // Less than a week
+  if (daysUntil <= 30) return "warning"; // Less than a month
+  return "ok";
 }
 
 // ── EliteGlassCard ─────────────────────────────────────────────────────────────
@@ -142,6 +176,19 @@ function EliteGlassCard({
   );
 }
 
+// ── Dynamic Imports ───────────────────────────────────────────────────────────
+
+const Joyride = dynamic<any>(
+  () => import("react-joyride").then((mod: any) => {
+    // Extract the actual component from the module
+    return mod.default || mod.Joyride || mod;
+  }),
+  { 
+    ssr: false,
+    loading: () => null
+  }
+);
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 interface ClassesManagerPageProps {
@@ -160,11 +207,28 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [showConflictsModal, setShowConflictsModal] = useState(false);
   const [showLocationsModal, setShowLocationsModal] = useState(false);
+  
+  // Publish/Attendance modals
+  const [publishModalOpen, setPublishModalOpen] = useState(false);
+  const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
+  const [selectedSessionDate, setSelectedSessionDate] = useState<string>("");
+  const [attendanceData, setAttendanceData] = useState<Record<number, string>>({});
+  
+  // Tier limit upgrade modal
+  const [tierLimitModalOpen, setTierLimitModalOpen] = useState(false);
+  const [tierLimitError, setTierLimitError] = useState<{
+    tier: string;
+    limit: number;
+    current_usage: number;
+    resource: "class" | "session";
+  } | null>(null);
 
   // Data state
   const [classes, setClasses] = useState<GroupClass[]>([]);
   const [enrollments, setEnrollments] = useState<ClassEnrollment[]>([]);
   const [workLocations, setWorkLocations] = useState<WorkLocation[]>([]);
+  const [tierLimits, setTierLimits] = useState<TierLimits | null>(null);
   const [loading, setLoading] = useState(true);
 
   // New class form
@@ -175,6 +239,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   const [newClassDuration, setNewClassDuration] = useState("60");
   const [newClassCapacity, setNewClassCapacity] = useState("20");
   const [newClassPrice, setNewClassPrice] = useState("");
+  const [newClassExpiryDate, setNewClassExpiryDate] = useState("");
   const [newClassActive, setNewClassActive] = useState(true);
   const [savingClass, setSavingClass] = useState(false);
 
@@ -183,6 +248,31 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   const [newSessionTime, setNewSessionTime] = useState("");
   const [newSessionDuration, setNewSessionDuration] = useState("60");
   const [savingSession, setSavingSession] = useState(false);
+  
+  // Bulk session creation
+  const [recurrenceType, setRecurrenceType] = useState<"single" | "daily" | "weekly">("single");
+  const [endDate, setEndDate] = useState("");
+  const [numberOfSessions, setNumberOfSessions] = useState("1");
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [useEndDate, setUseEndDate] = useState(true);  // true = end date, false = number of sessions
+
+  // Expanded classes in detailed list view
+  const [expandedClasses, setExpandedClasses] = useState<number[]>([]);
+
+  // Tutorial state
+  const [runTutorial, setRunTutorial] = useState(false);
+
+  // Check if user has seen tutorial before (auto-start on first visit)
+  useEffect(() => {
+    const hasSeenTutorial = localStorage.getItem('classesManagerTutorialCompleted');
+    if (!hasSeenTutorial) {
+      // Auto-start tutorial for first-time visitors after a short delay
+      const timer = setTimeout(() => {
+        setRunTutorial(true);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // New location form
   const [newLocName, setNewLocName] = useState("");
@@ -195,14 +285,18 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [cls, enr, locs] = await Promise.all([
+      const [cls, enr, locs, limits] = await Promise.all([
         listClasses(accessToken),
         listEnrollments(accessToken),
         listWorkLocations(accessToken),
+        getTierLimits(accessToken),
       ]);
       setClasses(cls);
       setEnrollments(enr);
       setWorkLocations(locs);
+      setTierLimits(limits);
+    } catch (error) {
+      console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
     }
@@ -251,6 +345,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     setNewClassDuration(String(classItem.duration_minutes));
     setNewClassCapacity(String(classItem.capacity));
     setNewClassPrice(String(classItem.price));
+    setNewClassExpiryDate(classItem.expires_on ?? "");
     setNewClassActive(classItem.status === "active");
     setNewClassOpen(true);
   }
@@ -266,11 +361,32 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     setNewClassDuration("60");
     setNewClassCapacity("20");
     setNewClassPrice("");
+    
+    // Set default expiry to 90 days from now
+    const defaultExpiry = new Date();
+    defaultExpiry.setDate(defaultExpiry.getDate() + 90);
+    setNewClassExpiryDate(defaultExpiry.toISOString().split('T')[0]);
+    
     setNewClassActive(true);
   }
 
   async function handleSaveClass() {
     if (!accessToken || !newClassName.trim()) return;
+    
+    // Check tier limits when creating a new class (not when editing)
+    if (editingClassId === null && tierLimits) {
+      if (tierLimits.usage.active_classes >= tierLimits.limits.max_active_classes) {
+        setTierLimitError({
+          tier: tierLimits.tier,
+          limit: tierLimits.limits.max_active_classes,
+          current_usage: tierLimits.usage.active_classes,
+          resource: "class",
+        });
+        setTierLimitModalOpen(true);
+        return;
+      }
+    }
+    
     setSavingClass(true);
     try {
       const payload = {
@@ -282,6 +398,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
         price: parseFloat(newClassPrice) || 0,
         description: newClassDescription.trim() || undefined,
         work_location_id: newClassLocationId ? parseInt(newClassLocationId) : undefined,
+        expires_on: newClassExpiryDate || undefined,
       };
       if (editingClassId !== null) {
         await updateClass(accessToken, editingClassId, payload);
@@ -292,8 +409,21 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
       }
       closeClassDrawer();
       await loadAll();
-    } catch {
-      toast.error(editingClassId !== null ? "Failed to update class" : "Failed to create class");
+    } catch (error: any) {
+      // Check for tier limit error from backend
+      if (error?.response?.status === 403 && error?.response?.data?.error === "tier_limit_reached") {
+        const errorData = error.response.data;
+        setTierLimitError({
+          tier: errorData.tier,
+          limit: errorData.limit,
+          current_usage: errorData.current_usage,
+          resource: "class",
+        });
+        setTierLimitModalOpen(true);
+        closeClassDrawer();
+      } else {
+        toast.error(editingClassId !== null ? "Failed to update class" : "Failed to create class");
+      }
     } finally {
       setSavingClass(false);
     }
@@ -301,19 +431,86 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
 
   async function handleSaveSession() {
     if (!accessToken || !selectedClassId || !newSessionDate || !newSessionTime) return;
+    
+    // Check if class is expired
+    const selectedClass = classes.find((c) => c.id === selectedClassId);
+    if (selectedClass?.expires_on) {
+      const daysUntil = getDaysUntilExpiry(selectedClass.expires_on);
+      if (daysUntil !== null && daysUntil < 0) {
+        toast.error("Cannot create sessions for expired classes. Please renew the class first.");
+        return;
+      }
+    }
+    
+    // Check if session date is beyond class expiry
+    if (selectedClass?.expires_on) {
+      const sessionDate = new Date(newSessionDate);
+      const expiryDate = new Date(selectedClass.expires_on);
+      if (sessionDate > expiryDate) {
+        toast.error(`Session date (${formatDate(newSessionDate)}) is beyond class expiry (${formatDate(selectedClass.expires_on)})`);
+        return;
+      }
+    }
+    
     setSavingSession(true);
     try {
-      await createSession(accessToken, selectedClassId, {
-        session_date: newSessionDate,
-        start_time: newSessionTime,
-      });
-      toast.success("Session scheduled successfully");
+      if (recurrenceType === "single") {
+        // Single session creation (original behavior)
+        await createSession(accessToken, selectedClassId, {
+          session_date: newSessionDate,
+          start_time: newSessionTime,
+        });
+        toast.success("Session scheduled successfully");
+      } else {
+        // Bulk session creation
+        const payload: any = {
+          recurrence_type: recurrenceType,
+          start_date: newSessionDate,
+          start_time: newSessionTime,
+        };
+        
+        if (recurrenceType === "weekly" && selectedDays.length === 0) {
+          toast.error("Please select at least one day of the week");
+          setSavingSession(false);
+          return;
+        }
+        
+        if (useEndDate) {
+          if (!endDate) {
+            toast.error("Please provide an end date");
+            setSavingSession(false);
+            return;
+          }
+          payload.end_date = endDate;
+        } else {
+          const numSessions = parseInt(numberOfSessions);
+          if (isNaN(numSessions) || numSessions < 1) {
+            toast.error("Please provide a valid number of sessions");
+            setSavingSession(false);
+            return;
+          }
+          payload.number_of_sessions = numSessions;
+        }
+        
+        if (recurrenceType === "weekly") {
+          payload.days_of_week = selectedDays;
+        }
+        
+        const result = await bulkCreateSessions(accessToken, selectedClassId, payload);
+        toast.success(`${result.sessions_created} sessions scheduled successfully`);
+      }
+      
       setAddSessionOpen(false);
       setNewSessionDate("");
       setNewSessionTime("");
+      setRecurrenceType("single");
+      setEndDate("");
+      setNumberOfSessions("1");
+      setSelectedDays([]);
       await loadAll();
-    } catch {
-      toast.error("Failed to schedule session");
+    } catch (error: any) {
+      const message = error.message || "Failed to schedule session";
+      toast.error(message);
     } finally {
       setSavingSession(false);
     }
@@ -352,6 +549,30 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     }
   }
 
+  async function handleDeleteClass(classId: number) {
+    if (!accessToken) return;
+    try {
+      await deleteClass(accessToken, classId);
+      toast.success("Class deleted successfully");
+      await loadAll();
+    } catch {
+      toast.error("Failed to delete class");
+    }
+  }
+
+  async function handleDeleteSession(classId: number, sessionId: number, sessionDate: string) {
+    if (!accessToken) return;
+    if (window.confirm(`Delete session on ${formatDate(sessionDate)}? This action cannot be undone.`)) {
+      try {
+        await deleteSession(accessToken, classId, sessionId);
+        toast.success("Session deleted successfully");
+        await loadAll();
+      } catch (error: any) {
+        toast.error(error.message || "Failed to delete session");
+      }
+    }
+  }
+
   async function handleUpdateEnrollment(id: number, patch: { status?: string; payment_status?: string }) {
     if (!accessToken) return;
     try {
@@ -363,9 +584,86 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     }
   }
 
+  async function handlePublishSession() {
+    if (!accessToken || !selectedSessionId) return;
+    try {
+      await publishSession(accessToken, selectedSessionId);
+      toast.success("Session published successfully! It's now visible to clients.");
+      setPublishModalOpen(false);
+      setSelectedSessionId(null);
+      await loadAll();
+    } catch {
+      toast.error("Failed to publish session");
+    }
+  }
+
+  async function handleMarkAttendance() {
+    if (!accessToken || !selectedSessionId) return;
+    
+    // Get enrollments for this session
+    const sessionEnrollments = enrollments.filter(
+      (e) => e.class_session_id === selectedSessionId
+    );
+    
+    // Build attendance array from attendanceData state
+    const attendance = sessionEnrollments
+      .filter((e) => attendanceData[e.id]) // Only include if status was set
+      .map((e) => ({
+        enrollment_id: e.id,
+        status: attendanceData[e.id],
+      }));
+    
+    if (attendance.length === 0) {
+      toast.error("Please mark attendance for at least one client");
+      return;
+    }
+    
+    try {
+      const result = await markAttendance(accessToken, selectedSessionId, attendance);
+      toast.success(`Attendance marked for ${result.updated_count} clients`);
+      if (result.refunds_processed > 0) {
+        toast.info(`${result.refunds_processed} refunds processed for cancellations`);
+      }
+      setAttendanceModalOpen(false);
+      setSelectedSessionId(null);
+      setAttendanceData({});
+      await loadAll();
+    } catch {
+      toast.error("Failed to mark attendance");
+    }
+  }
+
+  function openPublishModal(sessionId: number) {
+    setSelectedSessionId(sessionId);
+    setPublishModalOpen(true);
+  }
+
+  function openAttendanceModal(sessionId: number, sessionDate: string) {
+    setSelectedSessionId(sessionId);
+    setSelectedSessionDate(sessionDate);
+    
+    // Initialize attendance data for this session's enrollments
+    const sessionEnrollments = enrollments.filter(
+      (e) => e.class_session_id === sessionId
+    );
+    const initialData: Record<number, string> = {};
+    sessionEnrollments.forEach((e) => {
+      initialData[e.id] = ""; // No status selected by default
+    });
+    setAttendanceData(initialData);
+    setAttendanceModalOpen(true);
+  }
+
   // ── Schedule tab helpers ─────────────────────────────────────────────────────
 
-  type DaySession = { classItem: GroupClass; sessionDate: string; startTime: string; sessionId: number; enrolledCount: number };
+  type DaySession = { 
+    classItem: GroupClass; 
+    sessionDate: string; 
+    startTime: string; 
+    sessionId: number; 
+    enrolledCount: number;
+    status?: string;
+  };
 
   const sessionsByDate: Record<string, DaySession[]> = {};
   classes.forEach((classItem) => {
@@ -377,6 +675,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
         startTime: s.start_time,
         sessionId: s.id,
         enrolledCount: s.enrolled_count,
+        status: s.status,
       });
     });
   });
@@ -479,18 +778,85 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-white via-white to-zinc-400 bg-clip-text text-transparent">
-                Classes &amp; Sessions
+                Sessions
               </h1>
-              <p className="text-sm sm:text-base text-zinc-400 mt-0.5 sm:mt-1">Manage your group fitness classes and enrollments</p>
+              <p className="text-sm sm:text-base text-zinc-400 mt-0.5 sm:mt-1">Manage your sessions, class schedules, and client enrollments</p>
             </div>
           </div>
-          <Button
-            onClick={() => setNewClassOpen(true)}
-            className="w-full sm:w-auto bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:via-amber-700 hover:to-orange-600 text-white shadow-lg shadow-amber-500/30"
-          >
-            <Plus className="size-4 mr-2" />
-            New Class
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {tierLimits && (
+              <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-white/5 border border-white/10">
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-500">Classes</span>
+                    <span className="text-xs font-medium text-white">
+                      {tierLimits.usage.active_classes} / {tierLimits.limits.max_active_classes}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        tierLimits.usage.active_classes / tierLimits.limits.max_active_classes >= 0.95
+                          ? "bg-rose-500"
+                          : tierLimits.usage.active_classes / tierLimits.limits.max_active_classes >= 0.8
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, (tierLimits.usage.active_classes / tierLimits.limits.max_active_classes) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="h-8 w-px bg-white/10" />
+                <div className="flex flex-col gap-1 min-w-[140px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-zinc-500">Sessions</span>
+                    <span className="text-xs font-medium text-white">
+                      {tierLimits.usage.sessions_this_month} / {tierLimits.limits.max_sessions_per_month}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full transition-all ${
+                        tierLimits.usage.sessions_this_month / tierLimits.limits.max_sessions_per_month >= 0.95
+                          ? "bg-rose-500"
+                          : tierLimits.usage.sessions_this_month / tierLimits.limits.max_sessions_per_month >= 0.8
+                          ? "bg-amber-500"
+                          : "bg-emerald-500"
+                      }`}
+                      style={{
+                        width: `${Math.min(100, (tierLimits.usage.sessions_this_month / tierLimits.limits.max_sessions_per_month) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 px-2">
+                  <Badge className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-400/30 text-xs font-medium capitalize">
+                    {tierLimits.tier}
+                  </Badge>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={() => {
+                  setRunTutorial(true);
+                }}
+                className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+              >
+                <HelpCircle className="size-4 mr-2" />
+                Tutorial
+              </Button>
+              <Button
+                onClick={() => setNewClassOpen(true)}
+                className="tutorial-create-class-button w-full sm:w-auto bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500 hover:from-amber-600 hover:via-amber-700 hover:to-orange-600 text-white shadow-lg shadow-amber-500/30"
+              >
+                <Plus className="size-4 mr-2" />
+                New Class
+              </Button>
+            </div>
+          </div>
         </div>
 
         {/* Next Session Hero Card */}
@@ -552,7 +918,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-white/10 pb-1">
+        <div className="tutorial-tabs flex gap-2 border-b border-white/10 pb-1">
           {[
             { id: "schedule" as TabView, label: "Schedule Overview" },
             { id: "classes" as TabView, label: "My Classes" },
@@ -576,7 +942,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
         {currentTab === "classes" && (
           <div className="space-y-6">
             {/* Stats Row */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="tutorial-stats-section grid gap-4 md:grid-cols-3">
               <EliteGlassCard className="p-6">
                 <div className="flex items-center gap-4">
                   <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 p-3 border border-emerald-400/20">
@@ -623,7 +989,13 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                 <p className="text-white font-medium mb-1">No classes yet</p>
                 <p className="text-sm text-zinc-400">Create your first group fitness class to get started</p>
               </div>
-            ) : (
+            ) : null}
+
+            {/* ────────────────────────────────────────────────────────────────────
+                CARD STYLE CLASSES VIEW (COMMENTED OUT - PREFER LIST VIEW)
+                Uncomment this section if you want to use card-based layout
+            ──────────────────────────────────────────────────────────────────── */}
+            {/* {classes.length > 0 && (
               <div className="grid gap-5 md:grid-cols-2">
                 {classes.map((classItem) => {
                   const statusBadgeClass =
@@ -663,15 +1035,88 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                           </Badge>
                           <p className="text-lg font-semibold text-emerald-400">₹{classItem.price}</p>
                         </div>
+                        {classItem.expires_on && (() => {
+                          const daysUntil = getDaysUntilExpiry(classItem.expires_on);
+                          const level = getExpiryWarningLevel(daysUntil);
+                          if (level === "critical" || level === "warning") {
+                            return (
+                              <div className={`flex items-center gap-2 p-2 rounded-lg border ${
+                                level === "critical" 
+                                  ? "bg-rose-500/10 border-rose-500/30 text-rose-400" 
+                                  : "bg-amber-500/10 border-amber-500/30 text-amber-400"
+                              }`}>
+                                <AlertTriangle className="size-4 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium">
+                                    {daysUntil !== null && daysUntil < 0 
+                                      ? "Class expired" 
+                                      : daysUntil === 0 
+                                      ? "Expires today" 
+                                      : `Expires in ${daysUntil} day${daysUntil !== 1 ? "s" : ""}`}
+                                  </p>
+                                  <p className="text-xs opacity-80">{formatDate(classItem.expires_on)}</p>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                         {classItem.upcoming_sessions.length > 0 && (
                           <div>
                             <p className="text-xs font-medium text-zinc-500 mb-2">Upcoming Sessions</p>
                             <div className="flex flex-wrap gap-2">
                               {classItem.upcoming_sessions.slice(0, 3).map((session) => (
-                                <Badge key={session.id} className="bg-sky-500/20 text-sky-400 border-sky-500/30 border text-xs">
-                                  <Clock className="size-3 mr-1.5 inline-block" />
-                                  {formatDate(session.session_date)} • {formatTime(session.start_time)}
-                                </Badge>
+                                <div key={session.id} className="flex items-center gap-1.5">
+                                  <Badge className={`${
+                                    session.status === "draft"
+                                      ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                      : "bg-sky-500/20 text-sky-400 border-sky-500/30"
+                                  } border text-xs flex items-center gap-1`}>
+                                    <Clock className="size-3 inline-block" />
+                                    {formatDate(session.session_date)} • {formatTime(session.start_time)}
+                                    {session.status === "published" && session.enrolled_count > 0 && (
+                                      <span title="Locked - cannot edit (has enrollments)" className="inline-flex">
+                                        <Lock className="size-2.5 opacity-60" />
+                                      </span>
+                                    )}
+                                  </Badge>
+                                  {session.status === "draft" && (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openPublishModal(session.id);
+                                        }}
+                                        className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 rounded hover:bg-emerald-500/30 transition-colors"
+                                        title="Publish session"
+                                      >
+                                        <Send className="size-3 inline-block" />
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteSession(classItem.id, session.id, session.session_date);
+                                        }}
+                                        className="px-2 py-1 text-xs bg-rose-500/20 text-rose-400 border border-rose-400/30 rounded hover:bg-rose-500/30 transition-colors"
+                                        title="Delete session"
+                                      >
+                                        <Trash2 className="size-3 inline-block" />
+                                      </button>
+                                    </>
+                                  )}
+                                  {session.status === "published" && session.enrolled_count === 0 && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteSession(classItem.id, session.id, session.session_date);
+                                      }}
+                                      className="px-2 py-1 text-xs bg-rose-500/20 text-rose-400 border border-rose-400/30 rounded hover:bg-rose-500/30 transition-colors"
+                                      title="Delete session (no enrollments)"
+                                    >
+                                      <Trash2 className="size-3 inline-block" />
+                                    </button>
+                                  )}
+                                </div>
                               ))}
                               {classItem.upcoming_sessions.length > 3 && (
                                 <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/30 border text-xs">
@@ -711,11 +1156,318 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                           >
                             <Pencil className="size-4" />
                           </Button>
+                          {classItem.status === "draft" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (window.confirm(`Delete "${classItem.title}"? This action cannot be undone.`)) {
+                                  handleDeleteClass(classItem.id);
+                                }
+                              }}
+                              className="text-zinc-400 hover:text-rose-400 hover:bg-rose-400/10"
+                              title="Delete draft class"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </EliteGlassCard>
                   );
                 })}
+              </div>
+            )} */}
+
+            {/* ── DETAILED LIST VIEW ────────────────────────────────────────────── */}
+            {classes.length > 0 && (
+              <div className="tutorial-detailed-list mt-8">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Detailed Class List</h3>
+                    <p className="text-sm text-zinc-400">All classes with full details and quick actions</p>
+                  </div>
+                </div>
+                
+                <EliteGlassCard className="overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-white/10 text-left bg-white/[0.02]">
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Class</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Status</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Location</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Capacity</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Price</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Sessions</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider">Expiry</th>
+                          <th className="px-4 py-3 text-xs font-semibold text-zinc-400 uppercase tracking-wider text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {classes.map((classItem) => {
+                          const statusBadgeClass =
+                            classItem.status === "active"
+                              ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                              : classItem.status === "draft"
+                              ? "bg-zinc-500/20 text-zinc-400 border-zinc-500/30"
+                              : "bg-rose-500/20 text-rose-400 border-rose-500/30";
+                          const statusLabel =
+                            classItem.status === "active" ? "Active" : classItem.status === "draft" ? "Draft" : "Cancelled";
+                          const daysUntil = getDaysUntilExpiry(classItem.expires_on);
+                          const expiryLevel = getExpiryWarningLevel(daysUntil);
+                          const isExpanded = expandedClasses.includes(classItem.id);
+
+                          return (
+                            <Fragment key={classItem.id}>
+                              <tr className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                                <td className="px-4 py-4">
+                                  <button
+                                    onClick={() => {
+                                      setExpandedClasses(prev => 
+                                        prev.includes(classItem.id) 
+                                          ? prev.filter(id => id !== classItem.id)
+                                          : [...prev, classItem.id]
+                                      );
+                                    }}
+                                    className="tutorial-expand-class w-full text-left flex items-center gap-2 group"
+                                  >
+                                    <ChevronDown 
+                                      className={`size-4 text-zinc-500 transition-transform flex-shrink-0 ${
+                                        isExpanded ? 'rotate-180' : ''
+                                      }`}
+                                    />
+                                    <div className="flex-1">
+                                      <div className="font-medium text-white mb-1 group-hover:text-emerald-400 transition-colors">
+                                        {classItem.title}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <Badge className={`${categoryBadgeClass(classItem.category as ClassCategory)} border text-xs capitalize`}>
+                                          {classItem.category}
+                                        </Badge>
+                                        <span className="text-xs text-zinc-500">{classItem.duration_minutes} min</span>
+                                      </div>
+                                    </div>
+                                  </button>
+                                </td>
+                              <td className="px-4 py-4">
+                                <Badge className={`${statusBadgeClass} border text-xs`}>{statusLabel}</Badge>
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center gap-1.5 text-sm text-zinc-300">
+                                  <MapPin className="size-3.5 text-zinc-500" />
+                                  <span className="truncate max-w-[150px]">{classItem.work_location_name ?? "No location"}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="text-sm text-zinc-300">
+                                  <span className="font-medium text-white">{classItem.enrolled_count}</span>
+                                  <span className="text-zinc-500">/{classItem.capacity}</span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="text-base font-semibold text-emerald-400">₹{classItem.price}</div>
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="text-sm">
+                                  <div className="text-white font-medium">{classItem.upcoming_sessions.length} upcoming</div>
+                                  <div className="text-xs text-zinc-500">
+                                    {classItem.upcoming_sessions.filter(s => s.status === "published").length} published
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4">
+                                {classItem.expires_on && (
+                                  <div className="text-sm">
+                                    <div className={`font-medium ${
+                                      expiryLevel === "critical" ? "text-rose-400" :
+                                      expiryLevel === "warning" ? "text-amber-400" :
+                                      "text-zinc-300"
+                                    }`}>
+                                      {daysUntil !== null && daysUntil < 0 
+                                        ? "Expired" 
+                                        : daysUntil === 0 
+                                        ? "Today" 
+                                        : `${daysUntil}d left`}
+                                    </div>
+                                    <div className="text-xs text-zinc-500">{formatDate(classItem.expires_on)}</div>
+                                  </div>
+                                )}
+                              </td>
+                              <td className="px-4 py-4">
+                                <div className="flex items-center justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setCurrentTab("enrollments")}
+                                    className="text-zinc-400 hover:text-white hover:bg-white/5 h-8"
+                                    title="View enrollments"
+                                  >
+                                    <Eye className="size-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedClassId(classItem.id);
+                                      setAddSessionOpen(true);
+                                    }}
+                                    className="tutorial-add-session text-zinc-400 hover:text-emerald-400 hover:bg-emerald-400/10 h-8"
+                                    title="Add session"
+                                  >
+                                    <CalendarPlus className="size-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openEditDrawer(classItem)}
+                                    className="text-zinc-400 hover:text-white hover:bg-white/5 h-8"
+                                    title="Edit class"
+                                  >
+                                    <Pencil className="size-3.5" />
+                                  </Button>
+                                  {classItem.status === "draft" && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (window.confirm(`Delete "${classItem.title}"? This action cannot be undone.`)) {
+                                          handleDeleteClass(classItem.id);
+                                        }
+                                      }}
+                                      className="text-zinc-400 hover:text-rose-400 hover:bg-rose-400/10 h-8"
+                                      title="Delete draft class"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Expanded Sessions List */}
+                            {isExpanded && classItem.upcoming_sessions.length > 0 && (
+                              <tr key={`${classItem.id}-sessions`}>
+                                <td colSpan={8} className="px-0 py-0 bg-white/[0.01]">
+                                  <div className="px-4 py-3">
+                                    <div className="space-y-2">
+                                      {classItem.upcoming_sessions.map((session) => (
+                                        <div 
+                                          key={session.id}
+                                          className="flex items-center gap-4 p-3 rounded-lg bg-white/[0.03] border border-white/5 hover:bg-white/[0.05] transition-colors"
+                                        >
+                                          {/* Date & Time */}
+                                          <div className="flex items-center gap-3 min-w-[180px]">
+                                            <div className="flex items-center gap-1.5 text-sm">
+                                              <CalendarDays className="size-4 text-zinc-500" />
+                                              <span className="text-zinc-300">{formatDate(session.session_date)}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 text-sm">
+                                              <Clock className="size-4 text-zinc-500" />
+                                              <span className="text-zinc-300">{session.start_time.slice(0, 5)}</span>
+                                            </div>
+                                          </div>
+
+                                          {/* Status Badge */}
+                                          <div className="min-w-[100px]">
+                                            {session.status === "draft" ? (
+                                              <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/30 border text-xs">
+                                                Draft
+                                              </Badge>
+                                            ) : session.status === "published" ? (
+                                              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 border text-xs">
+                                                Published
+                                              </Badge>
+                                            ) : (
+                                              <Badge className="bg-rose-500/20 text-rose-400 border-rose-500/30 border text-xs">
+                                                Cancelled
+                                              </Badge>
+                                            )}
+                                          </div>
+
+                                          {/* Enrollment Count */}
+                                          <div className="flex items-center gap-1.5 text-sm min-w-[80px]">
+                                            <Users className="size-4 text-zinc-500" />
+                                            <span className="text-white font-medium">{session.enrolled_count}</span>
+                                            <span className="text-zinc-500">enrolled</span>
+                                          </div>
+
+                                          {/* Actions */}
+                                          <div className="ml-auto flex items-center gap-2">
+                                            {session.status === "draft" && (
+                                              <>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openPublishModal(session.id);
+                                                  }}
+                                                  className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-400/10 h-8 px-3"
+                                                  title="Publish session"
+                                                >
+                                                  <Send className="size-3.5 mr-1.5" />
+                                                  Publish
+                                                </Button>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteSession(classItem.id, session.id, session.session_date);
+                                                  }}
+                                                  className="text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 h-8"
+                                                  title="Delete session"
+                                                >
+                                                  <Trash2 className="size-3.5" />
+                                                </Button>
+                                              </>
+                                            )}
+                                            {session.status === "published" && session.enrolled_count === 0 && (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleDeleteSession(classItem.id, session.id, session.session_date);
+                                                }}
+                                                className="text-rose-400 hover:text-rose-300 hover:bg-rose-400/10 h-8"
+                                                title="Delete session (no enrollments)"
+                                              >
+                                                <Trash2 className="size-3.5" />
+                                              </Button>
+                                            )}
+                                            {session.status === "published" && session.enrolled_count > 0 && (
+                                              <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                                                <Lock className="size-3" />
+                                                <span>Locked</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+
+                            {isExpanded && classItem.upcoming_sessions.length === 0 && (
+                              <tr key={`${classItem.id}-no-sessions`}>
+                                <td colSpan={8} className="px-0 py-0 bg-white/[0.01]">
+                                  <div className="px-4 py-3 text-center">
+                                    <p className="text-sm text-zinc-500">No upcoming sessions</p>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </EliteGlassCard>
               </div>
             )}
           </div>
@@ -827,21 +1579,41 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                         </div>
                         <div className="p-4 space-y-2">
                           {daySessions.map((item, idx) => (
-                            <div key={idx} className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer ${schedCatBgClass(item.classItem.category)}`}>
+                            <div key={idx} className={`group relative flex items-center gap-3 p-3 rounded-lg border transition-all ${schedCatBgClass(item.classItem.category)}`}>
                               <div className={`w-1 h-full absolute left-0 top-0 rounded-l-lg ${schedCatBarClass(item.classItem.category)}`} />
                               <div className="pl-2 min-w-[70px]">
                                 <p className="text-xs font-semibold text-white">{formatTime(item.startTime)}</p>
                                 <p className="text-xs text-zinc-500">{item.classItem.duration_minutes}m</p>
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-white truncate">{item.classItem.title}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="text-sm font-medium text-white truncate">{item.classItem.title}</p>
+                                  {item.status === "draft" && (
+                                    <Badge className="bg-amber-500/20 text-amber-400 border-amber-400/30 text-xs">
+                                      Draft
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
                                   <span className="text-xs text-zinc-400 flex items-center gap-1">
                                     <Users className="size-3" />
                                     {item.enrolledCount}/{item.classItem.capacity}
                                   </span>
                                 </div>
                               </div>
+                              {item.status === "draft" && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openPublishModal(item.sessionId);
+                                  }}
+                                  className="px-2 py-1.5 text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 rounded hover:bg-emerald-500/30 transition-colors"
+                                  title="Publish session"
+                                >
+                                  <Send className="size-3 inline-block mr-1" />
+                                  Publish
+                                </button>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -850,6 +1622,90 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                   })}
                 </div>
               )}
+            </EliteGlassCard>
+
+            {/* Past Sessions (Attendance Marking) */}
+            <EliteGlassCard className="p-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-white mb-1">Past Sessions</h3>
+                <p className="text-sm text-zinc-400">Mark attendance for completed sessions</p>
+              </div>
+              {(() => {
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const pastSessions: DaySession[] = [];
+                classes.forEach((classItem) => {
+                  classItem.upcoming_sessions.forEach((s) => {
+                    const sessionDate = new Date(s.session_date);
+                    sessionDate.setHours(0, 0, 0, 0);
+                    if (sessionDate < today) {
+                      pastSessions.push({
+                        classItem,
+                        sessionDate: s.session_date,
+                        startTime: s.start_time,
+                        sessionId: s.id,
+                        enrolledCount: enrollments.filter((e) => e.class_session_id === s.id).length,
+                      });
+                    }
+                  });
+                });
+                pastSessions.sort((a, b) => b.sessionDate.localeCompare(a.sessionDate));
+
+                if (pastSessions.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-zinc-400">
+                      <CalendarDays className="size-8 mx-auto mb-3 text-zinc-600" />
+                      <p>No past sessions</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    {pastSessions.slice(0, 5).map((session) => (
+                      <div
+                        key={session.sessionId}
+                        className="flex items-center justify-between p-4 bg-white/5 border border-white/10 rounded-lg hover:border-white/20 transition-colors"
+                      >
+                        <div className="flex items-center gap-4 flex-1">
+                          <div className={`w-1 h-12 rounded-full ${schedCatBarClass(session.classItem.category)}`} />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-white">{session.classItem.title}</p>
+                            <div className="flex items-center gap-3 mt-1 text-xs text-zinc-400">
+                              <span className="flex items-center gap-1">
+                                <CalendarDays className="size-3" />
+                                {formatDate(session.sessionDate)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Clock className="size-3" />
+                                {formatTime(session.startTime)}
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Users className="size-3" />
+                                {session.enrolledCount} enrolled
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openAttendanceModal(session.sessionId, session.sessionDate)}
+                          className="bg-emerald-500/10 border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
+                        >
+                          <UserCheck className="size-4 mr-2" />
+                          Mark Attendance
+                        </Button>
+                      </div>
+                    ))}
+                    {pastSessions.length > 5 && (
+                      <p className="text-xs text-zinc-500 text-center mt-3">
+                        Showing 5 of {pastSessions.length} past sessions
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </EliteGlassCard>
 
             {/* Quick Insights */}
@@ -1174,6 +2030,19 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
               />
             </div>
             <div>
+              <Label className="text-sm font-medium text-zinc-300 mb-2 block">Expiry Date</Label>
+              <Input
+                type="date"
+                value={newClassExpiryDate}
+                onChange={(e) => setNewClassExpiryDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
+              />
+              <p className="text-xs text-zinc-500 mt-1.5">
+                Classes expire after this date. Sessions cannot be created beyond expiry. Default: 3 months.
+              </p>
+            </div>
+            <div>
               <Label className="text-sm font-medium text-zinc-300 mb-2 block">Status</Label>
               <div className="flex items-center gap-3 p-4 rounded-lg border border-white/10 bg-white/5">
                 <Switch
@@ -1202,24 +2071,41 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
 
       {/* ── Add Session Modal ─────────────────────────────────────────────────── */}
       <AlertDialog open={addSessionOpen} onOpenChange={setAddSessionOpen}>
-        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
+        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl max-w-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-white">Schedule New Session</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Add a new session date for this class
+              Create one or multiple recurring sessions for this class
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-4">
+            {/* Recurrence Type */}
             <div>
-              <Label className="text-sm font-medium text-zinc-300 mb-2 block">Session Date</Label>
-              <Input
-                type="date"
-                value={newSessionDate}
-                onChange={(e) => setNewSessionDate(e.target.value)}
-                className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
-              />
+              <Label className="text-sm font-medium text-zinc-300 mb-2 block">Recurrence Type</Label>
+              <Select value={recurrenceType} onValueChange={(v) => setRecurrenceType(v as "single" | "daily" | "weekly")}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="single">Single Session</SelectItem>
+                  <SelectItem value="daily">Daily (Every Day)</SelectItem>
+                  <SelectItem value="weekly">Weekly (Specific Days)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            
             <div className="grid gap-4 grid-cols-2">
+              <div>
+                <Label className="text-sm font-medium text-zinc-300 mb-2 block">
+                  {recurrenceType === "single" ? "Session Date" : "Start Date"}
+                </Label>
+                <Input
+                  type="date"
+                  value={newSessionDate}
+                  onChange={(e) => setNewSessionDate(e.target.value)}
+                  className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
+                />
+              </div>
               <div>
                 <Label className="text-sm font-medium text-zinc-300 mb-2 block">Start Time</Label>
                 <Input
@@ -1229,16 +2115,90 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                   className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
                 />
               </div>
-              <div>
-                <Label className="text-sm font-medium text-zinc-300 mb-2 block">Duration (min)</Label>
-                <Input
-                  type="number"
-                  value={newSessionDuration}
-                  onChange={(e) => setNewSessionDuration(e.target.value)}
-                  className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
-                />
-              </div>
             </div>
+            
+            {/* Weekly: Days of Week Selector */}
+            {recurrenceType === "weekly" && (
+              <div>
+                <Label className="text-sm font-medium text-zinc-300 mb-2 block">Days of Week</Label>
+                <div className="flex flex-wrap gap-2">
+                  {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, index) => (
+                    <Button
+                      key={day}
+                      type="button"
+                      variant={selectedDays.includes(index) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        if (selectedDays.includes(index)) {
+                          setSelectedDays(selectedDays.filter((d) => d !== index));
+                        } else {
+                          setSelectedDays([...selectedDays, index].sort());
+                        }
+                      }}
+                      className={selectedDays.includes(index) 
+                        ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+                        : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"}
+                    >
+                      {day}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Recurrence End Condition */}
+            {recurrenceType !== "single" && (
+              <>
+                <div className="flex items-center gap-4">
+                  <Button
+                    type="button"
+                    variant={useEndDate ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUseEndDate(true)}
+                    className={useEndDate 
+                      ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"}
+                  >
+                    End Date
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={!useEndDate ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setUseEndDate(false)}
+                    className={!useEndDate 
+                      ? "bg-emerald-500 hover:bg-emerald-600 text-white" 
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"}
+                  >
+                    Number of Sessions
+                  </Button>
+                </div>
+                
+                {useEndDate ? (
+                  <div>
+                    <Label className="text-sm font-medium text-zinc-300 mb-2 block">End Date</Label>
+                    <Input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="text-sm font-medium text-zinc-300 mb-2 block">Number of Sessions</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={numberOfSessions}
+                      onChange={(e) => setNumberOfSessions(e.target.value)}
+                      className="bg-white/5 border-white/10 text-white focus:border-emerald-400/50 focus:ring-2 focus:ring-emerald-400/20 h-11"
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setAddSessionOpen(false)} className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10">
@@ -1246,10 +2206,10 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSaveSession}
-              disabled={savingSession || !newSessionDate || !newSessionTime}
+              disabled={savingSession || !newSessionDate || !newSessionTime || (recurrenceType === "weekly" && selectedDays.length === 0)}
               className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
             >
-              {savingSession ? "Scheduling…" : "Schedule Session"}
+              {savingSession ? "Scheduling…" : recurrenceType === "single" ? "Schedule Session" : "Schedule Sessions"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1442,6 +2402,253 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ── Publish Session Modal ──────────────────────────────────────────────── */}
+      <AlertDialog open={publishModalOpen} onOpenChange={setPublishModalOpen}>
+        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <Send className="size-5 text-emerald-400" />
+              Publish Session
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild className="text-zinc-400 space-y-2">
+              <div>
+                <p>Publishing this session will make it visible to clients for enrollment.</p>
+                <div className="mt-3 p-3 bg-amber-500/10 border border-amber-400/30 rounded-lg">
+                  <p className="text-sm text-amber-400 flex items-center gap-2">
+                    <AlertTriangle className="size-4 shrink-0" />
+                    <span><strong>Important:</strong> Published sessions cannot be edited. You can only cancel them (which triggers automatic refunds).</span>
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPublishModalOpen(false)} className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handlePublishSession}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+            >
+              <Send className="size-4 mr-2" />
+              Publish Now
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Mark Attendance Modal ──────────────────────────────────────────────── */}
+      <AlertDialog open={attendanceModalOpen} onOpenChange={setAttendanceModalOpen}>
+        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl sm:max-w-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <UserCheck className="size-5 text-emerald-400" />
+              Mark Attendance - {selectedSessionDate && formatDate(selectedSessionDate)}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Mark attendance for each enrolled client. Session cancellations will trigger automatic refunds.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="max-h-[500px] overflow-y-auto py-4">
+            {selectedSessionId && enrollments.filter((e) => e.class_session_id === selectedSessionId).length === 0 ? (
+              <div className="text-center py-8 text-zinc-400">
+                <Users className="size-8 mx-auto mb-3 text-zinc-600" />
+                <p>No enrollments for this session</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedSessionId &&
+                  enrollments
+                    .filter((e) => e.class_session_id === selectedSessionId)
+                    .map((enrollment) => (
+                      <div
+                        key={enrollment.id}
+                        className="p-4 bg-white/5 border border-white/10 rounded-lg hover:border-white/20 transition-colors"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <p className="text-sm font-medium text-white">{enrollment.client_name}</p>
+                            <p className="text-xs text-zinc-500">Enrollment #{enrollment.id}</p>
+                          </div>
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-400/30">
+                            {enrollment.payment_status}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <button
+                            onClick={() =>
+                              setAttendanceData((prev) => ({
+                                ...prev,
+                                [enrollment.id]: "attended",
+                              }))
+                            }
+                            className={`p-2 rounded-lg border text-xs font-medium transition-all ${
+                              attendanceData[enrollment.id] === "attended"
+                                ? "bg-emerald-500/20 border-emerald-400/30 text-emerald-400"
+                                : "bg-white/5 border-white/10 text-zinc-400 hover:border-white/20"
+                            }`}
+                          >
+                            <CheckCircle className="size-4 mx-auto mb-1" />
+                            Attended
+                          </button>
+                          <button
+                            onClick={() =>
+                              setAttendanceData((prev) => ({
+                                ...prev,
+                                [enrollment.id]: "no_show_client",
+                              }))
+                            }
+                            className={`p-2 rounded-lg border text-xs font-medium transition-all ${
+                              attendanceData[enrollment.id] === "no_show_client"
+                                ? "bg-amber-500/20 border-amber-400/30 text-amber-400"
+                                : "bg-white/5 border-white/10 text-zinc-400 hover:border-white/20"
+                            }`}
+                          >
+                            <XCircle className="size-4 mx-auto mb-1" />
+                            No Show
+                          </button>
+                          <button
+                            onClick={() =>
+                              setAttendanceData((prev) => ({
+                                ...prev,
+                                [enrollment.id]: "session_cancelled",
+                              }))
+                            }
+                            className={`p-2 rounded-lg border text-xs font-medium transition-all ${
+                              attendanceData[enrollment.id] === "session_cancelled"
+                                ? "bg-rose-500/20 border-rose-400/30 text-rose-400"
+                                : "bg-white/5 border-white/10 text-zinc-400 hover:border-white/20"
+                            }`}
+                          >
+                            <Ban className="size-4 mx-auto mb-1" />
+                            Cancelled
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+              </div>
+            )}
+          </div>
+          <div className="p-3 bg-sky-500/10 border border-sky-400/30 rounded-lg mb-4">
+            <p className="text-xs text-sky-400">
+              <strong>Note:</strong> Marking as "Cancelled" will automatically refund the client. This action cannot be undone.
+            </p>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => {
+                setAttendanceModalOpen(false);
+                setAttendanceData({});
+              }}
+              className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleMarkAttendance}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+            >
+              <UserCheck className="size-4 mr-2" />
+              Submit Attendance
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Tier Limit Reached Modal ───────────────────────────────────────────── */}
+      <AlertDialog open={tierLimitModalOpen} onOpenChange={setTierLimitModalOpen}>
+        <AlertDialogContent className="bg-[#0d1526]/95 border-amber-400/30 backdrop-blur-xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <AlertTriangle className="size-5 text-amber-400" />
+              Upgrade to Create More {tierLimitError?.resource === "class" ? "Classes" : "Sessions"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild className="text-zinc-400 space-y-3">
+              <div>
+                <p>
+                  You've reached the <span className="font-semibold capitalize">{tierLimitError?.tier}</span> tier limit of{" "}
+                  <span className="font-semibold">{tierLimitError?.limit}</span> active{" "}
+                  {tierLimitError?.resource === "class" ? "classes" : "sessions"}.
+                </p>
+                
+                <div className="p-3 bg-emerald-500/10 border border-emerald-400/30 rounded-lg">
+                  <p className="text-sm text-emerald-400 font-medium mb-2">Upgrade to Pro to unlock:</p>
+                  <ul className="text-sm text-zinc-300 space-y-1.5">
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-400">✓</span>
+                      <span>5 active classes</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-400">✓</span>
+                      <span>20 sessions per month</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-400">✓</span>
+                      <span>Priority search ranking</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <span className="text-emerald-400">✓</span>
+                      <span>Analytics dashboard</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <p className="text-xs text-zinc-500">
+                  Current usage: {tierLimitError?.current_usage} / {tierLimitError?.limit}
+                </p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => setTierLimitModalOpen(false)} 
+              className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+            >
+              Stay on {tierLimitError?.tier ? tierLimitError.tier.charAt(0).toUpperCase() + tierLimitError.tier.slice(1) : "Free"}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setTierLimitModalOpen(false);
+                window.location.href = "/v2/partner/settings?tab=subscription";
+              }}
+              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
+            >
+              <svg className="size-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+              </svg>
+              Upgrade to Pro
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── TUTORIAL WALKTHROUGH ──────────────────────────────────────────────── */}
+      <Joyride
+        steps={classesManagerTutorialSteps}
+        run={runTutorial}
+        continuous
+        showProgress
+        showSkipButton
+        disableScrolling={false}
+        styles={tutorialStyles}
+        floaterProps={{
+          styles: {
+            floater: {
+              filter: 'none',
+            },
+          },
+        }}
+        callback={(data: CallBackProps) => {
+          const { status } = data;
+          
+          if (["finished", "skipped"].includes(status as any)) {
+            setRunTutorial(false);
+            // Mark tutorial as completed
+            localStorage.setItem('classesManagerTutorialCompleted', 'true');
+          }
+        }}
+      />
     </div>
   );
 }

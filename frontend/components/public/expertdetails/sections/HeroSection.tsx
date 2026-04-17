@@ -13,9 +13,10 @@ import { ShareButton } from "./ShareButton";
 type ExpertHeroSectionProps = {
   professional: ProfessionalProfile;
   onBookConsultation: () => void;
+  onBookSession: () => void;
 };
 
-export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHeroSectionProps) {
+export function ExpertHeroSection({ professional, onBookConsultation, onBookSession }: ExpertHeroSectionProps) {
   const membershipLabel = inferMembershipLabel(professional);
   const isOnline = isProfessionalOnline(professional);
   const certificationLabels = professional.certifications
@@ -138,7 +139,7 @@ export function ExpertHeroSection({ professional, onBookConsultation }: ExpertHe
                   </div>
                 </div>
 
-                <BookingPanel professional={professional} onBookConsultation={onBookConsultation} />
+                <BookingPanel professional={professional} onBookConsultation={onBookConsultation} onBookSession={onBookSession} />
               </div>
             </div>
           </div>

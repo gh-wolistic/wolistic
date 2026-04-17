@@ -29,8 +29,7 @@ class ExpertClientOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ============================================================================
@@ -67,8 +66,7 @@ class ReviewOut(BaseModel):
     # Nested response if exists
     response: "ReviewResponseOut | None" = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ReviewsSummaryOut(BaseModel):
@@ -114,8 +112,7 @@ class ReviewResponseOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # ============================================================================

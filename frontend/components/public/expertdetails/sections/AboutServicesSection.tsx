@@ -1,9 +1,14 @@
 import { Award, CheckCircle2, Users } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getProfessionalAbout, getProfessionalShortBio } from "@/lib/professionalBio";
+import { getProfessionalSessions, type ProfessionalSession } from "@/lib/api/sessions";
 import type { ProfessionalCertification, ProfessionalProfile } from "@/types/professional";
+import { SessionCard } from "@/components/sessions/SessionCard";
+import { SessionEnrollmentModal } from "@/components/sessions/SessionEnrollmentModal";
 import { SidebarSection } from "./SidebarSection";
 import { ServicesBookingSection } from "./ServicesBookingSection";
 
@@ -12,10 +17,17 @@ type AboutServicesSectionProps = {
   bookingStartSignal: number;
 };
 
+const INITIAL_SESSIONS_TO_SHOW = 2;
+
 export function AboutServicesSection({ professional, bookingStartSignal }: AboutServicesSectionProps) {
   const sectionAnchorClassName = "scroll-mt-20 sm:scroll-mt-32";
   const shortBio = getProfessionalShortBio(professional, 220);
   const about = getProfessionalAbout(professional);
+  const [sessions, setSessions] = useState<ProfessionalSession[]>([]);
+  const [loadingSessions, setLoadingSessions] = useState(true);
+  const [selectedSession, setSelectedSession] = useState<ProfessionalSession | null>(null);
+  const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false);
+  const [showAllSessions, setShowAllSessions] = useState(false);
   const certifications = professional.certifications
     .map((certification): ProfessionalCertification => {
       if (typeof certification === "string") {
@@ -42,6 +54,24 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
     professional.whoIWorkWith,
     professional.clientGoals && professional.clientGoals.length > 0,
   ].filter(Boolean).length;
+  // Fetch professional's sessions
+  useEffect(() => {
+    async function fetchSessions() {
+      try {
+        setLoadingSessions(true);
+        const data = await getProfessionalSessions(professional.username);
+        setSessions(data);
+      } catch (error) {
+        console.error("Failed to fetch sessions:", error);
+        setSessions([]);
+      } finally {
+        setLoadingSessions(false);
+      }
+    }
+
+    void fetchSessions();
+  }, [professional.username]);
+
   const showIdentitySection = identityFieldCount >= 2;
 
   return (
@@ -245,6 +275,62 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
       </div>
 
       <ServicesBookingSection professional={professional} bookingStartSignal={bookingStartSignal} />
+
+      {/* Sessions Section */}
+      <div id="sessions" className={sectionAnchorClassName}>
+        <Card className="p-5 sm:p-6">
+          <h2 className="mb-4">Upcoming Sessions</h2>
+          {loadingSessions ? (
+            <p className="text-sm text-muted-foreground">Loading sessions...</p>
+          ) : sessions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No upcoming sessions available.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-4">
+                {(showAllSessions ? sessions : sessions.slice(0, INITIAL_SESSIONS_TO_SHOW)).map((session) => (
+                  <SessionCard
+                    key={session.id}
+                    session={session}
+                    variant="light"
+                    onBookClick={() => {
+                      setSelectedSession(session);
+                      setEnrollmentModalOpen(true);
+                    }}
+                  />
+                ))}
+              </div>
+              {sessions.length > INITIAL_SESSIONS_TO_SHOW && !showAllSessions && (
+                <div className="flex justify-center pt-2">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                    onClick={() => setShowAllSessions(true)}
+                  >
+                    Load More ({sessions.length - INITIAL_SESSIONS_TO_SHOW} more session{sessions.length - INITIAL_SESSIONS_TO_SHOW !== 1 ? "s" : ""})
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Session Enrollment Modal */}
+      <SessionEnrollmentModal
+        session={selectedSession}
+        isOpen={enrollmentModalOpen}
+        onClose={() => {
+          setEnrollmentModalOpen(false);
+          setSelectedSession(null);
+        }}
+        onSuccess={(enrollmentId) => {
+          console.log("Successfully enrolled:", enrollmentId);
+          // Refresh sessions list after enrollment
+          getProfessionalSessions(professional.username)
+            .then(setSessions)
+            .catch(console.error);
+        }}
+      />
     </>
   );
 }

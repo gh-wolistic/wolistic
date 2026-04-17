@@ -27,6 +27,7 @@ class PartnerDashboardMetricsOut(BaseModel):
     revenue_currency: str | None = None
     rating_avg: float = 0
     rating_count: int = 0
+    upcoming_sessions_total: int = 0  # Group sessions (class_sessions)
 
 
 class PartnerDashboardRecentReviewOut(BaseModel):

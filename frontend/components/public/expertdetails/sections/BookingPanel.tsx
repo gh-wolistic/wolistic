@@ -10,6 +10,7 @@ import type { ProfessionalProfile } from "@/types/professional";
 type BookingPanelProps = {
   professional: ProfessionalProfile;
   onBookConsultation: () => void;
+  onBookSession: () => void;
 };
 
 function getSessionTypeVisual(sessionType: string) {
@@ -48,7 +49,7 @@ function getSessionTypeVisual(sessionType: string) {
   return { label: sessionType, icon: Video };
 }
 
-export function BookingPanel({ professional, onBookConsultation }: BookingPanelProps) {
+export function BookingPanel({ professional, onBookConsultation, onBookSession }: BookingPanelProps) {
 
   return (
     <div className="lg:col-span-1">
@@ -83,6 +84,14 @@ export function BookingPanel({ professional, onBookConsultation }: BookingPanelP
               onClick={onBookConsultation}
             >
               Book Consultation
+            </Button>
+            <Button
+              variant="default"
+              className="w-full bg-linear-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700"
+              onClick={onBookSession}
+            >
+              <Users size={18} className="mr-2" />
+              Book Session
             </Button>
             <Button variant="outline" className="w-full">
               <MessageCircle size={18} className="mr-2" />

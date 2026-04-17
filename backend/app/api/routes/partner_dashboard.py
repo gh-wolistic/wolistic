@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.database import get_db_session
 from app.models.booking import Booking, BookingPayment, BookingQuestionTemplate
+from app.models.classes import ClassSession, GroupClass
 from app.models.client import ExpertClient, ExpertClientFollowUp
 from app.models.holistic_team import HolisticTeamMember
 from app.models.professional import Professional, ProfessionalReview
@@ -104,6 +105,18 @@ async def get_partner_dashboard(
         )
     )
     holistic_teams_total = int(teams_result.scalar_one() or 0)
+
+    # Count upcoming published group sessions
+    sessions_result = await db.execute(
+        select(func.count(ClassSession.id))
+        .join(GroupClass, GroupClass.id == ClassSession.group_class_id)
+        .where(
+            GroupClass.professional_id == current_user.user_id,
+            ClassSession.status == "published",
+            ClassSession.session_date >= now_utc.date(),
+        )
+    )
+    upcoming_sessions_total = int(sessions_result.scalar_one() or 0)
 
     reviews_result = await db.execute(
         select(ProfessionalReview)
@@ -294,6 +307,7 @@ async def get_partner_dashboard(
             revenue_currency=revenue_currency,
             rating_avg=float(professional.rating_avg or 0),
             rating_count=int(professional.rating_count or 0),
+            upcoming_sessions_total=upcoming_sessions_total,
         ),
         recent_reviews=[
             PartnerDashboardRecentReviewOut(

@@ -618,7 +618,7 @@ async def get_limits_schema() -> dict:
             "group_classes_limit": {
                 "type": "integer",
                 "description": "Maximum active group classes",
-                "defaults": {"free": 0, "pro": 3, "elite": 15, "celeb": 9999},
+                "defaults": {"free": 2, "pro": 5, "elite": 15, "celeb": 9999},
             },
             "activity_manager_yet_to_start_cap": {
                 "type": "integer",

@@ -1713,3 +1713,79 @@ async def get_professional_by_username(
     if prof is None:
         raise HTTPException(status_code=404, detail="Professional not found")
     return ProfessionalProfileOut(**_flatten_professional(prof))
+
+
+@router.get("/{username}/sessions")
+async def get_professional_sessions(
+    username: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get all published sessions for a professional.
+    
+    Public endpoint - no auth required.
+    Returns upcoming sessions only (future dates).
+    """
+    from app.models.classes import ClassSession, GroupClass, WorkLocation, ClassEnrollment
+    from datetime import date
+    
+    # Get professional by username
+    prof_result = await db.execute(
+        select(Professional)
+        .join(User, User.id == Professional.user_id)
+        .where(Professional.username == username)
+        .where(User.user_status == "verified")
+    )
+    professional = prof_result.scalar_one_or_none()
+    if professional is None:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    
+    # Fetch published sessions with class and location
+    result = await db.execute(
+        select(ClassSession, GroupClass, WorkLocation)
+        .join(GroupClass, ClassSession.group_class_id == GroupClass.id)
+        .outerjoin(WorkLocation, GroupClass.work_location_id == WorkLocation.id)
+        .where(GroupClass.professional_id == professional.user_id)
+        .where(ClassSession.status == "published")
+        .where(ClassSession.session_date >= date.today())
+        .order_by(ClassSession.session_date, ClassSession.start_time)
+    )
+    rows = result.all()
+    
+    sessions = []
+    for session, group_class, work_location in rows:
+        # Count enrollments
+        enrolled_count = await db.scalar(
+            select(func.count(ClassEnrollment.id))
+            .where(ClassEnrollment.class_session_id == session.id)
+            .where(ClassEnrollment.status.in_(["confirmed", "attended"]))
+        ) or 0
+        
+        is_sold_out = enrolled_count >= group_class.capacity
+        
+        work_location_dict = None
+        if work_location:
+            work_location_dict = {
+                "name": work_location.name,
+                "address": work_location.address,
+                "location_type": work_location.location_type,
+            }
+        
+        sessions.append({
+            "id": session.id,
+            "class_id": group_class.id,
+            "title": group_class.title,
+            "category": group_class.category,
+            "display_term": group_class.display_term,
+            "session_date": str(session.session_date),
+            "start_time": str(session.start_time),
+            "duration_minutes": group_class.duration_minutes,
+            "capacity": group_class.capacity,
+            "enrolled_count": enrolled_count,
+            "is_sold_out": is_sold_out,
+            "price": float(group_class.price),
+            "description": group_class.description,
+            "work_location": work_location_dict,
+        })
+    
+    return {"sessions": sessions}

@@ -69,6 +69,11 @@ export function ProfessionalDetailPage({ professional: publishedProfile }: Profe
     setBookingStartSignal((prev) => prev + 1);
   }, []);
 
+  const handleBookSession = useCallback(() => {
+    const sessionsSection = document.getElementById("sessions");
+    sessionsSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
   useEffect(() => {
     if (shouldStartBooking) {
       window.setTimeout(() => {
@@ -98,7 +103,7 @@ export function ProfessionalDetailPage({ professional: publishedProfile }: Profe
       )}
 
       {/* Hero Section */}
-      <ExpertHeroSection professional={professional} onBookConsultation={handleStartBooking} />
+      <ExpertHeroSection professional={professional} onBookConsultation={handleStartBooking} onBookSession={handleBookSession} />
 
       <section className="bg-background py-8 sm:py-10 lg:py-12">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">

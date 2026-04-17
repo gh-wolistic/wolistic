@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Connection Test</title>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    <button onclick="testHealth()">Test Health Endpoint</button>
+    <button onclick="testTierLimits()">Test Tier Limits (needs auth)</button>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        async function testHealth() {
+            output.textContent = 'Testing health endpoint...\n';
+            try {
+                const url = 'http://localhost:8000/api/v1/health';
+                output.textContent += `Fetching from: ${url}\n`;
+                
+                const res = await fetch(url, {
+                    method: 'GET',
+                    mode: 'cors',
+                });
+                
+                output.textContent += `Status: ${res.status} ${res.statusText}\n`;
+                const data = await res.json();
+                output.textContent += `Response: ${JSON.stringify(data, null, 2)}\n`;
+            } catch (error) {
+                output.textContent += `ERROR: ${error.name}: ${error.message}\n`;
+                output.textContent += `Stack: ${error.stack}\n`;
+            }
+        }
+        
+        async function testTierLimits() {
+            const token = prompt('Enter access token:');
+            if (!token) return;
+            
+            output.textContent = 'Testing tier limits endpoint...\n';
+            try {
+                const url = 'http://localhost:8000/api/v1/partners/me/tier-limits';
+                output.textContent += `Fetching from: ${url}\n`;
+                output.textContent += `Token (first 20): ${token.substring(0, 20)}...\n`;
+                
+                const res = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors',
+                });
+                
+                output.textContent += `Status: ${res.status} ${res.statusText}\n`;
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    output.textContent += `Response: ${JSON.stringify(data, null, 2)}\n`;
+                } else {
+                    const text = await res.text();
+                    output.textContent += `Error response: ${text}\n`;
+                }
+            } catch (error) {
+                output.textContent += `ERROR: ${error.name}: ${error.message}\n`;
+                output.textContent += `Stack: ${error.stack}\n`;
+            }
+        }
+    </script>
+</body>
+</html>

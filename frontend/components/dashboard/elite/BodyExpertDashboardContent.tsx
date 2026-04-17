@@ -527,7 +527,7 @@ export function BodyExpertDashboardContent({
         <MetricCard
           icon={CalendarDays}
           label="Upcoming Sessions"
-          value={aggregate.metrics.upcoming_bookings_total}
+          value={aggregate.metrics.upcoming_sessions_total}
           subtitle="This week"
         />
         <MetricCard

@@ -52,7 +52,7 @@ FREE_PLAN = {
         "followups_total_limit": 20,
         "routines_limit": 0,
         "routine_templates_limit": 0,
-        "group_classes_limit": 0,
+        "group_classes_limit": 2,
         "activity_manager_yet_to_start_cap": 10,
         "activity_manager_in_progress_cap": 10,
         "classes_sessions_limit": 5,

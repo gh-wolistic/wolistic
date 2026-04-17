@@ -19,6 +19,7 @@ from app.api.routes.professionals import router as professionals_router
 from app.api.routes.search import router as search_router
 from app.api.routes.coins import router as coins_router
 from app.api.routes.classes import router as classes_router
+from app.api.routes.sessions import router as sessions_router
 from app.api.routes.subscription import partner_router as subscription_partner_router
 from app.api.routes.subscription import admin_router as subscription_admin_router
 from app.api.routes.clients import router as clients_router
@@ -51,6 +52,7 @@ api_router.include_router(activities_router)
 api_router.include_router(clients_router)
 api_router.include_router(settings_router)
 api_router.include_router(classes_router)
+api_router.include_router(sessions_router)
 api_router.include_router(subscription_partner_router)
 api_router.include_router(subscription_admin_router)
 api_router.include_router(messaging_router)

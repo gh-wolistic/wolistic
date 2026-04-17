@@ -43,7 +43,7 @@ const baseNavItems: NavItem[] = [
   { icon: Users, label: "Client Manager", section: "main", page: "clients" },
   { icon: MessageSquare, label: "Messages", section: "main", page: "messages" },
   { icon: Kanban, label: "Activity Manager", section: "main", page: "activities" },
-  { icon: CalendarDays, label: "Classes & Sessions", section: "main", page: "classes" },
+  { icon: CalendarDays, label: "Sessions", section: "main", page: "classes" },
   { icon: UserSquare2, label: "Profile Studio", section: "main", page: "profile" },
   { icon: Settings, label: "Settings", section: "main", page: "settings" },
   { icon: Gem, label: "Subscription", special: "upgrade", section: "upgrade", page: "subscription" },

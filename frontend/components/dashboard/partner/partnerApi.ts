@@ -80,6 +80,7 @@ export type PartnerDashboardAggregate = {
     revenue_currency: string | null;
     rating_avg: number;
     rating_count: number;
+    upcoming_sessions_total: number;
   };
   recent_reviews: Array<{
     id: number;
