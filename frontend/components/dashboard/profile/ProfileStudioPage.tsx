@@ -410,17 +410,11 @@ export function ProfileStudioPage() {
                     onSubcategoriesChange={(subcategories) =>
                       setEditorData((current) => (current ? { ...current, subcategories } : current))
                     }
-                    onEducationChange={(education) =>
-                      setEditorData((current) => (current ? { ...current, education } : current))
-                    }
                     onApproachesChange={(approaches) =>
                       setEditorData((current) => (current ? { ...current, approaches } : current))
                     }
                     onExpertiseAreasChange={(expertise_areas) =>
                       setEditorData((current) => (current ? { ...current, expertise_areas } : current))
-                    }
-                    onCertificationsChange={(certifications) =>
-                      setEditorData((current) => (current ? { ...current, certifications } : current))
                     }
                   />
                 </TabsContent>

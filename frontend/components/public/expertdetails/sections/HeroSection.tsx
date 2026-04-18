@@ -1,5 +1,6 @@
 "use client";
 import { MapPin, Clock, Globe } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { ImageWithFallback } from "@/components/public/ImageWithFallback";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,7 @@ import { inferMembershipLabel, isProfessionalOnline } from "@/lib/professionalSi
 import { BookingPanel } from "./BookingPanel";
 import { FavouriteButton } from "./FavouriteButton";
 import { ShareButton } from "./ShareButton";
+import { getVerifiedCredentials, type VerifiedCredentialsResponse } from "@/lib/public-credentials-api";
 
 type ExpertHeroSectionProps = {
   professional: ProfessionalProfile;
@@ -19,11 +21,26 @@ type ExpertHeroSectionProps = {
 export function ExpertHeroSection({ professional, onBookConsultation, onBookSession }: ExpertHeroSectionProps) {
   const membershipLabel = inferMembershipLabel(professional);
   const isOnline = isProfessionalOnline(professional);
-  const certificationLabels = professional.certifications
-    .map((certification) =>
-      typeof certification === "string" ? certification : certification.name,
-    )
-    .filter((label) => label.trim().length > 0);
+  const [verifiedCredentials, setVerifiedCredentials] = useState<VerifiedCredentialsResponse | null>(null);
+
+  // Fetch verified credentials on mount
+  useEffect(() => {
+    const fetchCredentials = async () => {
+      try {
+        const credentials = await getVerifiedCredentials(professional.username);
+        console.log('[HeroSection] Fetched verified credentials:', credentials);
+        setVerifiedCredentials(credentials);
+      } catch (error) {
+        console.error("Failed to fetch verified credentials:", error);
+        // Fail silently - component will render without verified badges
+      }
+    };
+    void fetchCredentials();
+  }, [professional.username]);
+
+  // Only show verified credentials (no legacy fallback)
+  const displayCertificates = verifiedCredentials?.certificates.map(c => c.name) || [];
+  const displayLicenses = verifiedCredentials?.licenses || [];
 
   return (
       <section className="relative">
@@ -129,11 +146,23 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                       </div>
 
                       {/* Certifications Row */}
-                      {certificationLabels.length > 0 && (
+                      {displayCertificates.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {certificationLabels.map((certificationLabel, index) => (
-                            <Badge key={`${certificationLabel}-${index}`} variant="outline">
-                              {certificationLabel}
+                          {displayCertificates.map((certLabel, index) => (
+                            <Badge key={`cert-${certLabel}-${index}`} variant="outline">
+                              {certLabel}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Licenses Row */}
+                      {displayLicenses.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {displayLicenses.map((license) => (
+                            <Badge key={`license-${license.id}`} variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                              {license.name}
+                              {license.license_number && ` • ${license.license_number}`}
                             </Badge>
                           ))}
                         </div>

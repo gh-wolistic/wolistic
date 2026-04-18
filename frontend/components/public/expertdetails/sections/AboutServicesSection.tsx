@@ -1,4 +1,4 @@
-import { Award, CheckCircle2, Users } from "lucide-react";
+import { Award, CheckCircle2, Users, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getProfessionalAbout, getProfessionalShortBio } from "@/lib/professionalBio";
 import { getProfessionalSessions, type ProfessionalSession } from "@/lib/api/sessions";
-import type { ProfessionalCertification, ProfessionalProfile } from "@/types/professional";
+import type { ProfessionalProfile } from "@/types/professional";
 import { SessionCard } from "@/components/sessions/SessionCard";
 import { SessionEnrollmentModal } from "@/components/sessions/SessionEnrollmentModal";
 import { SidebarSection } from "./SidebarSection";
 import { ServicesBookingSection } from "./ServicesBookingSection";
+import { getVerifiedCredentials, type VerifiedCredentialsResponse } from "@/lib/public-credentials-api";
 
 type AboutServicesSectionProps = {
   professional: ProfessionalProfile;
@@ -28,17 +29,30 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
   const [selectedSession, setSelectedSession] = useState<ProfessionalSession | null>(null);
   const [enrollmentModalOpen, setEnrollmentModalOpen] = useState(false);
   const [showAllSessions, setShowAllSessions] = useState(false);
-  const certifications = professional.certifications
-    .map((certification): ProfessionalCertification => {
-      if (typeof certification === "string") {
-        return { name: certification };
-      }
+  const [verifiedCredentials, setVerifiedCredentials] = useState<VerifiedCredentialsResponse | null>(null);
 
-      return certification;
-    })
-    .filter((certification) => certification.name.trim().length > 0);
-  const hasEducation = professional.education.length > 0;
-  const hasCertifications = certifications.length > 0;
+  // Fetch verified credentials
+  useEffect(() => {
+    const fetchCredentials = async () => {
+      try {
+        const credentials = await getVerifiedCredentials(professional.username);
+        console.log('[AboutServicesSection] Fetched verified credentials:', credentials);
+        setVerifiedCredentials(credentials);
+      } catch (error) {
+        console.error("Failed to fetch verified credentials:", error);
+      }
+    };
+    void fetchCredentials();
+  }, [professional.username]);
+
+  // Only show verified credentials (no legacy fallback)
+  const displayEducation = verifiedCredentials?.education.map(e => e.name) || [];
+  const displayCertificates = verifiedCredentials?.certificates || [];
+  const displayLicenses = verifiedCredentials?.licenses || [];
+
+  const hasEducation = displayEducation.length > 0;
+  const hasCertifications = displayCertificates.length > 0;
+  const hasLicenses = displayLicenses.length > 0;
 
   // Prefer structured approaches[], fall back to legacy approach string
   const hasStructuredApproaches = professional.approaches && professional.approaches.length > 0;
@@ -192,7 +206,7 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
           <div className="space-y-6">
             {hasEducation && (
               <div className="space-y-3">
-                {professional.education.map((education, index) => (
+                {displayEducation.map((education, index) => (
                   <div key={`${education}-${index}`} className="flex items-start gap-3">
                     <Award size={20} className="mt-0.5 shrink-0 text-emerald-600" />
                     <span className="break-words text-sm text-muted-foreground sm:text-base">{education}</span>
@@ -204,25 +218,27 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
             {hasCertifications && (
               <div className="space-y-3">
                 <div className="space-y-3 sm:hidden">
-                  {certifications.map((certification, index) => (
+                  {displayCertificates.map((cert) => (
                     <div
-                      key={`${certification.name}-${certification.issuer ?? "na"}-${certification.issuedYear ?? index}`}
+                      key={cert.id}
                       className="rounded-xl border border-border/60 bg-muted/10 p-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="break-words text-sm font-medium text-foreground">{certification.name}</p>
+                          <p className="break-words text-sm font-medium text-foreground">{cert.name}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
-                            {certification.issuer?.trim() || "Issuer not specified"}
+                            {cert.issuer}
                           </p>
                         </div>
                         <Badge variant="outline" className="shrink-0">
-                          Certified
+                          Verified
                         </Badge>
                       </div>
-                      <p className="mt-3 text-xs text-muted-foreground">
-                        Issued {certification.issuedYear ?? "year not specified"}
-                      </p>
+                      {cert.issued_date && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Issued {new Date(cert.issued_date).toLocaleDateString()}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -233,26 +249,24 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                       <tr>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Certification</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Issuer</th>
-                        <th className="px-4 py-3 text-left font-medium text-foreground">Year</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Issued Date</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {certifications.map((certification, index) => (
+                      {displayCertificates.map((cert) => (
                         <tr
-                          key={`${certification.name}-${certification.issuer ?? "na"}-${certification.issuedYear ?? index}`}
+                          key={cert.id}
                           className="border-t border-border/50"
                         >
-                          <td className="px-4 py-3 text-foreground">{certification.name}</td>
+                          <td className="px-4 py-3 text-foreground">{cert.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{cert.issuer}</td>
                           <td className="px-4 py-3 text-muted-foreground">
-                            {certification.issuer?.trim() || "Not specified"}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {certification.issuedYear ?? "Not specified"}
+                            {cert.issued_date ? new Date(cert.issued_date).toLocaleDateString() : "—"}
                           </td>
                           <td className="px-4 py-3">
                             <Badge variant="outline" className="shrink-0">
-                              Certified
+                              Verified
                             </Badge>
                           </td>
                         </tr>
@@ -263,8 +277,85 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
               </div>
             )}
 
-            {!hasEducation && !hasCertifications && (
-              <p className="text-muted-foreground">No education or certifications available.</p>
+            {hasLicenses && (
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
+                  <ShieldCheck size={18} className="text-emerald-600" />
+                  Professional Licenses
+                </h3>
+                <div className="space-y-3 sm:hidden">
+                  {displayLicenses.map((license) => (
+                    <div
+                      key={license.id}
+                      className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="break-words text-sm font-medium text-foreground">{license.name}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {license.issuer}
+                          </p>
+                          {license.license_number && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              License #{license.license_number}
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                          Verified
+                        </Badge>
+                      </div>
+                      {license.expiry_date && (
+                        <p className="mt-3 text-xs text-muted-foreground">
+                          Valid until {new Date(license.expiry_date).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden overflow-x-auto rounded-lg border border-border/60 sm:block">
+                  <table className="w-full min-w-[34rem] text-sm">
+                    <thead className="bg-muted/30">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">License</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Issuer</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">License #</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Valid Until</th>
+                        <th className="px-4 py-3 text-left font-medium text-foreground">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayLicenses.map((license) => (
+                        <tr
+                          key={license.id}
+                          className="border-t border-border/50"
+                        >
+                          <td className="px-4 py-3 text-foreground">{license.name}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{license.issuer}</td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {license.license_number || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-muted-foreground">
+                            {license.expiry_date ? new Date(license.expiry_date).toLocaleDateString() : "—"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge variant="secondary" className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                              Verified
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {!hasEducation && !hasCertifications && !hasLicenses && (
+              <p className="text-muted-foreground">
+                This professional hasn't added verified credentials yet.
+              </p>
             )}
           </div>
         </Card>

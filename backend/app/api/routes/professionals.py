@@ -1715,6 +1715,70 @@ async def get_professional_by_username(
     return ProfessionalProfileOut(**_flatten_professional(prof))
 
 
+@router.get("/{username}/verified-credentials")
+async def get_professional_verified_credentials(
+    username: str,
+    db: AsyncSession = Depends(get_db_session),
+):
+    """
+    Get all approved verified credentials for a professional.
+    
+    Public endpoint - returns only approved credentials for display on professional profile.
+    Returns education, certificates, and licenses separately.
+    """
+    from app.models.verification import CredentialVerification
+    
+    # Get professional by username
+    prof_result = await db.execute(
+        select(Professional)
+        .join(User, User.id == Professional.user_id)
+        .where(Professional.username == username)
+        .where(User.user_status == "verified")
+    )
+    professional = prof_result.scalar_one_or_none()
+    if professional is None:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    
+    # Fetch only approved credentials
+    cred_result = await db.execute(
+        select(CredentialVerification)
+        .where(CredentialVerification.professional_id == professional.user_id)
+        .where(CredentialVerification.verification_status == "approved")
+        .order_by(CredentialVerification.credential_type, CredentialVerification.credential_name)
+    )
+    credentials = cred_result.scalars().all()
+    
+    # Separate by type
+    education = []
+    certificates = []
+    licenses = []
+    
+    for cred in credentials:
+        credential_dict = {
+            "id": cred.id,
+            "name": cred.credential_name,
+            "issuer": cred.issuing_organization,
+            "issued_date": str(cred.issued_date) if cred.issued_date else None,
+            "verified_at": str(cred.verified_at) if cred.verified_at else None,
+        }
+        
+        if cred.credential_type == "education":
+            education.append(credential_dict)
+        elif cred.credential_type == "certificate":
+            certificates.append(credential_dict)
+        elif cred.credential_type == "license":
+            credential_dict["license_number"] = cred.license_number
+            credential_dict["expiry_date"] = str(cred.expiry_date) if cred.expiry_date else None
+            credential_dict["registry_link"] = cred.registry_link
+            licenses.append(credential_dict)
+    
+    return {
+        "education": education,
+        "certificates": certificates,
+        "licenses": licenses,
+    }
+
+
 @router.get("/{username}/sessions")
 async def get_professional_sessions(
     username: str,

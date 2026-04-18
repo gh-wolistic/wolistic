@@ -1,4 +1,4 @@
-import { Award, Check, Globe, GraduationCap, Plus, Target, Trash2, X } from "lucide-react";
+import { Award, Check, Globe, Plus, Target, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type {
   ProfessionalApproachInput,
-  ProfessionalCertificationInput,
   ProfessionalEditorPayload,
   ProfessionalExpertiseAreaInput,
 } from "@/types/professional-editor";
@@ -20,10 +19,8 @@ type ProfilePracticeSectionProps = {
   onLanguagesChange: (next: string[]) => void;
   onSessionTypesChange: (next: string[]) => void;
   onSubcategoriesChange: (next: string[]) => void;
-  onEducationChange: (next: string[]) => void;
   onApproachesChange: (next: ProfessionalApproachInput[]) => void;
   onExpertiseAreasChange: (next: ProfessionalExpertiseAreaInput[]) => void;
-  onCertificationsChange: (next: ProfessionalCertificationInput[]) => void;
 };
 
 const SESSION_TYPES: { value: string; label: string; clientLabel: string }[] = [
@@ -100,10 +97,8 @@ export function ProfilePracticeSection({
   onLanguagesChange,
   onSessionTypesChange,
   onSubcategoriesChange,
-  onEducationChange,
   onApproachesChange,
   onExpertiseAreasChange,
-  onCertificationsChange,
 }: ProfilePracticeSectionProps) {
   const [subcategoryInput, setSubcategoryInput] = useState("");
 
@@ -263,27 +258,6 @@ export function ProfilePracticeSection({
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-        <h3 className="mb-6 flex items-center gap-2 text-xl font-semibold text-white">
-          <GraduationCap className="h-5 w-5 text-emerald-400" /> Education {value.education.length >= MAX_ITEMS && <span className="text-sm text-amber-400">(Max {MAX_ITEMS})</span>}
-        </h3>
-        <div>
-          <Label htmlFor="editor-education" className="mb-2 block text-sm text-zinc-300">
-            Education (one per line, max {MAX_ITEMS})
-          </Label>
-          <ListTextarea
-            id="editor-education"
-            rows={4}
-            placeholder="MSc Psychology, University of Delhi&#10;Yoga Alliance 200-hr RYT"
-            canonical={value.education}
-            onChange={(lines) => onEducationChange(lines.slice(0, MAX_ITEMS))}
-          />
-          {value.education.length >= MAX_ITEMS && (
-            <p className="mt-2 text-xs text-amber-400">Maximum {MAX_ITEMS} education entries reached.</p>
-          )}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <div className="mb-6 flex items-center justify-between">
           <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
             <Target className="h-5 w-5 text-emerald-400" /> Approaches ({value.approaches.length}/{MAX_ITEMS})
@@ -396,80 +370,6 @@ export function ProfilePracticeSection({
                   size="icon"
                   className="mt-1 text-red-400 hover:bg-red-500/10 hover:text-red-300"
                   onClick={() => onExpertiseAreasChange(value.expertise_areas.filter((_, itemIndex) => itemIndex !== index))}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-white/10 bg-white/5 p-6">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <Award className="h-5 w-5 text-emerald-400" /> Certificates ({value.certifications.length}/{MAX_ITEMS})
-          </h3>
-          <Button
-            type="button"
-            className="h-11 rounded-2xl bg-linear-to-r from-emerald-500 to-teal-600 px-5 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => onCertificationsChange([...value.certifications, { name: "", issuer: "", issued_year: undefined }])}
-            disabled={value.certifications.length >= MAX_ITEMS}
-          >
-            <Plus className="h-4 w-4" /> Add Certificate
-          </Button>
-        </div>
-
-        {value.certifications.length >= MAX_ITEMS && (
-          <p className="mb-4 text-xs text-amber-400">Maximum {MAX_ITEMS} certificates reached.</p>
-        )}
-
-        <div className="space-y-4">
-          {value.certifications.map((certification, index) => (
-            <div key={`certificate-${index}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
-              <div className="grid grid-cols-[1fr_auto] gap-3">
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <Input
-                    className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
-                    placeholder="Certificate Name"
-                    value={certification.name}
-                    onChange={(event) => {
-                      const next = [...value.certifications];
-                      next[index] = { ...next[index], name: event.target.value };
-                      onCertificationsChange(next);
-                    }}
-                  />
-                  <Input
-                    className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
-                    placeholder="Issuer"
-                    value={certification.issuer}
-                    onChange={(event) => {
-                      const next = [...value.certifications];
-                      next[index] = { ...next[index], issuer: event.target.value };
-                      onCertificationsChange(next);
-                    }}
-                  />
-                  <Input
-                    className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
-                    placeholder="Year"
-                    value={certification.issued_year ?? ""}
-                    onChange={(event) => {
-                      const raw = event.target.value.trim();
-                      const next = [...value.certifications];
-                      next[index] = {
-                        ...next[index],
-                        issued_year: raw ? Number(raw) : undefined,
-                      };
-                      onCertificationsChange(next);
-                    }}
-                  />
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="mt-1 text-red-400 hover:bg-red-500/10 hover:text-red-300"
-                  onClick={() => onCertificationsChange(value.certifications.filter((_, itemIndex) => itemIndex !== index))}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
