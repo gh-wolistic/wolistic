@@ -1,12 +1,13 @@
 # Architecture Overview
 
-Last updated: 2026-04-14
+Last updated: 2026-04-18
 
 ## Stack
 - Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS 4
 - Backend: FastAPI, SQLAlchemy 2 async, Alembic
 - Data: Supabase Postgres (UUID-first identity model)
 - Auth: Supabase Auth on frontend, JWT verification in backend
+- Email: ZeptoMail transactional email service (REST API)
 - Runtime: Docker and Docker Compose for local/containerized runs
 - Observability: Prometheus metrics (`/metrics` endpoint), structured JSON logging (production), environment-based log formatting
 
@@ -86,6 +87,19 @@ Aggregated in `backend/app/api/router.py`.
 - Backend remains stateless and environment-driven.
 - Existing automated backend tests currently cover health, auth identity, booking authorization, booking flow behavior, geo city resolution, featured strategy, and professional search ranking.
 - Active migration chain includes expert-review persistence table setup via `backend/alembic/versions/c3d9f0a4e8b2_add_expert_review_requests_table.py`.
+
+## Email Infrastructure
+- **Provider**: ZeptoMail (Zoho) - ₹150/10k emails
+- **Integration**: Async REST API via httpx (`backend/app/services/email_service.py`)
+- **Templates**: 6 pre-built HTML email templates
+  - Welcome emails (user/professional)
+  - Booking confirmation
+  - Session reminders (24h before)
+  - Password reset
+  - Booking cancellation with refund details
+- **Configuration**: Environment variables in `.env` (ZEPTOMAIL_API_KEY, ZEPTOMAIL_FROM_EMAIL)
+- **Usage**: Singleton service pattern via `get_email_service()` dependency
+- **Documentation**: See `backend/ZEPTOMAIL_USAGE.md` for integration examples
 
 ## Observability Infrastructure
 - **Metrics**: Prometheus instrumentation via `prometheus-fastapi-instrumentator` exposes `/metrics` endpoint with HTTP request duration, counts by method/path/status, and active requests

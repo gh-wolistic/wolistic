@@ -1,6 +1,6 @@
 # Docs Index
 
-Last updated: 2026-04-14
+Last updated: 2026-04-18
 
 This folder contains architecture and execution documents for the Wolistic monorepo.
 
@@ -14,6 +14,7 @@ This folder contains architecture and execution documents for the Wolistic monor
 - Dashboard v2 (Elite shell) is the active partner dashboard surface.
 - Coins, subscriptions, activities, classes, and clients are all backend-live.
 - Media upload: Profile and cover images supported via Supabase Storage with signed URLs. Gallery/feed deferred to Phase 2+.
+- Email service: ZeptoMail integration for transactional emails (₹150/10k emails).
 
 ## Canonical Docs
 
@@ -22,6 +23,7 @@ This folder contains architecture and execution documents for the Wolistic monor
 - `AI_DONT_DELETE_TODO_WORKLIST.md`: Single canonical active worklist
 - `AI_DONT_DELETE_COMMANDS.md`: Development and operational command reference
 - `AI_DONT_DELETE_OWNERSHIP_MATRIX.md`: Frontend/backend ownership split
+- `EMAIL_SERVICE.md`: Email service integration documentation (ZeptoMail)
 - `high_priority_refactor_todo.md`: Dedicated performance refactor backlog
 
 ## Program and Strategy Docs
