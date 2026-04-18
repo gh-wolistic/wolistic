@@ -37,6 +37,11 @@ from app.models.subscription import SubscriptionPlan, ProfessionalSubscription, 
 from app.models.offer import Offer, OfferAssignment
 from app.models.messaging import Conversation, ConversationParticipant, Message
 from app.models.notification import Notification
+from app.models.verification import (
+    ProfessionalIdentityVerification,
+    CredentialVerification,
+    ProfessionLicenseRequirement,
+)
 
 __all__ = [
     "Booking",
@@ -78,4 +83,7 @@ __all__ = [
     "Notification",
     "Offer",
     "OfferAssignment",
+    "ProfessionalIdentityVerification",
+    "CredentialVerification",
+    "ProfessionLicenseRequirement",
 ]

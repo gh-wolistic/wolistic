@@ -28,6 +28,8 @@ from app.api.routes.wellness_centers import router as wellness_centers_router
 from app.api.routes.messaging import router as messaging_router
 from app.api.routes.notification import router as notification_router
 from app.api.routes.review import router as review_router
+from app.api.routes.verification import router as verification_router
+from app.api.routes.admin_verification import router as admin_verification_router
 
 api_router = APIRouter()
 api_router.include_router(admin_auth_router)  # Session-based admin auth (no API key)
@@ -58,3 +60,5 @@ api_router.include_router(subscription_admin_router)
 api_router.include_router(messaging_router)
 api_router.include_router(notification_router)
 api_router.include_router(review_router)
+api_router.include_router(verification_router)
+api_router.include_router(admin_verification_router)

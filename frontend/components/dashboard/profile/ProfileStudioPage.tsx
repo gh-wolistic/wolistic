@@ -9,6 +9,7 @@ import {
   Eye,
   Globe,
   Save,
+  Shield,
   Sparkles,
   Upload,
   User,
@@ -27,6 +28,7 @@ import { ProfileBookingSection } from "@/components/dashboard/profile/sections/P
 import { ProfileIdentitySocialSection } from "@/components/dashboard/profile/sections/ProfileIdentitySocialSection";
 import { ProfilePracticeSection } from "@/components/dashboard/profile/sections/ProfilePracticeSection";
 import { ProfileServicesSection } from "@/components/dashboard/profile/sections/ProfileServicesSection";
+import { ProfileVerificationSection } from "@/components/dashboard/verification/ProfileVerificationSection";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,8 +36,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProfileStudioSidePanel } from "@/components/dashboard/profile/ProfileStudioSidePanel";
 import type { ProfessionalEditorPayload } from "@/types/professional-editor";
 
-type ProfileTabKey = "basics" | "practice" | "identity" | "services" | "booking";
-const profileTabs: ProfileTabKey[] = ["basics", "practice", "identity", "services", "booking"];
+type ProfileTabKey = "basics" | "practice" | "identity" | "verification" | "services" | "booking";
+const profileTabs: ProfileTabKey[] = ["basics", "practice", "identity", "verification", "services", "booking"];
 
 export function ProfileStudioPage() {
   const { user, accessToken } = useAuthSession();
@@ -355,6 +357,14 @@ export function ProfileStudioPage() {
                     <span className="sm:hidden">Identity</span>
                   </TabsTrigger>
                   <TabsTrigger
+                    value="verification"
+                    className="gap-1.5 text-zinc-400 data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                  >
+                    <Shield className="h-4 w-4 shrink-0" />
+                    <span className="hidden sm:inline">Verification</span>
+                    <span className="sm:hidden">Verify</span>
+                  </TabsTrigger>
+                  <TabsTrigger
                     value="services"
                     className="gap-1.5 text-zinc-400 data-[state=active]:bg-white/10 data-[state=active]:text-white"
                   >
@@ -422,6 +432,10 @@ export function ProfileStudioPage() {
                       setEditorData((current) => (current ? { ...current, [field]: nextValue } : current))
                     }
                   />
+                </TabsContent>
+
+                <TabsContent key={`verification-${saveEpoch}`} value="verification">
+                  <ProfileVerificationSection />
                 </TabsContent>
 
                 <TabsContent key={`services-${saveEpoch}`} value="services">

@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import FastAPI, Request, status
-from fastapi.exceptions import RequestValidationError
+from fastapi.exceptions import RequestValidationError, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -21,6 +21,23 @@ app = FastAPI(title=settings.APP_NAME)
 logger = logging.getLogger(__name__)
 
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """Handle HTTP exceptions with CORS headers."""
+    # Manually add CORS headers to ensure they're present on error responses
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin and origin in settings.BACKEND_CORS_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers=headers,
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """Log and return validation errors with details."""
@@ -28,9 +45,18 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         f"Validation error on {request.method} {request.url.path}: {exc.errors()}",
         extra={"body": await request.body() if request.method in ["POST", "PUT", "PATCH"] else None}
     )
+    
+    # Manually add CORS headers to ensure they're present on error responses
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin and origin in settings.BACKEND_CORS_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={"detail": exc.errors(), "body": exc.body},
+        headers=headers,
     )
 
 
@@ -41,9 +67,18 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         f"Unhandled exception on {request.method} {request.url.path}: {type(exc).__name__}: {exc}",
         exc_info=True
     )
+    
+    # Manually add CORS headers to ensure they're present on error responses
+    origin = request.headers.get("origin")
+    headers = {}
+    if origin and origin in settings.BACKEND_CORS_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error"},
+        headers=headers,
     )
 
 
