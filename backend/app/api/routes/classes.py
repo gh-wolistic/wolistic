@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.database import get_db_session
-from app.models.classes import ClassEnrollment, ClassSession, GroupClass, WorkLocation
+from app.models.classes import ClassEnrollment, ClassSession, GroupClass, SessionInterest, WorkLocation
 from app.models.professional import Professional
 from app.models.subscription import ProfessionalSubscription, SubscriptionPlan
 from app.schemas.classes import (
@@ -113,6 +113,7 @@ async def _build_class_out(gc: GroupClass, db: AsyncSession) -> GroupClassOut:
         work_location_id=gc.work_location_id,
         work_location_name=work_location_name,
         display_term=gc.display_term,
+        session_mode=gc.session_mode,
         expires_on=gc.expires_on,
         expired_action_taken=gc.expired_action_taken,
         upcoming_sessions=upcoming_sessions,
@@ -194,6 +195,55 @@ async def list_classes(
     return [await _build_class_out(gc, db) for gc in classes]
 
 
+@router.get("/me/classes/expiring-soon", response_model=List[dict])
+async def list_expiring_classes(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> List[dict]:
+    """
+    List classes expiring within 30 days or already expired.
+    
+    Returns:
+    - class_id, title, expires_on, days_until_expiry, has_active_enrollments
+    """
+    professional = await _require_professional(current_user, db)
+    today = date.today()
+    threshold_date = today + timedelta(days=30)
+    
+    # Get classes expiring soon or already expired
+    result = await db.execute(
+        select(GroupClass)
+        .where(GroupClass.professional_id == professional.user_id)
+        .where(GroupClass.expires_on <= threshold_date)
+        .where(GroupClass.status != "cancelled")  # Exclude cancelled classes
+        .order_by(GroupClass.expires_on.asc())
+    )
+    expiring_classes = result.scalars().all()
+    
+    response = []
+    for cls in expiring_classes:
+        # Check if class has active enrollments
+        enrollments_count = await db.scalar(
+            select(func.count(ClassEnrollment.id))
+            .join(ClassSession, ClassEnrollment.class_session_id == ClassSession.id)
+            .where(ClassSession.group_class_id == cls.id)
+            .where(ClassEnrollment.status.in_(["confirmed", "attended"]))
+        ) or 0
+        
+        days_until_expiry = (cls.expires_on - today).days
+        
+        response.append({
+            "class_id": cls.id,
+            "title": cls.title,
+            "expires_on": cls.expires_on,
+            "days_until_expiry": days_until_expiry,
+            "has_active_enrollments": enrollments_count > 0,
+            "active_enrollments_count": enrollments_count,
+        })
+    
+    return response
+
+
 @router.post("/me/classes", response_model=GroupClassOut, status_code=status.HTTP_201_CREATED)
 async def create_class(
     payload: GroupClassIn,
@@ -229,6 +279,7 @@ async def create_class(
         description=payload.description,
         work_location_id=payload.work_location_id,
         display_term=payload.display_term,
+        session_mode=payload.session_mode,
         expires_on=expires_on,
     )
     db.add(gc)
@@ -331,12 +382,25 @@ async def list_sessions(
             .where(ClassEnrollment.status == "confirmed")
         )
         enrolled_count = enrolled_result.scalar() or 0
+        
+        # Get interest count for sold-out sessions
+        interest_result = await db.execute(
+            select(func.count(SessionInterest.id))
+            .where(SessionInterest.class_session_id == s.id)
+        )
+        interest_count = interest_result.scalar() or 0
+        
         out.append(ClassSessionOut(
             id=s.id,
             group_class_id=s.group_class_id,
             session_date=s.session_date,
             start_time=s.start_time,
+            status=s.status,
+            published_at=s.published_at,
+            is_locked=s.is_locked,
+            cancelled_at=s.cancelled_at,
             enrolled_count=enrolled_count,
+            interest_count=interest_count,
             created_at=s.created_at,
         ))
     return out
@@ -964,10 +1028,20 @@ async def mark_attendance(
     elif payload.attendance_status == "no_show_client":
         enrollment.status = "no_show_client"
     elif payload.attendance_status == "session_cancelled":
-        enrollment.status = "cancelled_expert"
-        enrollment.refund_amount = group_class.price
-        enrollment.refund_processed_at = datetime.utcnow()
-        # TODO: Razorpay refund integration
+        # Process refund for this enrollment
+        from app.services.refund_service import refund_enrollment
+        
+        refund_success = await refund_enrollment(
+            db,
+            enrollment,
+            reason="Session cancelled (attendance marking)",
+        )
+        
+        if refund_success:
+            enrollment.status = "refunded"
+        else:
+            # Mark as cancelled even if refund failed (will retry later)
+            enrollment.status = "cancelled_expert"
     else:
         raise HTTPException(status_code=400, detail="Invalid attendance status")
     

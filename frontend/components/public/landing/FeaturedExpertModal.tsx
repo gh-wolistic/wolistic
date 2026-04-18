@@ -155,7 +155,7 @@ export function FeaturedExpertModal({
 
             {professional.sessionTypes && professional.sessionTypes.length > 0 && (
               <div>
-                <h4 className="mb-2">Session Types</h4>
+                <h4 className="mb-2">Consultation Mode</h4>
                 <div className="flex flex-wrap gap-2.5">
                   {professional.sessionTypes.map((type) => {
                     const visual = getSessionTypeVisual(type);

@@ -76,6 +76,7 @@ export interface ProfessionalSession {
   price: number;
   category: string;
   display_term: string;
+  session_mode: "online" | "in_person" | "hybrid";
   work_location?: WorkLocation;
 }
 

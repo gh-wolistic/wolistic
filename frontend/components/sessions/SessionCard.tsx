@@ -120,11 +120,26 @@ export function SessionCard({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Left side: Session details */}
           <div className="flex-1 space-y-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h3 className={titleClasses}>{session.title}</h3>
               <Badge variant="outline" className="text-xs">
                 {session.display_term || "session"}
               </Badge>
+              {session.session_mode === "online" && (
+                <Badge variant="outline" className="text-xs bg-sky-50 border-sky-300 text-sky-700">
+                  Online (Video)
+                </Badge>
+              )}
+              {session.session_mode === "in_person" && (
+                <Badge variant="outline" className="text-xs bg-emerald-50 border-emerald-300 text-emerald-700">
+                  In-Person
+                </Badge>
+              )}
+              {session.session_mode === "hybrid" && (
+                <Badge variant="outline" className="text-xs bg-violet-50 border-violet-300 text-violet-700">
+                  Hybrid (Both)
+                </Badge>
+              )}
             </div>
 
             {/* Date & Time */}

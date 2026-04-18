@@ -55,7 +55,8 @@ export interface GroupClass {
   description: string | null;
   work_location_id: number | null;
   work_location_name: string | null;
-  display_term: string; // "session" | "class" | "workshop"
+  display_term: "session" | "workshop" | "class";
+  session_mode: "online" | "in_person" | "hybrid";
   expires_on: string | null; // ISO date string
   expired_action_taken: boolean;
   upcoming_sessions: SessionSchedule[];
@@ -69,7 +70,12 @@ export interface ClassSession {
   group_class_id: number;
   session_date: string;
   start_time: string;
+  status: string;
+  published_at: string | null;
+  is_locked: boolean;
+  cancelled_at: string | null;
   enrolled_count: number;
+  interest_count: number;
   created_at: string;
 }
 
@@ -161,6 +167,62 @@ export async function listClasses(token: string): Promise<GroupClass[]> {
   }
 }
 
+export interface ExpiringClass {
+  class_id: number;
+  title: string;
+  expires_on: string; // ISO date
+  days_until_expiry: number;
+  has_active_enrollments: boolean;
+  active_enrollments_count: number;
+}
+
+export async function listExpiringClasses(token: string): Promise<ExpiringClass[]> {
+  try {
+    const url = `${API_BASE}/partners/me/classes/expiring-soon`;
+    console.log("[listExpiringClasses] Fetching from:", url);
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    
+    if (!res.ok) {
+      console.error("[listExpiringClasses] Request failed:", res.statusText);
+      return [];
+    }
+    
+    return res.json() as Promise<ExpiringClass[]>;
+  } catch (error) {
+    console.error("[listExpiringClasses] Fetch failed:", error);
+    return [];
+  }
+}
+
+export interface RenewClassInput {
+  new_expiry_date: string; // ISO date
+  update_details?: boolean;
+}
+
+export async function renewClass(
+  token: string,
+  classId: number,
+  payload: RenewClassInput
+): Promise<GroupClass> {
+  const res = await fetch(`${API_BASE}/partners/me/classes/${classId}/renew`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const error: any = new Error("Failed to renew class");
+    error.response = { status: res.status, data: errorData };
+    throw error;
+  }
+  return res.json() as Promise<GroupClass>;
+}
+
 export interface CreateClassInput {
   title: string;
   category: string;
@@ -170,6 +232,8 @@ export interface CreateClassInput {
   price: number;
   description?: string;
   work_location_id?: number;
+  display_term?: "session" | "workshop" | "class";
+  session_mode?: "online" | "in_person" | "hybrid";
 }
 
 export async function createClass(token: string, payload: CreateClassInput): Promise<GroupClass> {
@@ -370,6 +434,17 @@ export async function listEnrollments(token: string): Promise<ClassEnrollment[]>
     console.error("[listEnrollments] Fetch failed:", error);
     return [];
   }
+}
+
+/**
+ * Get enrollments for a specific session
+ */
+export async function getSessionEnrollments(
+  token: string,
+  sessionId: number
+): Promise<ClassEnrollment[]> {
+  const allEnrollments = await listEnrollments(token);
+  return allEnrollments.filter((e) => e.class_session_id === sessionId);
 }
 
 export async function updateEnrollment(

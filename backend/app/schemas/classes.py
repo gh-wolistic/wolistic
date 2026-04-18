@@ -36,6 +36,7 @@ class GroupClassIn(BaseModel):
     description: str | None = None
     work_location_id: int | None = None
     display_term: str = Field("session", max_length=16)  # session | workshop | class
+    session_mode: str = Field("in_person", max_length=16)  # online | in_person | hybrid
     expires_on: date | None = None  # Auto-set to +3 months if not provided
 
 
@@ -49,6 +50,7 @@ class GroupClassPatch(BaseModel):
     description: str | None = None
     work_location_id: int | None = None
     display_term: str | None = Field(None, max_length=16)
+    session_mode: str | None = Field(None, max_length=16)
 
 
 class SessionScheduleOut(BaseModel):
@@ -74,6 +76,7 @@ class GroupClassOut(BaseModel):
     work_location_id: int | None
     work_location_name: str | None
     display_term: str
+    session_mode: str
     expires_on: date
     expired_action_taken: str | None
     upcoming_sessions: List[SessionScheduleOut] = []
@@ -117,6 +120,7 @@ class ClassSessionOut(BaseModel):
     is_locked: bool
     cancelled_at: datetime | None
     enrolled_count: int = 0
+    interest_count: int = 0
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -216,6 +220,7 @@ class PublicSessionOut(BaseModel):
     title: str  # From group_class
     category: str
     display_term: str  # session | workshop | class
+    session_mode: str  # online | in_person | hybrid
     session_date: date
     start_time: time
     duration_minutes: int

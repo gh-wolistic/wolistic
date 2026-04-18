@@ -80,11 +80,15 @@ import {
   publishSession,
   cancelSession,
   markAttendance,
+  getSessionEnrollments,
+  listExpiringClasses,
   type WorkLocation,
   type GroupClass,
   type ClassEnrollment,
   type TierLimits,
+  type ExpiringClass,
 } from "./classesApi";
+import { AttendanceMarkingModal } from "./AttendanceMarkingModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -213,7 +217,9 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [selectedSessionDate, setSelectedSessionDate] = useState<string>("");
-  const [attendanceData, setAttendanceData] = useState<Record<number, string>>({});
+  const [selectedSessionTitle, setSelectedSessionTitle] = useState<string>("");
+  const [selectedSessionTime, setSelectedSessionTime] = useState<string>("");
+  const [sessionEnrollments, setSessionEnrollments] = useState<ClassEnrollment[]>([]);
   
   // Tier limit upgrade modal
   const [tierLimitModalOpen, setTierLimitModalOpen] = useState(false);
@@ -224,11 +230,19 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     resource: "class" | "session";
   } | null>(null);
 
+  // Class renewal modal
+  const [renewalModalOpen, setRenewalModalOpen] = useState(false);
+  const [renewingClassId, setRenewingClassId] = useState<number | null>(null);
+  const [renewingClassName, setRenewingClassName] = useState<string>("");
+  const [renewalExpiryDate, setRenewalExpiryDate] = useState<string>("");
+  const [savingRenewal, setSavingRenewal] = useState(false);
+
   // Data state
   const [classes, setClasses] = useState<GroupClass[]>([]);
   const [enrollments, setEnrollments] = useState<ClassEnrollment[]>([]);
   const [workLocations, setWorkLocations] = useState<WorkLocation[]>([]);
   const [tierLimits, setTierLimits] = useState<TierLimits | null>(null);
+  const [expiringClasses, setExpiringClasses] = useState<ExpiringClass[]>([]);
   const [loading, setLoading] = useState(true);
 
   // New class form
@@ -241,6 +255,8 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   const [newClassPrice, setNewClassPrice] = useState("");
   const [newClassExpiryDate, setNewClassExpiryDate] = useState("");
   const [newClassActive, setNewClassActive] = useState(true);
+  const [newClassDisplayTerm, setNewClassDisplayTerm] = useState<"session" | "workshop" | "class">("session");
+  const [newClassSessionMode, setNewClassSessionMode] = useState<"online" | "in_person" | "hybrid">("in_person");
   const [savingClass, setSavingClass] = useState(false);
 
   // New session form
@@ -259,20 +275,8 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
   // Expanded classes in detailed list view
   const [expandedClasses, setExpandedClasses] = useState<number[]>([]);
 
-  // Tutorial state
+  // Tutorial state (manual trigger only, no auto-start)
   const [runTutorial, setRunTutorial] = useState(false);
-
-  // Check if user has seen tutorial before (auto-start on first visit)
-  useEffect(() => {
-    const hasSeenTutorial = localStorage.getItem('classesManagerTutorialCompleted');
-    if (!hasSeenTutorial) {
-      // Auto-start tutorial for first-time visitors after a short delay
-      const timer = setTimeout(() => {
-        setRunTutorial(true);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   // New location form
   const [newLocName, setNewLocName] = useState("");
@@ -285,16 +289,18 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [cls, enr, locs, limits] = await Promise.all([
+      const [cls, enr, locs, limits, expiring] = await Promise.all([
         listClasses(accessToken),
         listEnrollments(accessToken),
         listWorkLocations(accessToken),
         getTierLimits(accessToken),
+        listExpiringClasses(accessToken),
       ]);
       setClasses(cls);
       setEnrollments(enr);
       setWorkLocations(locs);
       setTierLimits(limits);
+      setExpiringClasses(expiring);
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -347,6 +353,8 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     setNewClassPrice(String(classItem.price));
     setNewClassExpiryDate(classItem.expires_on ?? "");
     setNewClassActive(classItem.status === "active");
+    setNewClassDisplayTerm(classItem.display_term);
+    setNewClassSessionMode(classItem.session_mode);
     setNewClassOpen(true);
   }
 
@@ -368,6 +376,8 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     setNewClassExpiryDate(defaultExpiry.toISOString().split('T')[0]);
     
     setNewClassActive(true);
+    setNewClassDisplayTerm("session");
+    setNewClassSessionMode("in_person");
   }
 
   async function handleSaveClass() {
@@ -399,6 +409,8 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
         description: newClassDescription.trim() || undefined,
         work_location_id: newClassLocationId ? parseInt(newClassLocationId) : undefined,
         expires_on: newClassExpiryDate || undefined,
+        display_term: newClassDisplayTerm,
+        session_mode: newClassSessionMode,
       };
       if (editingClassId !== null) {
         await updateClass(accessToken, editingClassId, payload);
@@ -584,6 +596,44 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     }
   }
 
+  function openRenewalModal(classId: number, className: string, currentExpiry: string) {
+    setRenewingClassId(classId);
+    setRenewingClassName(className);
+    
+    // Suggest 3 months from current expiry or today (whichever is later)
+    const expiryDate = new Date(currentExpiry);
+    const today = new Date();
+    const startFrom = expiryDate > today ? expiryDate : today;
+    const suggestedExpiry = new Date(startFrom);
+    suggestedExpiry.setDate(suggestedExpiry.getDate() + 90); // +3 months
+    
+    setRenewalExpiryDate(suggestedExpiry.toISOString().split('T')[0]);
+    setRenewalModalOpen(true);
+  }
+
+  async function handleRenewClass() {
+    if (!accessToken || renewingClassId === null || !renewalExpiryDate) return;
+    
+    setSavingRenewal(true);
+    try {
+      await renewClass(accessToken, renewingClassId, {
+        new_expiry_date: renewalExpiryDate,
+        update_details: false, // For now, only extend expiry without editing
+      });
+      toast.success("Class renewed successfully");
+      setRenewalModalOpen(false);
+      setRenewingClassId(null);
+      setRenewingClassName("");
+      setRenewalExpiryDate("");
+      await loadAll();
+    } catch (error: any) {
+      const errorMsg = error?.message || "Failed to renew class";
+      toast.error(errorMsg);
+    } finally {
+      setSavingRenewal(false);
+    }
+  }
+
   async function handlePublishSession() {
     if (!accessToken || !selectedSessionId) return;
     try {
@@ -597,61 +647,33 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
     }
   }
 
-  async function handleMarkAttendance() {
-    if (!accessToken || !selectedSessionId) return;
-    
-    // Get enrollments for this session
-    const sessionEnrollments = enrollments.filter(
-      (e) => e.class_session_id === selectedSessionId
-    );
-    
-    // Build attendance array from attendanceData state
-    const attendance = sessionEnrollments
-      .filter((e) => attendanceData[e.id]) // Only include if status was set
-      .map((e) => ({
-        enrollment_id: e.id,
-        status: attendanceData[e.id],
-      }));
-    
-    if (attendance.length === 0) {
-      toast.error("Please mark attendance for at least one client");
-      return;
-    }
-    
-    try {
-      const result = await markAttendance(accessToken, selectedSessionId, attendance);
-      toast.success(`Attendance marked for ${result.updated_count} clients`);
-      if (result.refunds_processed > 0) {
-        toast.info(`${result.refunds_processed} refunds processed for cancellations`);
-      }
-      setAttendanceModalOpen(false);
-      setSelectedSessionId(null);
-      setAttendanceData({});
-      await loadAll();
-    } catch {
-      toast.error("Failed to mark attendance");
-    }
-  }
-
   function openPublishModal(sessionId: number) {
     setSelectedSessionId(sessionId);
     setPublishModalOpen(true);
   }
 
-  function openAttendanceModal(sessionId: number, sessionDate: string) {
+  async function openAttendanceModal(
+    sessionId: number,
+    sessionDate: string,
+    sessionTitle: string,
+    sessionTime: string
+  ) {
+    if (!accessToken) return;
+
     setSelectedSessionId(sessionId);
     setSelectedSessionDate(sessionDate);
+    setSelectedSessionTitle(sessionTitle);
+    setSelectedSessionTime(sessionTime);
     
-    // Initialize attendance data for this session's enrollments
-    const sessionEnrollments = enrollments.filter(
-      (e) => e.class_session_id === sessionId
-    );
-    const initialData: Record<number, string> = {};
-    sessionEnrollments.forEach((e) => {
-      initialData[e.id] = ""; // No status selected by default
-    });
-    setAttendanceData(initialData);
-    setAttendanceModalOpen(true);
+    // Fetch enrollments for this session
+    try {
+      const enrollments = await getSessionEnrollments(accessToken, sessionId);
+      setSessionEnrollments(enrollments);
+      setAttendanceModalOpen(true);
+    } catch (error) {
+      console.error("Failed to fetch session enrollments:", error);
+      toast.error("Failed to load enrollments");
+    }
   }
 
   // ── Schedule tab helpers ─────────────────────────────────────────────────────
@@ -858,6 +880,54 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
             </div>
           </div>
         </div>
+
+        {/* Expiring Classes Banner */}
+        {expiringClasses.length > 0 && (
+          <div className="rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 p-4 border border-amber-400/30 backdrop-blur-sm">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="size-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-amber-400 mb-1">
+                  {expiringClasses.length} {expiringClasses.length === 1 ? 'class needs' : 'classes need'} renewal
+                </h3>
+                <p className="text-xs text-zinc-400 mb-3">
+                  Classes expiring soon or already expired require renewal to create new sessions.
+                </p>
+                <div className="space-y-2">
+                  {expiringClasses.map((cls) => (
+                    <div
+                      key={cls.class_id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-black/20 border border-amber-400/20"
+                    >
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-white">{cls.title}</div>
+                        <div className="text-xs text-zinc-400">
+                          {cls.days_until_expiry < 0 ? (
+                            <span className="text-rose-400">Expired {Math.abs(cls.days_until_expiry)} days ago</span>
+                          ) : cls.days_until_expiry === 0 ? (
+                            <span className="text-amber-400">Expires today</span>
+                          ) : (
+                            <span>Expires in {cls.days_until_expiry} days ({formatDate(cls.expires_on)})</span>
+                          )}
+                          {cls.has_active_enrollments && (
+                            <span className="ml-2 text-sky-400">• {cls.active_enrollments_count} active enrollments</span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => openRenewalModal(cls.class_id, cls.title, cls.expires_on)}
+                        className="bg-amber-500 hover:bg-amber-600 text-white"
+                      >
+                        Renew
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Next Session Hero Card */}
         {nextSession && (
@@ -1390,6 +1460,11 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                                             <Users className="size-4 text-zinc-500" />
                                             <span className="text-white font-medium">{session.enrolled_count}</span>
                                             <span className="text-zinc-500">enrolled</span>
+                                            {session.interest_count > 0 && (
+                                              <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
+                                                +{session.interest_count} interested
+                                              </span>
+                                            )}
                                           </div>
 
                                           {/* Actions */}
@@ -1423,7 +1498,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                                                 </Button>
                                               </>
                                             )}
-                                            {session.status === "published" && session.enrolled_count === 0 && (
+                                            {session.status === "published" && session.enrolled_count === 0 && new Date(session.session_date) > new Date() && (
                                               <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -1437,11 +1512,31 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                                                 <Trash2 className="size-3.5" />
                                               </Button>
                                             )}
-                                            {session.status === "published" && session.enrolled_count > 0 && (
+                                            {session.status === "published" && session.enrolled_count > 0 && new Date(session.session_date) > new Date() && (
                                               <div className="flex items-center gap-1.5 text-xs text-zinc-500">
                                                 <Lock className="size-3" />
                                                 <span>Locked</span>
                                               </div>
+                                            )}
+                                            {session.status === "published" && session.enrolled_count > 0 && new Date(session.session_date) <= new Date() && (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  openAttendanceModal(
+                                                    session.id,
+                                                    session.session_date,
+                                                    classItem.title,
+                                                    session.start_time
+                                                  );
+                                                }}
+                                                className="text-blue-400 hover:text-blue-300 hover:bg-blue-400/10 h-8 px-3"
+                                                title="Mark attendance for this session"
+                                              >
+                                                <UserCheck className="size-3.5 mr-1.5" />
+                                                Mark Attendance
+                                              </Button>
                                             )}
                                           </div>
                                         </div>
@@ -1780,9 +1875,9 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                     <SelectValue placeholder="Select class" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
-                    <SelectItem value="all">All Classes</SelectItem>
+                    <SelectItem value="all" className="text-white hover:bg-white/10 cursor-pointer">All Classes</SelectItem>
                     {classes.map((c) => (
-                      <SelectItem key={c.id} value={String(c.id)}>{c.title}</SelectItem>
+                      <SelectItem key={c.id} value={String(c.id)} className="text-white hover:bg-white/10 cursor-pointer">{c.title}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -1791,9 +1886,9 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="confirmed">Confirmed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="all" className="text-white hover:bg-white/10 cursor-pointer">All Status</SelectItem>
+                    <SelectItem value="confirmed" className="text-white hover:bg-white/10 cursor-pointer">Confirmed</SelectItem>
+                    <SelectItem value="cancelled" className="text-white hover:bg-white/10 cursor-pointer">Cancelled</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input
@@ -1948,22 +2043,50 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                     subcategories.forEach((s) => { if (s.trim() && !profileOptions.includes(s.trim())) profileOptions.push(s.trim()); });
                     if (profileOptions.length > 0) {
                       return profileOptions.map((opt) => (
-                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        <SelectItem key={opt} value={opt} className="text-white hover:bg-white/10 cursor-pointer">{opt}</SelectItem>
                       ));
                     }
                     return (
                       <>
-                        <SelectItem value="yoga">Yoga</SelectItem>
-                        <SelectItem value="zumba">Zumba</SelectItem>
-                        <SelectItem value="pilates">Pilates</SelectItem>
-                        <SelectItem value="hiit">HIIT</SelectItem>
-                        <SelectItem value="dance">Dance</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectItem value="yoga" className="text-white hover:bg-white/10 cursor-pointer">Yoga</SelectItem>
+                        <SelectItem value="zumba" className="text-white hover:bg-white/10 cursor-pointer">Zumba</SelectItem>
+                        <SelectItem value="pilates" className="text-white hover:bg-white/10 cursor-pointer">Pilates</SelectItem>
+                        <SelectItem value="hiit" className="text-white hover:bg-white/10 cursor-pointer">HIIT</SelectItem>
+                        <SelectItem value="dance" className="text-white hover:bg-white/10 cursor-pointer">Dance</SelectItem>
+                        <SelectItem value="other" className="text-white hover:bg-white/10 cursor-pointer">Other</SelectItem>
                       </>
                     );
                   })()}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-zinc-300 mb-2 block">Display Term</Label>
+              <Select value={newClassDisplayTerm} onValueChange={(value: "session" | "workshop" | "class") => setNewClassDisplayTerm(value)}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-11"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
+                  <SelectItem value="session" className="text-white hover:bg-white/10 cursor-pointer">Session</SelectItem>
+                  <SelectItem value="workshop" className="text-white hover:bg-white/10 cursor-pointer">Workshop</SelectItem>
+                  <SelectItem value="class" className="text-white hover:bg-white/10 cursor-pointer">Class</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-zinc-500 mt-1.5">How clients will see this (e.g., "Book Session" vs "Book Workshop")</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium text-zinc-300 mb-2 block">Session Mode</Label>
+              <Select value={newClassSessionMode} onValueChange={(value: "online" | "in_person" | "hybrid") => setNewClassSessionMode(value)}>
+                <SelectTrigger className="bg-white/5 border-white/10 text-white h-11"><SelectValue /></SelectTrigger>
+                <SelectContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
+                  <SelectItem value="online" className="text-white hover:bg-white/10 cursor-pointer">Online (Video)</SelectItem>
+                  <SelectItem value="in_person" className="text-white hover:bg-white/10 cursor-pointer">In-Person</SelectItem>
+                  <SelectItem value="hybrid" className="text-white hover:bg-white/10 cursor-pointer">Hybrid (Both)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-zinc-500 mt-1.5">
+                {newClassSessionMode === "online" && "Virtual sessions via video call"}
+                {newClassSessionMode === "in_person" && "Physical location required"}
+                {newClassSessionMode === "hybrid" && "Clients choose online or in-person"}
+              </p>
             </div>
             <div>
               <Label className="text-sm font-medium text-zinc-300 mb-2 block">Description</Label>
@@ -1991,7 +2114,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                 <SelectTrigger className="bg-white/5 border-white/10 text-white h-11"><SelectValue placeholder="Select location" /></SelectTrigger>
                 <SelectContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
                   {workLocations.map((loc) => (
-                    <SelectItem key={loc.id} value={String(loc.id)}>{loc.name}</SelectItem>
+                    <SelectItem key={loc.id} value={String(loc.id)} className="text-white hover:bg-white/10 cursor-pointer">{loc.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -2248,10 +2371,10 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
               <Select value={newLocType} onValueChange={setNewLocType}>
                 <SelectTrigger className="bg-white/5 border-white/10 text-white h-11"><SelectValue /></SelectTrigger>
                 <SelectContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl">
-                  <SelectItem value="gym">Gym</SelectItem>
-                  <SelectItem value="studio">Studio</SelectItem>
-                  <SelectItem value="home">Home Visits</SelectItem>
-                  <SelectItem value="online">Online</SelectItem>
+                  <SelectItem value="gym" className="text-white hover:bg-white/10 cursor-pointer">Gym</SelectItem>
+                  <SelectItem value="studio" className="text-white hover:bg-white/10 cursor-pointer">Studio</SelectItem>
+                  <SelectItem value="home" className="text-white hover:bg-white/10 cursor-pointer">Home Visits</SelectItem>
+                  <SelectItem value="online" className="text-white hover:bg-white/10 cursor-pointer">Online</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2439,122 +2562,22 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
       </AlertDialog>
 
       {/* ── Mark Attendance Modal ──────────────────────────────────────────────── */}
-      <AlertDialog open={attendanceModalOpen} onOpenChange={setAttendanceModalOpen}>
-        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl sm:max-w-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-white flex items-center gap-2">
-              <UserCheck className="size-5 text-emerald-400" />
-              Mark Attendance - {selectedSessionDate && formatDate(selectedSessionDate)}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
-              Mark attendance for each enrolled client. Session cancellations will trigger automatic refunds.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="max-h-[500px] overflow-y-auto py-4">
-            {selectedSessionId && enrollments.filter((e) => e.class_session_id === selectedSessionId).length === 0 ? (
-              <div className="text-center py-8 text-zinc-400">
-                <Users className="size-8 mx-auto mb-3 text-zinc-600" />
-                <p>No enrollments for this session</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {selectedSessionId &&
-                  enrollments
-                    .filter((e) => e.class_session_id === selectedSessionId)
-                    .map((enrollment) => (
-                      <div
-                        key={enrollment.id}
-                        className="p-4 bg-white/5 border border-white/10 rounded-lg hover:border-white/20 transition-colors"
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div>
-                            <p className="text-sm font-medium text-white">{enrollment.client_name}</p>
-                            <p className="text-xs text-zinc-500">Enrollment #{enrollment.id}</p>
-                          </div>
-                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-400/30">
-                            {enrollment.payment_status}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <button
-                            onClick={() =>
-                              setAttendanceData((prev) => ({
-                                ...prev,
-                                [enrollment.id]: "attended",
-                              }))
-                            }
-                            className={`p-2 rounded-lg border text-xs font-medium transition-all ${
-                              attendanceData[enrollment.id] === "attended"
-                                ? "bg-emerald-500/20 border-emerald-400/30 text-emerald-400"
-                                : "bg-white/5 border-white/10 text-zinc-400 hover:border-white/20"
-                            }`}
-                          >
-                            <CheckCircle className="size-4 mx-auto mb-1" />
-                            Attended
-                          </button>
-                          <button
-                            onClick={() =>
-                              setAttendanceData((prev) => ({
-                                ...prev,
-                                [enrollment.id]: "no_show_client",
-                              }))
-                            }
-                            className={`p-2 rounded-lg border text-xs font-medium transition-all ${
-                              attendanceData[enrollment.id] === "no_show_client"
-                                ? "bg-amber-500/20 border-amber-400/30 text-amber-400"
-                                : "bg-white/5 border-white/10 text-zinc-400 hover:border-white/20"
-                            }`}
-                          >
-                            <XCircle className="size-4 mx-auto mb-1" />
-                            No Show
-                          </button>
-                          <button
-                            onClick={() =>
-                              setAttendanceData((prev) => ({
-                                ...prev,
-                                [enrollment.id]: "session_cancelled",
-                              }))
-                            }
-                            className={`p-2 rounded-lg border text-xs font-medium transition-all ${
-                              attendanceData[enrollment.id] === "session_cancelled"
-                                ? "bg-rose-500/20 border-rose-400/30 text-rose-400"
-                                : "bg-white/5 border-white/10 text-zinc-400 hover:border-white/20"
-                            }`}
-                          >
-                            <Ban className="size-4 mx-auto mb-1" />
-                            Cancelled
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-              </div>
-            )}
-          </div>
-          <div className="p-3 bg-sky-500/10 border border-sky-400/30 rounded-lg mb-4">
-            <p className="text-xs text-sky-400">
-              <strong>Note:</strong> Marking as "Cancelled" will automatically refund the client. This action cannot be undone.
-            </p>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => {
-                setAttendanceModalOpen(false);
-                setAttendanceData({});
-              }}
-              className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleMarkAttendance}
-              className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white shadow-lg shadow-emerald-500/20"
-            >
-              <UserCheck className="size-4 mr-2" />
-              Submit Attendance
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {selectedSessionId && (
+        <AttendanceMarkingModal
+          isOpen={attendanceModalOpen}
+          onClose={() => setAttendanceModalOpen(false)}
+          sessionId={selectedSessionId}
+          sessionTitle={selectedSessionTitle}
+          sessionDate={selectedSessionDate}
+          sessionTime={selectedSessionTime}
+          enrollments={sessionEnrollments}
+          accessToken={accessToken || ""}
+          onSuccess={() => {
+            loadAll();
+            toast.success("Attendance marked successfully");
+          }}
+        />
+      )}
 
       {/* ── Tier Limit Reached Modal ───────────────────────────────────────────── */}
       <AlertDialog open={tierLimitModalOpen} onOpenChange={setTierLimitModalOpen}>
@@ -2619,6 +2642,78 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
               </svg>
               Upgrade to Pro
             </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Class Renewal Modal ───────────────────────────────────────────────── */}
+      <AlertDialog open={renewalModalOpen} onOpenChange={setRenewalModalOpen}>
+        <AlertDialogContent className="bg-[#0d1526]/95 border-white/10 backdrop-blur-xl sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white flex items-center gap-2">
+              <CalendarCheck className="size-5 text-amber-400" />
+              Renew Class
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild className="text-zinc-400 space-y-3">
+              <div>
+                <p>Renewing <span className="font-semibold text-white">{renewingClassName}</span> will allow you to create new sessions beyond the current expiry date.</p>
+                
+                <div>
+                  <Label htmlFor="renewal-expiry" className="text-sm font-medium text-zinc-300 mb-2 block">
+                    New Expiry Date
+                  </Label>
+                  <Input
+                    id="renewal-expiry"
+                    type="date"
+                    value={renewalExpiryDate}
+                    onChange={(e) => setRenewalExpiryDate(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="bg-white/5 border-white/10 text-white"
+                  />
+                  <p className="text-xs text-zinc-500 mt-1.5">
+                    Suggested: 3 months from current expiry
+                  </p>
+                </div>
+
+                <div className="p-3 bg-sky-500/10 border border-sky-400/30 rounded-lg">
+                  <p className="text-sm text-sky-400 flex items-center gap-2">
+                    <AlertCircle className="size-4 shrink-0" />
+                    <span>Existing sessions will remain unchanged. Active enrollments will be honored.</span>
+                  </p>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={() => {
+                setRenewalModalOpen(false);
+                setRenewingClassId(null);
+                setRenewingClassName("");
+                setRenewalExpiryDate("");
+              }}
+              className="bg-white/5 border-white/10 text-zinc-300 hover:bg-white/10"
+              disabled={savingRenewal}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              onClick={handleRenewClass}
+              disabled={savingRenewal || !renewalExpiryDate}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-500/20"
+            >
+              {savingRenewal ? (
+                <>
+                  <span className="animate-spin size-4 border-2 border-white/30 border-t-white rounded-full mr-2" />
+                  Renewing...
+                </>
+              ) : (
+                <>
+                  <CalendarCheck className="size-4 mr-2" />
+                  Renew Class
+                </>
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

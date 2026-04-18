@@ -7,6 +7,7 @@ import { AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { useAuthSession } from "@/components/auth/AuthSessionProvider";
 import { SessionCard } from "@/components/sessions/SessionCard";
 import type { ProfessionalSession } from "@/lib/api/sessions";
+import { registerInterest } from "@/lib/api/sessions";
 import {
   AlertDialog,
   AlertDialogContent,
@@ -40,6 +41,8 @@ export function SessionEnrollmentModal({
   const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [interestRegistered, setInterestRegistered] = useState(false);
+  const [isRegisteringInterest, setIsRegisteringInterest] = useState(false);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -47,6 +50,8 @@ export function SessionEnrollmentModal({
       setEnrollmentStatus("idle");
       setErrorMessage(null);
       setIsProcessingPayment(false);
+      setInterestRegistered(false);
+      setIsRegisteringInterest(false);
     }
   }, [isOpen]);
 
@@ -317,14 +322,45 @@ export function SessionEnrollmentModal({
               </AlertDialogCancel>
               {session.is_sold_out ? (
                 <Button
-                  onClick={() => {
-                    // TODO: Implement interest tracking (Task 13)
-                    console.log("Register interest for session:", session.id);
+                  onClick={async () => {
+                    if (!accessToken) {
+                      setErrorMessage("You must be logged in to register interest");
+                      return;
+                    }
+
+                    setIsRegisteringInterest(true);
+                    setErrorMessage(null);
+
+                    try {
+                      await registerInterest(session.id, accessToken);
+                      setInterestRegistered(true);
+                      setEnrollmentStatus("success");
+                    } catch (error: any) {
+                      console.error("Failed to register interest:", error);
+                      setErrorMessage(
+                        error.message || "Failed to register interest. Please try again."
+                      );
+                    } finally {
+                      setIsRegisteringInterest(false);
+                    }
                   }}
+                  disabled={isRegisteringInterest || interestRegistered}
                   variant="outline"
-                  className="border-amber-500 text-amber-600 hover:bg-amber-50"
+                  className="border-amber-500 text-amber-600 hover:bg-amber-50 disabled:opacity-50"
                 >
-                  Notify Me
+                  {isRegisteringInterest ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Registering...
+                    </>
+                  ) : interestRegistered ? (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Interest Registered
+                    </>
+                  ) : (
+                    "Notify Me When Available"
+                  )}
                 </Button>
               ) : (
                 <Button

@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     ADMIN_API_KEY: str = ""
     ADMIN_EMAIL: str = "admin@wolistic.com"  # Admin dashboard email
 
+    # ZeptoMail configuration
+    ZEPTOMAIL_API_URL: str = "https://api.zeptomail.in/v1.1/email"
+    ZEPTOMAIL_API_KEY: str = ""  # Zoho-enczapikey format
+    ZEPTOMAIL_FROM_EMAIL: str = "noreply@wolistic.com"
+    ZEPTOMAIL_FROM_NAME: str = "Wolistic"
+
     # CORS configuration (permissive in dev, restrictive in production)
     CORS_ALLOW_ALL_METHODS: bool = True  # Set to False in production
     CORS_ALLOW_ALL_HEADERS: bool = True  # Set to False in production

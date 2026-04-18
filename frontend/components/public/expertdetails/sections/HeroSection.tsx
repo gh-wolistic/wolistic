@@ -46,15 +46,44 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                 {/* Left Column - Profile */}
                 <div className="space-y-5 lg:col-span-2 lg:space-y-6">
                   <div className="flex flex-col gap-5 sm:flex-row sm:gap-6">
-                    <div className="relative h-44 w-44 overflow-hidden rounded-2xl border-4 border-background shadow-lg sm:h-48 sm:w-48 sm:shrink-0">
-                      <ImageWithFallback
-                        src={professional.image}
-                        alt={professional.name}
-                        sizes="100vw"
-                        loading="eager"
-                        className="h-full w-full object-cover"
-                      />
-                      <PresenceChip isOnline={isOnline} className="absolute left-3 top-3" />
+                    {/* Profile Image + Chips Below */}
+                    <div className="flex flex-col items-center sm:items-start gap-3">
+                      <div className="relative h-52 w-52 overflow-hidden rounded-2xl border-4 border-background shadow-lg sm:h-56 sm:w-56 sm:shrink-0">
+                        <ImageWithFallback
+                          src={professional.image}
+                          alt={professional.name}
+                          sizes="100vw"
+                          loading="eager"
+                          className="h-full w-full object-cover"
+                        />
+                        <PresenceChip isOnline={isOnline} className="absolute left-3 top-3" />
+                      </div>
+
+                      {/* Trust Signals Container - matches profile pic width */}
+                      <div className="flex flex-col items-center gap-3 w-52 sm:w-56">
+                        {/* Certified + Experience Badges */}
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          <StatusChip label="Certified" tone="certified" />
+                          {typeof professional.experienceYears === "number" && professional.experienceYears > 0 && (
+                            <Badge variant="secondary">{professional.experienceYears}+ years</Badge>
+                          )}
+                        </div>
+
+                        {/* Rating + Review Count */}
+                        <div className="flex w-full items-center justify-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
+                          <div className="flex items-center gap-1.5">
+                            <RatingChip value={professional.rating} textClassName="text-base font-semibold" className="px-0 py-0" />
+                            <span className="text-xs font-medium text-muted-foreground">rating</span>
+                          </div>
+                          <div className="h-4 w-px bg-border/60" />
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-sm font-semibold text-foreground">{professional.reviewCount.toLocaleString()}</span>
+                            <span className="text-xs font-medium text-muted-foreground">
+                              {professional.reviewCount === 1 ? 'review' : 'reviews'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex-1 space-y-4">
@@ -79,15 +108,11 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                           </div>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <StatusChip label="Certified" tone="certified" />
-                          {membershipLabel && (
+                        {membershipLabel && (
+                          <div className="mt-3">
                             <Badge variant="outline">{membershipLabel}</Badge>
-                          )}
-                          {typeof professional.experienceYears === "number" && professional.experienceYears > 0 && (
-                            <Badge variant="secondary">{professional.experienceYears}+ years</Badge>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Subcategories Row */}
@@ -113,13 +138,6 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                           ))}
                         </div>
                       )}
-
-                      <div className="flex w-fit flex-wrap items-center gap-2 rounded-lg px-2 py-1.5">
-                        <RatingChip value={professional.rating} textClassName="text-lg" className="px-3 py-1.5" />
-                        <span className="rounded-full bg-background/70 px-2.5 py-0.5 text-xs font-medium tracking-wide text-muted-foreground dark:bg-background/40">
-                          {professional.reviewCount.toLocaleString()} reviews
-                        </span>
-                      </div>
 
                       <div className="space-y-2 pt-2">
                         <div className="flex items-start gap-3 text-sm text-muted-foreground sm:text-base">

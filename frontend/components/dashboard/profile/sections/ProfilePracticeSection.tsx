@@ -205,7 +205,7 @@ export function ProfilePracticeSection({
 
       <div className="rounded-xl border border-white/10 bg-white/5 p-6">
         <h3 className="mb-6 flex items-center gap-2 text-xl font-semibold text-white">
-          <Globe className="h-5 w-5 text-emerald-400" /> Languages & Session Types
+          <Globe className="h-5 w-5 text-emerald-400" /> Languages & Consultation Mode
         </h3>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div>
@@ -223,7 +223,7 @@ export function ProfilePracticeSection({
             />
           </div>
           <div>
-            <Label className="mb-2 block text-sm text-zinc-300">Session Types</Label>
+            <Label className="mb-2 block text-sm text-zinc-300">Consultation Mode</Label>
             <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-4">
               {SESSION_TYPES.map((type) => {
                 const checked = value.session_types.includes(type.value);

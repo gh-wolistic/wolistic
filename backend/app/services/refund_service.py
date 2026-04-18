@@ -10,15 +10,21 @@ Handles:
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from typing import TYPE_CHECKING
+from urllib import error, request as urllib_request
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.classes import ClassEnrollment, ClassSession, GroupClass
+from app.core.config import get_settings
+from app.models.classes import ClassEnrollment, ClassSession, EnrollmentPayment, GroupClass
 
 if TYPE_CHECKING:
     pass
@@ -37,6 +43,32 @@ REFUND_STATUS_FAILED = "failed"
 # ── Payment Provider Integration ──────────────────────────────────────────────
 
 
+def _get_razorpay_credentials() -> tuple[str, str]:
+    """Get Razorpay API credentials from settings."""
+    settings = get_settings()
+    key_id = settings.RAZORPAY_KEY_ID
+    key_secret = settings.RAZORPAY_KEY_SECRET
+    if not key_id or not key_secret:
+        raise HTTPException(
+            status_code=500,
+            detail="Razorpay credentials are missing. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.",
+        )
+    return key_id, key_secret
+
+
+def _get_auth_header() -> str:
+    """Generate Basic Auth header for Razorpay API."""
+    key_id, key_secret = _get_razorpay_credentials()
+    encoded = base64.b64encode(f"{key_id}:{key_secret}".encode("utf-8")).decode("ascii")
+    return f"Basic {encoded}"
+
+
+def _to_subunits(amount: Decimal | float) -> int:
+    """Convert amount to smallest currency unit (paise for INR)."""
+    decimal_amount = Decimal(str(amount))
+    return int((decimal_amount * Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+
+
 async def process_razorpay_refund(
     payment_id: str,
     refund_amount: float,
@@ -46,7 +78,7 @@ async def process_razorpay_refund(
     Process refund via Razorpay API.
     
     Args:
-        payment_id: Razorpay payment ID (from booking_payments or similar)
+        payment_id: Razorpay payment ID (from enrollment_payments.provider_payment_id)
         refund_amount: Amount to refund in INR
         enrollment_id: Enrollment ID for tracking
     
@@ -57,53 +89,74 @@ async def process_razorpay_refund(
             "error": str | None,
             "status": "completed" | "failed"
         }
-    
-    TODO: Actual Razorpay integration
-    - Import razorpay SDK
-    - Initialize client with API keys
-    - Call razorpay.payment.refund(payment_id, {"amount": amount_in_paise})
-    - Handle errors (insufficient balance, invalid payment, etc.)
     """
-    # PLACEHOLDER IMPLEMENTATION
-    # Replace this with actual Razorpay integration
-    
     try:
-        # Example Razorpay integration code (commented out for now):
-        # import razorpay
-        # from app.core.config import get_settings
-        # settings = get_settings()
-        # client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
-        # 
-        # refund = client.payment.refund(payment_id, {
-        #     "amount": int(refund_amount * 100),  # Convert to paise
-        #     "speed": "normal",
-        #     "notes": {
-        #         "enrollment_id": str(enrollment_id),
-        #         "reason": "Session cancelled by expert"
-        #     }
-        # })
-        # 
-        # return {
-        #     "success": True,
-        #     "refund_id": refund["id"],
-        #     "error": None,
-        #     "status": "completed"
-        # }
+        # Razorpay refund endpoint
+        refund_url = f"https://api.razorpay.com/v1/payments/{payment_id}/refund"
         
-        # For now, simulate successful refund
-        logger.info(
-            f"MOCK REFUND: payment_id={payment_id}, amount=₹{refund_amount}, enrollment_id={enrollment_id}"
+        # Convert amount to paise (smallest unit)
+        amount_paise = _to_subunits(refund_amount)
+        
+        payload = {
+            "amount": amount_paise,
+            "speed": "normal",
+            "notes": {
+                "enrollment_id": str(enrollment_id),
+                "reason": "Session cancelled by expert"
+            }
+        }
+        
+        body = json.dumps(payload).encode("utf-8")
+        http_request = urllib_request.Request(
+            refund_url,
+            data=body,
+            headers={
+                "Authorization": _get_auth_header(),
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            method="POST",
         )
         
-        mock_refund_id = f"rfnd_mock_{uuid.uuid4().hex[:12]}"
+        with urllib_request.urlopen(http_request, timeout=15) as response:
+            response_data = json.loads(response.read().decode("utf-8"))
+            
+        refund_id = str(response_data.get("id", "")).strip()
+        refund_status = str(response_data.get("status", "")).strip()
+        
+        if not refund_id:
+            raise ValueError("Razorpay refund API did not return a refund ID")
+        
+        logger.info(
+            f"Razorpay refund successful: payment_id={payment_id}, "
+            f"amount=₹{refund_amount}, enrollment_id={enrollment_id}, "
+            f"refund_id={refund_id}, status={refund_status}"
+        )
         
         return {
             "success": True,
-            "refund_id": mock_refund_id,
+            "refund_id": refund_id,
             "error": None,
             "status": "completed",
         }
         
+    except error.HTTPError as exc:
+        error_detail = exc.read().decode("utf-8", errors="ignore")
+        logger.error(f"Razorpay refund HTTP error: {error_detail}")
+        return {
+            "success": False,
+            "refund_id": None,
+            "error": error_detail or str(exc),
+            "status": "failed",
+        }
+    except error.URLError as exc:
+        logger.error(f"Razorpay refund URL error: {exc}")
+        return {
+            "success": False,
+            "refund_id": None,
+            "error": "Unable to reach Razorpay refund API",
+            "status": "failed",
+        }
     except Exception as e:
         logger.error(f"Razorpay refund failed: {e}")
         return {
@@ -149,13 +202,29 @@ async def refund_enrollment(
     session, group_class = row
     refund_amount = float(group_class.price)
     
-    # TODO: Fetch payment_id from booking_payments table
-    # For now, use mock payment ID
-    payment_id = f"pay_mock_{enrollment.id}"
+    # Fetch payment ID from enrollment_payments table
+    payment_result = await db.execute(
+        select(EnrollmentPayment)
+        .where(EnrollmentPayment.enrollment_id == enrollment.id)
+        .where(EnrollmentPayment.status == "captured")
+    )
+    payment = payment_result.scalar_one_or_none()
+    
+    if not payment or not payment.provider_payment_id:
+        logger.error(
+            f"No valid payment found for enrollment {enrollment.id}. "
+            f"Cannot process refund."
+        )
+        # Mark enrollment as refunded even without payment (for manual enrollments)
+        enrollment.status = "refunded"
+        enrollment.refund_amount = refund_amount
+        enrollment.refund_processed_at = datetime.utcnow()
+        await db.commit()
+        return False
     
     # Process refund via payment provider
     refund_result = await process_razorpay_refund(
-        payment_id=payment_id,
+        payment_id=payment.provider_payment_id,
         refund_amount=refund_amount,
         enrollment_id=enrollment.id,
     )

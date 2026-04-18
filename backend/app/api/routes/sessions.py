@@ -75,6 +75,7 @@ async def _build_public_session_out(
         title=group_class.title,
         category=group_class.category,
         display_term=group_class.display_term,
+        session_mode=group_class.session_mode,
         session_date=session.session_date,
         start_time=session.start_time,
         duration_minutes=group_class.duration_minutes,

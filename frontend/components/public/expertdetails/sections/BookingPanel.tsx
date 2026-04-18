@@ -1,11 +1,14 @@
 "use client";
 
 import { MapPin, MessageCircle, Phone, Users, Video } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import type { ProfessionalProfile } from "@/types/professional";
+import { getProfessionalSessions, type ProfessionalSession } from "@/lib/api/sessions";
 
 type BookingPanelProps = {
   professional: ProfessionalProfile;
@@ -50,6 +53,39 @@ function getSessionTypeVisual(sessionType: string) {
 }
 
 export function BookingPanel({ professional, onBookConsultation, onBookSession }: BookingPanelProps) {
+  const [nextSession, setNextSession] = useState<ProfessionalSession | null>(null);
+  const [loadingSession, setLoadingSession] = useState(false);
+
+  useEffect(() => {
+    setLoadingSession(true);
+    getProfessionalSessions(professional.username)
+      .then((sessions) => {
+        if (sessions.length > 0) {
+          setNextSession(sessions[0]); // Get the first upcoming session
+        }
+      })
+      .catch(console.error)
+      .finally(() => setLoadingSession(false));
+  }, [professional.username]);
+
+  // Format date
+  const formatSessionDate = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  // Format time
+  const formatTime = (timeStr: string): string => {
+    const [hours, minutes] = timeStr.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
 
   return (
     <div className="lg:col-span-1">
@@ -57,7 +93,7 @@ export function BookingPanel({ professional, onBookConsultation, onBookSession }
         <div className="space-y-5">
 
           <div className="space-y-3">
-            <h4 className="text-base font-semibold tracking-tight">Session Types</h4>
+            <h4 className="text-base font-semibold tracking-tight">Consultation Mode</h4>
             {/* <p className="text-sm text-muted-foreground">Below are the modes of consultation available.</p> */}
             <div className="flex flex-wrap gap-2.5">
               {professional.sessionTypes.map((type) => {
@@ -85,14 +121,70 @@ export function BookingPanel({ professional, onBookConsultation, onBookSession }
             >
               Book Consultation
             </Button>
-            <Button
-              variant="default"
-              className="w-full bg-linear-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700"
-              onClick={onBookSession}
-            >
-              <Users size={18} className="mr-2" />
-              Book Session
-            </Button>
+            
+            <Separator className="my-4" />
+            
+            {/* Session Type Section */}
+            {nextSession ? (
+              <div className="space-y-3">
+                <h4 className="text-base font-semibold tracking-tight">Session Type</h4>
+                <div className="flex flex-wrap gap-2.5">
+                  {nextSession.session_mode === "online" && (
+                    <Badge
+                      variant="outline"
+                      className="h-9 rounded-full border-emerald-200/80 bg-white/70 px-3 text-xs font-medium text-foreground dark:border-emerald-500/40 dark:bg-emerald-950/30"
+                    >
+                      <Video size={14} className="mr-1.5 text-emerald-600 dark:text-emerald-300" />
+                      Online
+                    </Badge>
+                  )}
+                  {nextSession.session_mode === "in_person" && (
+                    <Badge
+                      variant="outline"
+                      className="h-9 rounded-full border-emerald-200/80 bg-white/70 px-3 text-xs font-medium text-foreground dark:border-emerald-500/40 dark:bg-emerald-950/30"
+                    >
+                      <MapPin size={14} className="mr-1.5 text-emerald-600 dark:text-emerald-300" />
+                      In-person
+                    </Badge>
+                  )}
+                  {nextSession.session_mode === "hybrid" && (
+                    <Badge
+                      variant="outline"
+                      className="h-9 rounded-full border-emerald-200/80 bg-white/70 px-3 text-xs font-medium text-foreground dark:border-emerald-500/40 dark:bg-emerald-950/30"
+                    >
+                      <Users size={14} className="mr-1.5 text-emerald-600 dark:text-emerald-300" />
+                      Hybrid
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Next slot: {formatSessionDate(nextSession.session_date)} at {formatTime(nextSession.start_time)}
+                </p>
+                <Button
+                  variant="default"
+                  className="w-full bg-linear-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700"
+                  onClick={onBookSession}
+                >
+                  <Users size={18} className="mr-2" />
+                  Book Session
+                </Button>
+              </div>
+            ) : (
+              !loadingSession && (
+                <div className="space-y-3">
+                  <h4 className="text-base font-semibold tracking-tight">Session Type</h4>
+                  <p className="text-sm text-muted-foreground">No upcoming sessions available</p>
+                  <Button
+                    variant="default"
+                    className="w-full bg-linear-to-r from-violet-500 to-purple-600 text-white hover:from-violet-600 hover:to-purple-700"
+                    onClick={onBookSession}
+                  >
+                    <Users size={18} className="mr-2" />
+                    View All Sessions
+                  </Button>
+                </div>
+              )
+            )}
             <Button variant="outline" className="w-full">
               <MessageCircle size={18} className="mr-2" />
               Send Message

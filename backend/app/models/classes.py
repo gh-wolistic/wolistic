@@ -61,6 +61,8 @@ class GroupClass(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # session | workshop | class (expert's terminology choice)
     display_term: Mapped[str] = mapped_column(String(16), nullable=False, server_default="session")
+    # online | in_person | hybrid (session delivery mode)
+    session_mode: Mapped[str] = mapped_column(String(16), nullable=False, server_default="in_person")
     # Mandatory expiry date for template lifecycle
     expires_on: Mapped[date] = mapped_column(Date, nullable=False)
     # renewed | cancelled | archived

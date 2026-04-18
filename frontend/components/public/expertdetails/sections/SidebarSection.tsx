@@ -116,7 +116,7 @@ export function SidebarSection({ professional }: SidebarSectionProps) {
             <>
               <Separator />
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Session Types</p>
+                <p className="text-sm text-muted-foreground mb-1">Consultation Mode</p>
                 <p className="font-medium">{professional.sessionTypes.join(", ")}</p>
               </div>
             </>
