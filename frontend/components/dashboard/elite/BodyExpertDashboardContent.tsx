@@ -74,6 +74,10 @@ import type {
 import { ReviewResponseManager } from "@/components/dashboard/partner/ReviewResponseManager";
 import { messagingAPI, type ConversationWithLastMessage } from "@/lib/messaging-api";
 import type { ElitePageView } from "./types";
+import { TodayActivityCard, type TodayActivity } from "./TodayActivityCard";
+import { TodayActivityEmptyState } from "./TodayActivityEmptyState";
+import { getTodayActivity } from "@/components/dashboard/partner/partnerApi";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -336,6 +340,11 @@ export function BodyExpertDashboardContent({
   }>>([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // --- Today's Activity ---
+  const [todayActivities, setTodayActivities] = useState<TodayActivity[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(true);
+  const [visibleActivitiesCount, setVisibleActivitiesCount] = useState(2);
+
   // --- Services quick-edit sheet ---
   const [isServicesOpen, setIsServicesOpen] = useState(false);
   const [draftServices, setDraftServices] = useState<ProfessionalServiceInput[]>([]);
@@ -455,6 +464,102 @@ export function BodyExpertDashboardContent({
     fetchRecentMessages();
   }, [user?.id]); // Re-fetch if user ID changes
 
+  // Fetch today's activity
+  useEffect(() => {
+    async function fetchTodayActivity() {
+      if (!accessToken) return;
+      
+      try {
+        setLoadingActivities(true);
+        const activities = await getTodayActivity(accessToken);
+        setTodayActivities(activities);
+      } catch (error) {
+        console.error("Failed to fetch today's activity:", error);
+      } finally {
+        setLoadingActivities(false);
+      }
+    }
+
+    fetchTodayActivity();
+    
+    // Refresh every 2 minutes
+    const interval = setInterval(fetchTodayActivity, 2 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [accessToken]);
+
+  // Real-time updates for new activity (bookings, reviews, enrollments)
+  useEffect(() => {
+    if (!user?.id) return;
+    
+    const supabase = getSupabaseBrowserClient();
+    
+    // Subscribe to bookings table for new bookings
+    const bookingsChannel = supabase
+      .channel("today-activity-bookings")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bookings",
+          filter: `professional_id=eq.${user.id}`,
+        },
+        async () => {
+          // Refresh activity feed when new booking created
+          if (accessToken) {
+            const activities = await getTodayActivity(accessToken);
+            setTodayActivities(activities);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to reviews table for new reviews
+    const reviewsChannel = supabase
+      .channel("today-activity-reviews")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "professional_reviews",
+          filter: `professional_id=eq.${user.id}`,
+        },
+        async () => {
+          if (accessToken) {
+            const activities = await getTodayActivity(accessToken);
+            setTodayActivities(activities);
+          }
+        }
+      )
+      .subscribe();
+
+    // Subscribe to class enrollments
+    const enrollmentsChannel = supabase
+      .channel("today-activity-enrollments")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "class_enrollments",
+        },
+        async () => {
+          if (accessToken) {
+            const activities = await getTodayActivity(accessToken);
+            setTodayActivities(activities);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(bookingsChannel);
+      supabase.removeChannel(reviewsChannel);
+      supabase.removeChannel(enrollmentsChannel);
+    };
+  }, [user?.id, accessToken]);
+
   function formatMessageTime(isoDate: string): string {
     if (!isoDate) return "—";
     const now = Date.now();
@@ -558,35 +663,47 @@ export function BodyExpertDashboardContent({
             </p>
           </div>
 
-          {aggregate.today_sessions.length > 0 ? (
-            <div className="space-y-3">
-              {aggregate.today_sessions.map((session) => (
-                <div
-                  key={session.booking_reference}
-                  className="flex items-center gap-4 rounded-lg border border-white/8 bg-white/5 p-4 transition-colors hover:bg-white/8"
-                >
-                  <div className="hidden w-20 shrink-0 items-center gap-2 text-sm text-zinc-400 sm:flex sm:w-24">
-                    <Clock className="size-4" />
-                    {formatSessionTime(session.scheduled_at, session.is_immediate)}
-                  </div>
-                  <Avatar className="size-10">
-                    <AvatarFallback className="bg-emerald-500/20 text-xs text-emerald-400">
-                      {session.client_initials}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="font-medium text-white">{session.client_name}</p>
-                    <p className="text-sm text-zinc-400">{session.service_name}</p>
-                  </div>
-                  <StatusBadge status={session.status} />
+          {loadingActivities ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="size-6 animate-spin rounded-full border-2 border-emerald-400 border-t-transparent" />
+            </div>
+          ) : todayActivities.length > 0 ? (
+            <>
+              <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                {todayActivities.slice(0, visibleActivitiesCount).map((activity) => (
+                  <TodayActivityCard
+                    key={activity.id}
+                    activity={activity}
+                    onActionClick={(url) => {
+                      // Navigate based on URL
+                      if (url.includes("/clients")) {
+                        onPageChange?.("clients");
+                      } else if (url.includes("/classes")) {
+                        onPageChange?.("classes");
+                      } else if (url.includes("/settings")) {
+                        onPageChange?.("settings");
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+              {todayActivities.length > visibleActivitiesCount && (
+                <div className="mt-4 flex justify-center">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVisibleActivitiesCount(prev => Math.min(prev + 5, todayActivities.length))}
+                    className="text-sm text-zinc-400 hover:text-white"
+                  >
+                    Load More ({todayActivities.length - visibleActivitiesCount} remaining)
+                  </Button>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <CalendarDays className="mb-4 size-12 text-zinc-600" />
-              <p className="text-zinc-400">No sessions scheduled today</p>
-            </div>
+            <TodayActivityEmptyState 
+              onViewWeekAhead={() => onPageChange?.("classes")}
+            />
           )}
         </GlassCard>
 
@@ -883,13 +1000,13 @@ export function BodyExpertDashboardContent({
         </GlassCard>
       </div>
 
-      {/* Active Services & Availability */}
+      {/* Active Consultation Services & Consultation Availability */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Active Services */}
+        {/* Active Consultation Services */}
         <GlassCard className="p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white">Active Services</h2>
+              <h2 className="text-lg font-semibold text-white">Active Consultation Services</h2>
               <Badge className="border-white/20 bg-white/10 text-white">
                 {aggregate.metrics.active_services_total}
               </Badge>
@@ -906,7 +1023,7 @@ export function BodyExpertDashboardContent({
           </div>
 
           {activeServices.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-500">No active services yet</p>
+            <p className="py-6 text-center text-sm text-zinc-500">No active consultation services yet</p>
           ) : (
             <div className="space-y-3">
               {activeServices.slice(0, 4).map((service, idx) => (
@@ -934,11 +1051,11 @@ export function BodyExpertDashboardContent({
           )}
         </GlassCard>
 
-        {/* Availability Schedule */}
+        {/* Consultation Availability Schedule */}
         <GlassCard className="p-4 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white">Availability Schedule</h2>
+              <h2 className="text-lg font-semibold text-white">Consultation Availability Schedule</h2>
               <Badge className="border-white/20 bg-white/10 text-white">
                 {aggregate.metrics.availability_slots_total} slots
               </Badge>
@@ -955,7 +1072,7 @@ export function BodyExpertDashboardContent({
           </div>
 
           {availability.length === 0 ? (
-            <p className="py-6 text-center text-sm text-zinc-500">No availability set yet</p>
+            <p className="py-6 text-center text-sm text-zinc-500">No consultation availability set yet</p>
           ) : (
             <div className="space-y-2">
               {availability.map((slot, idx) => (
@@ -1214,14 +1331,14 @@ export function BodyExpertDashboardContent({
       </SheetContent>
     </Sheet>
 
-    {/* ── Availability quick-edit sheet ─────────────────────────────────── */}
+    {/* ── Consultation Availability quick-edit sheet ─────────────────────────────────── */}
     <Sheet open={isAvailOpen} onOpenChange={setIsAvailOpen}>
       <SheetContent
         side="right"
         className="flex w-full flex-col overflow-y-auto border-white/10 bg-[#0d1526] text-white sm:max-w-lg"
       >
         <SheetHeader className="mb-4">
-          <SheetTitle className="text-white">Edit Availability</SheetTitle>
+          <SheetTitle className="text-white">Edit Consultation Availability</SheetTitle>
         </SheetHeader>
 
         <div className="flex-1 space-y-3 overflow-y-auto pb-4 pr-1">
