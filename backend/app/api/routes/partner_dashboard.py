@@ -11,11 +11,12 @@ from sqlalchemy.orm import selectinload
 from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.database import get_db_session
 from app.models.booking import Booking, BookingPayment, BookingQuestionTemplate
-from app.models.classes import ClassSession, GroupClass
-from app.models.client import ExpertClient, ExpertClientFollowUp
+from app.models.classes import ClassEnrollment, ClassSession, GroupClass
+from app.models.client import ExpertClient, ExpertClientFollowUp, ExpertLead
 from app.models.holistic_team import HolisticTeamMember
 from app.models.professional import Professional, ProfessionalReview
 from app.models.user import User
+from app.models.verification import CredentialVerification, ProfessionalIdentityVerification
 from app.schemas.partner_dashboard import (
     PartnerActiveClientOut,
     PartnerDashboardMetricsOut,
@@ -23,6 +24,7 @@ from app.schemas.partner_dashboard import (
     PartnerDashboardOverviewOut,
     PartnerDashboardRecentReviewOut,
     PartnerFollowUpOut,
+    TodayActivityOut,
     TodaySessionOut,
 )
 
@@ -323,3 +325,301 @@ async def get_partner_dashboard(
         follow_ups=follow_ups,
         today_sessions=today_sessions,
     )
+
+
+@router.get("/me/today-activity", response_model=list[TodayActivityOut])
+async def get_today_activity(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db_session),
+) -> list[TodayActivityOut]:
+    """
+    Fetch all activities that happened TODAY for this professional.
+    Returns unified timeline of bookings, reviews, enrollments, clients, leads, and verifications.
+    """
+    user_result = await db.execute(select(User).where(User.id == current_user.user_id))
+    user = user_result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Authenticated user not found")
+
+    if user.user_type != "partner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only partner users can access this endpoint")
+
+    professional_result = await db.execute(
+        select(Professional).where(Professional.user_id == current_user.user_id)
+    )
+    professional = professional_result.scalar_one_or_none()
+    if professional is None:
+        return []
+
+    # Define today's time range (UTC)
+    now_utc = datetime.now(timezone.utc)
+    today_start = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow_start = today_start + timedelta(days=1)
+
+    activities: list[TodayActivityOut] = []
+
+    # 1. NEW BOOKINGS RECEIVED TODAY (not scheduled today, but created today)
+    bookings_result = await db.execute(
+        select(Booking, User)
+        .join(User, User.id == Booking.client_user_id)
+        .where(
+            Booking.professional_id == current_user.user_id,
+            Booking.created_at >= today_start,
+            Booking.created_at < tomorrow_start,
+        )
+        .order_by(Booking.created_at.desc())
+        .limit(10)
+    )
+    for booking, client in bookings_result.all():
+        client_name = client.full_name or "Client"
+        scheduled_time = ""
+        if booking.scheduled_for:
+            scheduled_time = f" • {booking.scheduled_for.strftime('%I:%M %p')}"
+        elif booking.is_immediate:
+            scheduled_time = " • Immediate session"
+        
+        activities.append(TodayActivityOut(
+            id=f"booking_{booking.id}",
+            activity_type="booking_received",
+            timestamp=booking.created_at,
+            icon="📅",
+            title=f"New booking from {client_name}",
+            description=f"{booking.service_name}{scheduled_time}",
+            action_url="/v2/partner/body-expert",
+            priority="high",
+            metadata={
+                "booking_reference": booking.booking_reference,
+                "client_name": client_name,
+                "service_name": booking.service_name,
+            }
+        ))
+
+    # 2. NEW REVIEWS POSTED TODAY
+    reviews_result = await db.execute(
+        select(ProfessionalReview, User)
+        .join(User, User.id == ProfessionalReview.reviewer_user_id)
+        .where(
+            ProfessionalReview.professional_id == current_user.user_id,
+            ProfessionalReview.created_at >= today_start,
+            ProfessionalReview.created_at < tomorrow_start,
+        )
+        .order_by(ProfessionalReview.created_at.desc())
+        .limit(10)
+    )
+    for review, reviewer in reviews_result.all():
+        reviewer_name = reviewer.full_name or "Anonymous"
+        stars = "⭐" * review.rating
+        preview = review.review_text[:80] + "..." if review.review_text and len(review.review_text) > 80 else review.review_text or stars
+        
+        activities.append(TodayActivityOut(
+            id=f"review_{review.id}",
+            activity_type="review_received",
+            timestamp=review.created_at,
+            icon="⭐",
+            title=f"{reviewer_name} left a {review.rating}-star review",
+            description=preview,
+            action_url="/v2/partner/body-expert",
+            priority="high",
+            metadata={
+                "reviewer_name": reviewer_name,
+                "rating": review.rating,
+                "review_text": review.review_text,
+            }
+        ))
+
+    # 3. NEW CLASS ENROLLMENTS TODAY
+    enrollments_result = await db.execute(
+        select(ClassEnrollment, ClassSession, GroupClass)
+        .join(ClassSession, ClassSession.id == ClassEnrollment.class_session_id)
+        .join(GroupClass, GroupClass.id == ClassSession.group_class_id)
+        .where(
+            GroupClass.professional_id == current_user.user_id,
+            ClassEnrollment.created_at >= today_start,
+            ClassEnrollment.created_at < tomorrow_start,
+        )
+        .order_by(ClassEnrollment.created_at.desc())
+        .limit(10)
+    )
+    for enrollment, session, group_class in enrollments_result.all():
+        session_date = session.session_date.strftime("%b %d")
+        if session.start_time:
+            session_date += f" at {session.start_time.strftime('%I:%M %p')}"
+        
+        activities.append(TodayActivityOut(
+            id=f"enrollment_{enrollment.id}",
+            activity_type="enrollment_received",
+            timestamp=enrollment.created_at,
+            icon="✅",
+            title=f"{enrollment.client_name} enrolled in {group_class.title}",
+            description=f"Session on {session_date}",
+            action_url="/v2/partner/body-expert/classes",
+            priority="high",
+            metadata={
+                "client_name": enrollment.client_name,
+                "class_title": group_class.title,
+                "session_date": session_date,
+            }
+        ))
+
+    # 4. NEW CLIENTS ADDED TODAY
+    clients_result = await db.execute(
+        select(ExpertClient)
+        .where(
+            ExpertClient.professional_id == current_user.user_id,
+            ExpertClient.created_at >= today_start,
+            ExpertClient.created_at < tomorrow_start,
+        )
+        .order_by(ExpertClient.created_at.desc())
+        .limit(10)
+    )
+    for client in clients_result.scalars().all():
+        source = client.acquisition_source or "Unknown"
+        
+        activities.append(TodayActivityOut(
+            id=f"client_{client.id}",
+            activity_type="client_added",
+            timestamp=client.created_at,
+            icon="👤",
+            title=f"New client: {client.name}",
+            description=f"Added via {source}",
+            action_url="/v2/partner/body-expert/clients",
+            priority="normal",
+            metadata={
+                "client_name": client.name,
+                "source": source,
+                "email": client.email,
+            }
+        ))
+
+    # 5. NEW LEADS RECEIVED TODAY
+    leads_result = await db.execute(
+        select(ExpertLead)
+        .where(
+            ExpertLead.professional_id == current_user.user_id,
+            ExpertLead.created_at >= today_start,
+            ExpertLead.created_at < tomorrow_start,
+        )
+        .order_by(ExpertLead.created_at.desc())
+        .limit(10)
+    )
+    for lead in leads_result.scalars().all():
+        source = lead.source or "Direct"
+        interest = lead.interest or "General inquiry"
+        
+        activities.append(TodayActivityOut(
+            id=f"lead_{lead.id}",
+            activity_type="lead_received",
+            timestamp=lead.created_at,
+            icon="🎯",
+            title=f"New lead: {lead.name}",
+            description=f"{interest} • via {source}",
+            action_url="/v2/partner/body-expert/clients",
+            priority="normal",
+            metadata={
+                "lead_name": lead.name,
+                "source": source,
+                "interest": interest,
+            }
+        ))
+
+    # 6. VERIFICATION UPDATES TODAY (identity + credentials)
+    # Identity verification
+    identity_result = await db.execute(
+        select(ProfessionalIdentityVerification)
+        .where(
+            ProfessionalIdentityVerification.user_id == current_user.user_id,
+            ProfessionalIdentityVerification.updated_at >= today_start,
+            ProfessionalIdentityVerification.updated_at < tomorrow_start,
+            ProfessionalIdentityVerification.verification_status.in_(["approved", "rejected"]),
+        )
+        .order_by(ProfessionalIdentityVerification.updated_at.desc())
+    )
+    for verification in identity_result.scalars().all():
+        if verification.verification_status == "approved":
+            activities.append(TodayActivityOut(
+                id=f"identity_verification_{verification.user_id}",
+                activity_type="verification_update",
+                timestamp=verification.updated_at,
+                icon="✅",
+                title="Identity verified!",
+                description="Your identity documents have been approved",
+                action_url="/v2/partner/body-expert/settings",
+                priority="high",
+                metadata={
+                    "verification_type": "identity",
+                    "status": "approved",
+                }
+            ))
+        else:
+            activities.append(TodayActivityOut(
+                id=f"identity_verification_{verification.user_id}",
+                activity_type="verification_update",
+                timestamp=verification.updated_at,
+                icon="⚠️",
+                title="Identity verification issue",
+                description=verification.rejection_reason or "Please review your documents",
+                action_url="/v2/partner/body-expert/settings",
+                priority="high",
+                metadata={
+                    "verification_type": "identity",
+                    "status": "rejected",
+                    "reason": verification.rejection_reason,
+                }
+            ))
+
+    # Credential verifications
+    credentials_result = await db.execute(
+        select(CredentialVerification)
+        .where(
+            CredentialVerification.professional_id == current_user.user_id,
+            CredentialVerification.updated_at >= today_start,
+            CredentialVerification.updated_at < tomorrow_start,
+            CredentialVerification.verification_status.in_(["approved", "rejected"]),
+        )
+        .order_by(CredentialVerification.updated_at.desc())
+    )
+    for credential in credentials_result.scalars().all():
+        cred_name = f"{credential.credential_type} - {credential.credential_subtype}" if credential.credential_subtype else credential.credential_type
+        if credential.verification_status == "approved":
+            activities.append(TodayActivityOut(
+                id=f"credential_{credential.id}",
+                activity_type="verification_update",
+                timestamp=credential.updated_at,
+                icon="✅",
+                title=f"{cred_name} verified!",
+                description="Your credential has been approved",
+                action_url="/v2/partner/body-expert/settings",
+                priority="high",
+                metadata={
+                    "verification_type": "credential",
+                    "credential_name": cred_name,
+                    "status": "approved",
+                }
+            ))
+        else:
+            activities.append(TodayActivityOut(
+                id=f"credential_{credential.id}",
+                activity_type="verification_update",
+                timestamp=credential.updated_at,
+                icon="⚠️",
+                title=f"{cred_name} verification issue",
+                description=credential.rejection_reason or "Please review your credential",
+                action_url="/v2/partner/body-expert/settings",
+                priority="high",
+                metadata={
+                    "verification_type": "credential",
+                    "credential_name": cred_name,
+                    "status": "rejected",
+                    "reason": credential.rejection_reason,
+                }
+            ))
+
+    # Sort activities: high priority first, then by timestamp descending
+    def sort_key(activity: TodayActivityOut):
+        priority_order = {"high": 0, "normal": 1, "low": 2}
+        return (priority_order.get(activity.priority, 1), -activity.timestamp.timestamp())
+    
+    activities.sort(key=sort_key)
+    
+    # Limit to 20 most relevant activities
+    return activities[:20]

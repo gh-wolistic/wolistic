@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { PartnerDashboardAggregate } from "@/components/dashboard/partner/partnerApi";
 import type { CoinWallet } from "@/types/coins";
+import type { ElitePageView } from "./types";
 
 interface EliteProfilePanelProps {
   displayName: string;
@@ -29,6 +30,7 @@ interface EliteProfilePanelProps {
   wallet: CoinWallet | null;
   coverImageUrl?: string | null;
   profileImageUrl?: string | null;
+  onPageChange?: (page: ElitePageView) => void;
 }
 
 function MembershipBadge({ tier }: { tier: string | null }) {
@@ -68,6 +70,7 @@ export function EliteProfilePanel({
   wallet,
   coverImageUrl,
   profileImageUrl,
+  onPageChange,
 }: EliteProfilePanelProps) {
   const coinBalance = wallet?.balance ?? 0;
   const showUpgradeCard = membershipTier !== "premium";
@@ -209,6 +212,7 @@ export function EliteProfilePanel({
                 </li>
               </ul>
               <Button
+                onClick={() => onPageChange?.("subscription")}
                 className="w-full bg-linear-to-r from-amber-500 to-orange-500 text-white shadow-lg hover:from-amber-600 hover:to-orange-600"
                 size="sm"
               >

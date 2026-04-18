@@ -70,6 +70,19 @@ class TodaySessionOut(BaseModel):
     status: str = "upcoming"
 
 
+class TodayActivityOut(BaseModel):
+    """Unified activity timeline item for Today's Activity feed."""
+    id: str  # Composite: "{type}_{record_id}"
+    activity_type: str  # booking_received, review_received, enrollment_received, etc.
+    timestamp: datetime
+    icon: str  # Emoji icon
+    title: str  # "New booking from John Doe"
+    description: str | None = None  # Additional context
+    action_url: str | None = None  # Link to detail page
+    priority: str = "normal"  # high, normal, low
+    metadata: dict | None = None  # Type-specific data
+
+
 class PartnerDashboardOut(BaseModel):
     overview: PartnerDashboardOverviewOut
     metrics: PartnerDashboardMetricsOut

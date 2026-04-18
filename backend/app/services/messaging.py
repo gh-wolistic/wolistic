@@ -15,6 +15,7 @@ from app.models.client import ExpertClient
 from app.models.messaging import Conversation, ConversationParticipant, Message
 from app.models.professional import Professional
 from app.models.user import User, UserFavourite
+from app.services import notification as notification_service
 
 logger = logging.getLogger(__name__)
 
@@ -292,6 +293,43 @@ async def send_message(
 
     await db.refresh(message)
     logger.info(f"Message {message.id} sent in conversation {conversation_id} by {sender_id}")
+    
+    # Notify recipient(s) about new message
+    participants_result = await db.execute(
+        select(ConversationParticipant, User)
+        .join(User, User.id == ConversationParticipant.user_id)
+        .where(
+            ConversationParticipant.conversation_id == conversation_id,
+            ConversationParticipant.user_id != sender_id
+        )
+    )
+    participants = participants_result.all()
+    
+    sender_result = await db.execute(select(User).where(User.id == sender_id))
+    sender_user = sender_result.scalar_one_or_none()
+    sender_name = sender_user.full_name if sender_user else "Someone"
+    sender_initials = sender_name.split()[0][0].upper() if sender_name else "?"
+    
+    for participant, user in participants:
+        preview = content.strip()[:100]
+        if len(content.strip()) > 100:
+            preview += "..."
+        
+        await notification_service.create_notification(
+            db,
+            user_id=participant.user_id,
+            type="message",
+            title=f"💬 New message from {sender_name}",
+            description=preview,
+            action_url=f"/dashboard/messages",
+            action_text="Reply",
+            extra_data={
+                "conversation_id": str(conversation_id),
+                "sender_id": str(sender_id),
+                "avatar": sender_initials
+            }
+        )
+    
     return message
 
 

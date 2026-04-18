@@ -179,6 +179,7 @@ export function EliteBodyExpertShell({ initialPage = "dashboard" }: EliteBodyExp
           wallet={wallet}
           coverImageUrl={editor.cover_image_url}
           profileImageUrl={editor.profile_image_url}
+          onPageChange={setCurrentPage}
         />
       )}
     </div>

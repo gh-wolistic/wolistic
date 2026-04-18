@@ -12,6 +12,7 @@ from app.models.client import ExpertClient
 from app.models.professional import Professional, ProfessionalReview, ProfessionalReviewResponse
 from app.models.booking import Booking
 from app.models.user import User
+from app.services import notification as notification_service
 
 
 # ============================================================================
@@ -240,6 +241,25 @@ async def create_review(
     
     # Sync Professional.rating_avg / rating_count
     await _sync_professional_rating(db, professional_id)
+    
+    # Notify professional about new review
+    reviewer_name = review.reviewer.full_name if review.reviewer else "A client"
+    stars = "⭐" * rating
+    
+    await notification_service.create_notification(
+        db,
+        user_id=professional_id,
+        type="system",
+        title=f"⭐ New {rating}-Star Review!",
+        description=f"{reviewer_name} left you a review: {review_text[:100] if review_text else stars}",
+        action_url="/v2/partner/body-expert",
+        action_text="View Review",
+        extra_data={
+            "review_id": review.id,
+            "rating": rating,
+            "reviewer_name": reviewer_name
+        }
+    )
 
     return review
 

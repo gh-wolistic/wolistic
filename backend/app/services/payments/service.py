@@ -14,6 +14,7 @@ from app.models.booking import Booking, BookingPayment
 from app.models.professional import Professional
 from app.schemas.booking import CreatePaymentOrderIn, CreatePaymentOrderOut, VerifyPaymentIn, VerifyPaymentOut
 from app.services.coins import award_coins
+from app.services import notification as notification_service
 from app.services.payments.providers.base import (
     PaymentOrderRequest,
     PaymentProvider,
@@ -307,6 +308,33 @@ async def verify_payment(
                 reference_type="user",
                 reference_id=str(booking.client_user_id),
             )
+        
+        # Notify professional about new booking
+        from app.models.user import User
+        client_result = await db.execute(select(User).where(User.id == booking.client_user_id))
+        client = client_result.scalar_one_or_none()
+        client_name = client.full_name if client else "A client"
+        
+        scheduled_time = ""
+        if booking.scheduled_for:
+            scheduled_time = f" on {booking.scheduled_for.strftime('%b %d at %I:%M %p')}"
+        elif booking.is_immediate:
+            scheduled_time = " (immediate session)"
+        
+        await notification_service.create_notification(
+            db,
+            user_id=booking.professional_id,
+            type="lead",
+            title="🎉 New Booking!",
+            description=f"{client_name} booked {booking.service_name}{scheduled_time}",
+            action_url=f"/v2/partner/body-expert",
+            action_text="View Booking",
+            extra_data={
+                "booking_reference": booking.booking_reference,
+                "client_name": client_name,
+                "avatar": client_name.split()[0][0].upper() if client_name else "C"
+            }
+        )
 
     await db.commit()
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Bell, 
   MessageSquare, 
@@ -23,6 +23,9 @@ import {
 import { cn } from '@/lib/utils';
 import { notificationAPI, type Notification } from '@/lib/notification-api';
 import { useRouter } from 'next/navigation';
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser';
+import { useAuthSession } from '@/components/auth/AuthSessionProvider';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 type NotificationType = 'message' | 'lead' | 'schedule' | 'followup' | 'system';
 
@@ -34,11 +37,14 @@ interface NotificationUI extends Notification {
 
 export function EliteNotificationCenter() {
   const router = useRouter();
+  const { user } = useAuthSession();
   const [isOpen, setIsOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'messages' | 'leads' | 'schedule'>('all');
   const [notifications, setNotifications] = useState<NotificationUI[]>([]);
   const [loading, setLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // Load notifications
   useEffect(() => {
@@ -51,10 +57,121 @@ export function EliteNotificationCenter() {
   useEffect(() => {
     loadUnreadCount();
     
-    // Refresh count every 30 seconds
-    const interval = setInterval(loadUnreadCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    // Only poll if realtime is NOT connected (fallback mechanism)
+    if (!realtimeConnected) {
+      const interval = setInterval(loadUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [realtimeConnected]);
+
+  // Setup Supabase Realtime subscription for live notifications
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const supabase = getSupabaseBrowserClient();
+    
+    console.log('[Notifications Realtime] Setting up subscription for user:', user.id);
+    
+    const channel = supabase
+      .channel(`notifications:${user.id}`, {
+        config: {
+          broadcast: { self: true },
+        }
+      })
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('🔔 [Notifications Realtime] NEW NOTIFICATION:', payload);
+          
+          const newNotification = payload.new as Notification;
+          const transformed: NotificationUI = {
+            ...newNotification,
+            timeAgo: formatTimeAgo(newNotification.created_at),
+            unread: !newNotification.read,
+            avatar: newNotification.extra_data?.avatar as string | undefined,
+          };
+          
+          // Add to notifications list (prepend)
+          setNotifications(prev => [transformed, ...prev]);
+          
+          // Increment unread count
+          setUnreadCount(prev => prev + 1);
+          
+          // Optional: Show browser notification if permission granted
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            new Notification(newNotification.title, {
+              body: newNotification.description,
+              icon: '/logo.png',
+              tag: newNotification.id,
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('✏️ [Notifications Realtime] NOTIFICATION UPDATED:', payload);
+          
+          const updatedNotification = payload.new as Notification;
+          setNotifications(prev => 
+            prev.map(n => 
+              n.id === updatedNotification.id 
+                ? {
+                    ...updatedNotification,
+                    timeAgo: formatTimeAgo(updatedNotification.created_at),
+                    unread: !updatedNotification.read,
+                    avatar: updatedNotification.extra_data?.avatar as string | undefined,
+                  }
+                : n
+            )
+          );
+          
+          // Update unread count if read status changed
+          if (updatedNotification.read) {
+            setUnreadCount(prev => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('[Notifications Realtime] Status:', status, 'Error:', err);
+        
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [Notifications Realtime] LIVE - Real-time working!');
+          setRealtimeConnected(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('❌ [Notifications Realtime] Error - Using polling fallback');
+          setRealtimeConnected(false);
+        }
+        
+        if (err) {
+          console.error('❌ [Notifications Realtime] Error:', err);
+          setRealtimeConnected(false);
+        }
+      });
+
+    channelRef.current = channel;
+
+    return () => {
+      console.log('[Notifications Realtime] Cleaning up subscription');
+      setRealtimeConnected(false);
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+    };
+  }, [user?.id]);
 
   const loadNotifications = async () => {
     setLoading(true);
@@ -188,6 +305,10 @@ export function EliteNotificationCenter() {
               {unreadCount}
             </span>
           )}
+          {/* Real-time connection indicator */}
+          {realtimeConnected && (
+            <span className="absolute left-0 bottom-0 size-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+          )}
         </Button>
       </SheetTrigger>
       
@@ -196,9 +317,17 @@ export function EliteNotificationCenter() {
       >
         <SheetHeader className="p-6 border-b border-white/10 shrink-0">
           <div className="flex items-center justify-between">
-            <SheetTitle className="text-xl font-semibold bg-linear-to-r from-white to-zinc-400 bg-clip-text text-transparent">
-              Notification Center
-            </SheetTitle>
+            <div className="flex items-center gap-2">
+              <SheetTitle className="text-xl font-semibold bg-linear-to-r from-white to-zinc-400 bg-clip-text text-transparent">
+                Notification Center
+              </SheetTitle>
+              {realtimeConnected && (
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/30">
+                  <div className="size-1.5 bg-emerald-400 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-medium text-emerald-400">LIVE</span>
+                </div>
+              )}
+            </div>
             {unreadCount > 0 && (
               <Button 
                 variant="ghost" 

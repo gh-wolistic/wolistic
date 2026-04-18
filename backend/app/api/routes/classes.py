@@ -12,6 +12,7 @@ from app.core.database import get_db_session
 from app.models.classes import ClassEnrollment, ClassSession, GroupClass, SessionInterest, WorkLocation
 from app.models.professional import Professional
 from app.models.subscription import ProfessionalSubscription, SubscriptionPlan
+from app.services import notification as notification_service
 from app.schemas.classes import (
     AttendanceMarkRequest,
     BulkSessionIn,
@@ -773,6 +774,28 @@ async def create_enrollment(
     db.add(enrollment)
     await db.commit()
     await db.refresh(enrollment)
+    
+    # Notify professional about new enrollment
+    session_time = s.session_date.strftime("%b %d")
+    if s.start_time:
+        session_time += f" at {s.start_time.strftime('%I:%M %p')}"
+    
+    await notification_service.create_notification(
+        db,
+        user_id=professional.user_id,
+        type="lead",
+        title="✅ New Student Enrolled!",
+        description=f"{payload.client_name} enrolled in {gc.title} ({session_time})",
+        action_url="/v2/partner/body-expert/classes",
+        action_text="View Class",
+        extra_data={
+            "enrollment_id": enrollment.id,
+            "class_id": class_id,
+            "session_id": session_id,
+            "client_name": payload.client_name,
+            "avatar": payload.client_name[0].upper() if payload.client_name else "S"
+        }
+    )
 
     loc_name = None
     if gc.work_location_id:

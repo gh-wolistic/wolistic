@@ -23,6 +23,7 @@ from app.schemas.verification import (
     IdentityVerificationSubmit,
     VerificationStatusOut,
 )
+from app.services import notification as notification_service
 
 
 class VerificationService:
@@ -301,6 +302,18 @@ class VerificationService:
         verification.rejection_reason = None
         verification.updated_at = datetime.now(timezone.utc)
         
+        # Create notification for professional
+        await notification_service.create_notification(
+            self.db,
+            user_id=user_id,
+            type="system",
+            title="🎉 Identity Verified!",
+            description="Your identity documents have been approved. You're now a verified professional on Wolistic!",
+            action_url="/v2/partner/body-expert",
+            action_text="View Dashboard",
+            extra_data={"verification_type": "identity"}
+        )
+        
         await self.db.commit()
         await self.db.refresh(verification)
         
@@ -322,6 +335,18 @@ class VerificationService:
         verification.verified_by_user_id = admin_user_id
         verification.rejection_reason = rejection_reason
         verification.updated_at = datetime.now(timezone.utc)
+        
+        # Create notification for professional
+        await notification_service.create_notification(
+            self.db,
+            user_id=user_id,
+            type="system",
+            title="⚠️ Document Needs Attention",
+            description=f"Your identity verification was not approved. Reason: {rejection_reason or 'Please review and resubmit.'}",
+            action_url="/dashboard/verification",
+            action_text="Resubmit Documents",
+            extra_data={"verification_type": "identity", "rejection_reason": rejection_reason}
+        )
         
         await self.db.commit()
         await self.db.refresh(verification)
@@ -348,6 +373,24 @@ class VerificationService:
         credential.rejection_reason = None
         credential.updated_at = datetime.now(timezone.utc)
         
+        # Create notification for professional
+        credential_display = credential.credential_name or credential.credential_type or "credential"
+        await notification_service.create_notification(
+            self.db,
+            user_id=credential.professional_id,
+            type="system",
+            title="✅ Credential Verified",
+            description=f"Your {credential_display} has been verified and is now visible on your profile.",
+            action_url="/v2/partner/body-expert",
+            action_text="View Profile",
+            extra_data={
+                "verification_type": "credential",
+                "credential_id": credential_id,
+                "credential_type": credential.credential_type,
+                "credential_name": credential.credential_name
+            }
+        )
+        
         await self.db.commit()
         await self.db.refresh(credential)
         
@@ -370,6 +413,23 @@ class VerificationService:
         credential.verified_by_user_id = admin_user_id
         credential.rejection_reason = rejection_reason
         credential.updated_at = datetime.now(timezone.utc)
+        
+        # Create notification for professional
+        credential_display = credential.credential_name or credential.credential_type or "credential"
+        await notification_service.create_notification(
+            self.db,
+            user_id=credential.professional_id,
+            type="system",
+            title="⚠️ Credential Not Approved",
+            description=f"Your {credential_display} could not be verified. Reason: {rejection_reason or 'Please check details and resubmit.'}",
+            action_url="/dashboard/verification",
+            action_text="Update Credential",
+            extra_data={
+                "verification_type": "credential",
+                "credential_id": credential_id,
+                "rejection_reason": rejection_reason
+            }
+        )
         
         await self.db.commit()
         await self.db.refresh(credential)

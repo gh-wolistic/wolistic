@@ -58,6 +58,18 @@ export type TodaySession = {
   status: string;
 };
 
+export type TodayActivity = {
+  id: string;
+  activity_type: string;
+  timestamp: string;
+  icon: string;
+  title: string;
+  description: string | null;
+  action_url: string | null;
+  priority: "high" | "normal" | "low";
+  metadata?: Record<string, any> | null;
+};
+
 export type PartnerDashboardAggregate = {
   overview: {
     membership_tier: string | null;
@@ -140,3 +152,29 @@ export async function getPartnerDashboardData(token: string): Promise<PartnerDas
 
   return { editor, aggregate, recentCoinTransactions };
 }
+
+/**
+ * Fetch today's activity timeline for the professional
+ * Returns all activities that happened today: bookings, reviews, enrollments, etc.
+ */
+export async function getTodayActivity(token: string): Promise<TodayActivity[]> {
+  try {
+    const response = await fetch(`${API_BASE}/partners/me/today-activity`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error("Failed to fetch today's activity:", response.status);
+      return [];
+    }
+    
+    return (await response.json()) as TodayActivity[];
+  } catch (error) {
+    console.error("Error fetching today's activity:", error);
+    return [];
+  }
+}
+

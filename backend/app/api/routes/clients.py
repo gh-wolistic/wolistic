@@ -17,6 +17,7 @@ from app.models.client import (
     ExpertLead,
 )
 from app.models.professional import Professional
+from app.services import notification as notification_service
 from app.schemas.client import (
     ClientsBoardOut,
     DashboardMetricsOut,
@@ -231,6 +232,30 @@ async def create_followup(
     db.add(followup)
     await db.commit()
     await db.refresh(followup)
+    
+    # Schedule reminder notification for due date
+    from datetime import timezone
+    now = datetime.now(timezone.utc)
+    days_until_due = (payload.due_date - now).days
+    
+    if days_until_due <= 1:  # Due today or tomorrow
+        when = "today" if days_until_due == 0 else "tomorrow"
+        await notification_service.create_notification(
+            db,
+            user_id=professional.user_id,
+            type="followup",
+            title=f"📋 Follow-up Due {when.title()}",
+            description=f"Reminder: {client.name} - {payload.note[:100] if payload.note else 'Follow-up scheduled'}",
+            action_url="/v2/partner/body-expert/clients",
+            action_text="View Follow-ups",
+            extra_data={
+                "followup_id": followup.id,
+                "client_id": payload.client_id,
+                "client_name": client.name,
+                "due_date": payload.due_date.isoformat()
+            }
+        )
+    
     return await _build_followup_out(followup, db)
 
 
