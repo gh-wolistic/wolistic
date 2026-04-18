@@ -178,6 +178,17 @@ This is the single source of truth for active work tracking in `docs/`.
 		- Location conflicts (if same location double-booked)
 		- Suggested resolution actions (reschedule, cancel, adjust time)
 
+- [ ] Classes & Sessions — Analytics & Insights (Peak Hours, Open Slots)
+	- Backend: Analytics endpoints to analyze session/booking timestamps
+		- Calculate peak booking hours based on actual enrollment/booking data
+		- Identify available time slots from professional's schedule
+		- Time-based demand metrics (hourly/daily patterns)
+	- Frontend: Display real-time insights in Classes Manager
+		- Peak Hours: Visual chart showing high-demand time slots with percentages
+		- Open Slots: Available booking windows based on actual schedule gaps
+		- Replace current dummy data with API-driven analytics
+	- Note: UI mockup exists but currently hidden; uses hardcoded demo data
+
 ### Other Phase 2+ Features
 
 - [ ] In-app messaging system (professional ↔ client communication)

@@ -1809,64 +1809,66 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
               })()}
             </EliteGlassCard>
 
-            {/* Quick Insights */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <EliteGlassCard className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 p-3 border border-amber-400/20">
-                    <Clock className="size-6 text-amber-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-white mb-3">Peak Hours</h3>
-                    <div className="space-y-2">
-                      {[
-                        { label: "6:00 AM - 8:00 AM", pct: 85, color: "amber" },
-                        { label: "5:00 PM - 7:00 PM", pct: 70, color: "amber" },
-                        { label: "10:00 AM - 12:00 PM", pct: 45, color: "emerald" },
-                      ].map((row) => (
-                        <div key={row.label} className="flex items-center justify-between">
-                          <span className="text-xs text-zinc-400">{row.label}</span>
-                          <div className="flex items-center gap-2">
-                            <div className="h-1.5 w-20 bg-white/10 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full bg-gradient-to-r ${row.color === "amber" ? "from-amber-500 to-orange-500" : "from-emerald-500 to-emerald-600"}`}
-                                style={{ width: `${row.pct}%` }}
-                              />
+            {/* Quick Insights - HIDDEN: Phase 2 feature (analytics backend not yet implemented) */}
+            {false && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <EliteGlassCard className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 p-3 border border-amber-400/20">
+                      <Clock className="size-6 text-amber-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-white mb-3">Peak Hours</h3>
+                      <div className="space-y-2">
+                        {[
+                          { label: "6:00 AM - 8:00 AM", pct: 85, color: "amber" },
+                          { label: "5:00 PM - 7:00 PM", pct: 70, color: "amber" },
+                          { label: "10:00 AM - 12:00 PM", pct: 45, color: "emerald" },
+                        ].map((row) => (
+                          <div key={row.label} className="flex items-center justify-between">
+                            <span className="text-xs text-zinc-400">{row.label}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="h-1.5 w-20 bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full bg-gradient-to-r ${row.color === "amber" ? "from-amber-500 to-orange-500" : "from-emerald-500 to-emerald-600"}`}
+                                  style={{ width: `${row.pct}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs font-medium ${row.color === "amber" ? "text-amber-400" : "text-emerald-400"}`}>{row.pct}%</span>
                             </div>
-                            <span className={`text-xs font-medium ${row.color === "amber" ? "text-amber-400" : "text-emerald-400"}`}>{row.pct}%</span>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </EliteGlassCard>
-              <EliteGlassCard className="p-6">
-                <div className="flex items-start gap-4">
-                  <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 p-3 border border-emerald-400/20">
-                    <CalendarCheck className="size-6 text-emerald-400" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-semibold text-white mb-3">Open Slots</h3>
-                    <div className="space-y-2">
-                      {[
-                        { time: "Early Morning", period: "5:00 - 6:00 AM" },
-                        { time: "Afternoon", period: "2:00 - 4:00 PM" },
-                        { time: "Late Evening", period: "8:00 - 10:00 PM" },
-                      ].map((slot) => (
-                        <div key={slot.time} className="flex items-center justify-between py-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="size-1.5 rounded-full bg-emerald-400" />
-                            <span className="text-xs font-medium text-white">{slot.time}</span>
+                </EliteGlassCard>
+                <EliteGlassCard className="p-6">
+                  <div className="flex items-start gap-4">
+                    <div className="rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 p-3 border border-emerald-400/20">
+                      <CalendarCheck className="size-6 text-emerald-400" />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-white mb-3">Open Slots</h3>
+                      <div className="space-y-2">
+                        {[
+                          { time: "Early Morning", period: "5:00 - 6:00 AM" },
+                          { time: "Afternoon", period: "2:00 - 4:00 PM" },
+                          { time: "Late Evening", period: "8:00 - 10:00 PM" },
+                        ].map((slot) => (
+                          <div key={slot.time} className="flex items-center justify-between py-1.5">
+                            <div className="flex items-center gap-2">
+                              <div className="size-1.5 rounded-full bg-emerald-400" />
+                              <span className="text-xs font-medium text-white">{slot.time}</span>
+                            </div>
+                            <span className="text-xs text-zinc-500">{slot.period}</span>
                           </div>
-                          <span className="text-xs text-zinc-500">{slot.period}</span>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              </EliteGlassCard>
-            </div>
+                </EliteGlassCard>
+              </div>
+            )}
           </div>
         )}
 
