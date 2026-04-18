@@ -38,6 +38,7 @@ export interface SessionSchedule {
   session_date: string;
   start_time: string;
   enrolled_count: number;
+  interest_count?: number;
   status?: SessionStatus; // draft, published, cancelled
   published_at?: string | null;
   cancelled_at?: string | null;

@@ -21,7 +21,7 @@ export const classesManagerTutorialSteps: Step[] = [
       </div>
     ),
     placement: "center",
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: ".tutorial-create-class-button",

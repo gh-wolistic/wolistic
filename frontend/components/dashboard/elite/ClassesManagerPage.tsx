@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, Fragment } from "react";
 import dynamic from "next/dynamic";
-import type { CallBackProps, Step } from "react-joyride";
+import type { EventData, Step } from "react-joyride";
 import {
   CalendarDays,
   Plus,
@@ -82,6 +82,7 @@ import {
   markAttendance,
   getSessionEnrollments,
   listExpiringClasses,
+  renewClass,
   type WorkLocation,
   type GroupClass,
   type ClassEnrollment,
@@ -1460,7 +1461,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                                             <Users className="size-4 text-zinc-500" />
                                             <span className="text-white font-medium">{session.enrolled_count}</span>
                                             <span className="text-zinc-500">enrolled</span>
-                                            {session.interest_count > 0 && (
+                                            {(session.interest_count ?? 0) > 0 && (
                                               <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium">
                                                 +{session.interest_count} interested
                                               </span>
@@ -1785,7 +1786,12 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => openAttendanceModal(session.sessionId, session.sessionDate)}
+                          onClick={() => openAttendanceModal(
+                            session.sessionId, 
+                            session.sessionDate, 
+                            session.classItem.title, 
+                            session.startTime
+                          )}
                           className="bg-emerald-500/10 border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/20 hover:text-emerald-300"
                         >
                           <UserCheck className="size-4 mr-2" />
@@ -2734,7 +2740,7 @@ export function ClassesManagerPage({ specialization = "", subcategories = [] }: 
             },
           },
         }}
-        callback={(data: CallBackProps) => {
+        onEvent={(data: EventData) => {
           const { status } = data;
           
           if (["finished", "skipped"].includes(status as any)) {
