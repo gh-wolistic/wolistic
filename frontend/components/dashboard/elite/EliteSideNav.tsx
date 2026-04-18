@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import {
-  LayoutDashboard,
   Activity,
   Users,
   CalendarDays,
@@ -18,6 +17,7 @@ import {
   ChevronRight,
   Menu,
 } from "lucide-react";
+import type { UserSubtype } from "@/components/onboarding/types";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,53 @@ import { cn } from "@/components/ui/utils";
 import logoLightText from "@/assets/logo_light_text.png";
 import { notificationAPI } from "@/lib/notification-api";
 import type { ElitePageView } from "./types";
+
+/**
+ * Role-based dashboard configuration.
+ * Future: Extend with role-specific nav items, features, and customizations.
+ */
+const ROLE_CONFIG: Record<
+  UserSubtype,
+  { consoleLabel: string; dashboardTitle: string }
+> = {
+  body_expert: {
+    consoleLabel: "Body Expert Console",
+    dashboardTitle: "Body Expert Dashboard",
+  },
+  mind_expert: {
+    consoleLabel: "Mind Expert Console",
+    dashboardTitle: "Mind Expert Dashboard",
+  },
+  diet_expert: {
+    consoleLabel: "Diet Expert Console",
+    dashboardTitle: "Diet Expert Dashboard",
+  },
+  mutiple_roles: {
+    consoleLabel: "Expert Console",
+    dashboardTitle: "Expert Dashboard",
+  },
+  brand: {
+    consoleLabel: "Brand Console",
+    dashboardTitle: "Brand Dashboard",
+  },
+  influencer: {
+    consoleLabel: "Influencer Console",
+    dashboardTitle: "Influencer Dashboard",
+  },
+  client: {
+    consoleLabel: "Dashboard",
+    dashboardTitle: "Dashboard",
+  },
+};
+
+/**
+ * Get the console label for a given user role.
+ * Defaults to generic "Expert Console" if role is not recognized.
+ */
+function getConsoleLabel(userSubtype: UserSubtype | null): string {
+  if (!userSubtype) return "Expert Console";
+  return ROLE_CONFIG[userSubtype]?.consoleLabel ?? "Expert Console";
+}
 
 interface NavItem {
   icon: React.ElementType;
@@ -37,21 +84,41 @@ interface NavItem {
   href?: string;
 }
 
-const baseNavItems: NavItem[] = [
-  { icon: LayoutDashboard, label: "Home", section: "main", page: "dashboard" },
-  { icon: Activity, label: "Body Expert Console", section: "main", page: "dashboard" },
-  { icon: Users, label: "Client Manager", section: "main", page: "clients" },
-  { icon: MessageSquare, label: "Messages", section: "main", page: "messages" },
-  { icon: Kanban, label: "Activity Manager", section: "main", page: "activities" },
-  { icon: CalendarDays, label: "Sessions", section: "main", page: "classes" },
-  { icon: UserSquare2, label: "Profile Studio", section: "main", page: "profile" },
-  { icon: Settings, label: "Settings", section: "main", page: "settings" },
-  { icon: Gem, label: "Subscription", special: "upgrade", section: "upgrade", page: "subscription" },
-  { icon: Coins, label: "Wolistic Coins", special: "coins", section: "upgrade", page: "coins" },
-];
+/**
+ * Build navigation items based on user role.
+ * Future: Add role-specific nav items here (e.g., different items for mind_expert vs body_expert).
+ */
+function buildNavItems(userSubtype: UserSubtype | null): NavItem[] {
+  const consoleLabel = getConsoleLabel(userSubtype);
+
+  // Base nav items common to all roles
+  const items: NavItem[] = [
+    { icon: Activity, label: consoleLabel, section: "main", page: "dashboard" },
+    { icon: Users, label: "Client Manager", section: "main", page: "clients" },
+    { icon: MessageSquare, label: "Messages", section: "main", page: "messages" },
+    { icon: Kanban, label: "Activity Manager", section: "main", page: "activities" },
+    { icon: CalendarDays, label: "Sessions", section: "main", page: "classes" },
+    { icon: UserSquare2, label: "Profile Studio", section: "main", page: "profile" },
+    { icon: Settings, label: "Settings", section: "main", page: "settings" },
+    { icon: Gem, label: "Subscription", special: "upgrade", section: "upgrade", page: "subscription" },
+    { icon: Coins, label: "Wolistic Coins", special: "coins", section: "upgrade", page: "coins" },
+  ];
+
+  // Future: Add role-specific nav items
+  // Example:
+  // if (userSubtype === "mind_expert") {
+  //   items.splice(3, 0, { icon: Brain, label: "Therapy Sessions", section: "main", page: "therapy" });
+  // }
+  // if (userSubtype === "diet_expert") {
+  //   items.splice(3, 0, { icon: Apple, label: "Meal Plans", section: "main", page: "meal-plans" });
+  // }
+
+  return items;
+}
 
 interface EliteSideNavProps {
   userInitials?: string;
+  userSubtype?: UserSubtype | null;
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
   currentPage?: ElitePageView;
@@ -62,12 +129,14 @@ interface EliteSideNavProps {
 function NavContent({
   collapsed,
   userInitials,
+  userSubtype,
   currentPage = "dashboard",
   onPageChange,
   onSignOut,
 }: {
   collapsed: boolean;
   userInitials: string;
+  userSubtype: UserSubtype | null;
   currentPage?: ElitePageView;
   onPageChange?: (page: ElitePageView) => void;
   onSignOut?: () => void;
@@ -92,8 +161,8 @@ function NavContent({
     return () => clearInterval(interval);
   }, []);
 
-  // Create dynamic navItems with badge based on unread count
-  const navItems = baseNavItems.map(item => 
+  // Build nav items based on user role
+  const navItems = buildNavItems(userSubtype).map(item => 
     item.label === "Messages" 
       ? { ...item, badge: unreadMessageCount > 0 }
       : item
@@ -216,6 +285,7 @@ function NavContent({
 
 export function EliteSideNav({
   userInitials = "WL",
+  userSubtype = null,
   collapsed: controlledCollapsed,
   onCollapsedChange,
   currentPage = "dashboard",
@@ -256,6 +326,7 @@ export function EliteSideNav({
             <NavContent
               collapsed={false}
               userInitials={userInitials}
+              userSubtype={userSubtype}
               currentPage={currentPage}
               onPageChange={handleMobilePageChange}
               onSignOut={onSignOut}
@@ -274,6 +345,7 @@ export function EliteSideNav({
         <NavContent
           collapsed={collapsed}
           userInitials={userInitials}
+          userSubtype={userSubtype}
           currentPage={currentPage}
           onPageChange={onPageChange}
           onSignOut={onSignOut}

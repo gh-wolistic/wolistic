@@ -101,6 +101,7 @@ export function EliteBodyExpertShell({ initialPage = "dashboard" }: EliteBodyExp
       {/* Side Navigation */}
       <EliteSideNav
         userInitials={userInitials}
+        userSubtype={user.userSubtype}
         collapsed={sidebarCollapsed}
         onCollapsedChange={setSidebarCollapsed}
         currentPage={currentPage}
