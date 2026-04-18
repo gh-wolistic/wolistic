@@ -137,11 +137,17 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                         {professional.subcategories && professional.subcategories.length > 0 ? (
                           // Show subcategories if available
                           professional.subcategories.map((subcat) => (
-                            <StatusChip key={subcat} label={subcat} tone="featured" />
+                            <Badge key={subcat} variant="secondary" className="bg-muted/50 text-foreground border-border/40">
+                              {subcat}
+                            </Badge>
                           ))
                         ) : (
                           // Fallback to category if no subcategories
-                          professional.category && <StatusChip label={professional.category} tone="featured" />
+                          professional.category && (
+                            <Badge variant="secondary" className="bg-muted/50 text-foreground border-border/40">
+                              {professional.category}
+                            </Badge>
+                          )
                         )}
                       </div>
 
@@ -149,7 +155,7 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                       {displayCertificates.length > 0 && (
                         <div className="flex flex-wrap gap-2">
                           {displayCertificates.map((certLabel, index) => (
-                            <Badge key={`cert-${certLabel}-${index}`} variant="outline">
+                            <Badge key={`cert-${certLabel}-${index}`} variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                               {certLabel}
                             </Badge>
                           ))}
@@ -162,7 +168,6 @@ export function ExpertHeroSection({ professional, onBookConsultation, onBookSess
                           {displayLicenses.map((license) => (
                             <Badge key={`license-${license.id}`} variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                               {license.name}
-                              {license.license_number && ` • ${license.license_number}`}
                             </Badge>
                           ))}
                         </div>

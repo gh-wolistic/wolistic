@@ -274,8 +274,8 @@ class VerificationService:
             credentials_count=len(credentials),
             approved_credentials_count=len(approved_credentials),
             pending_credentials_count=len(pending_credentials),
-            can_appear_in_search=can_appear_in_search,
-            visibility_blockers=visibility_blockers,
+            is_searchable=can_appear_in_search,
+            search_hide_reason="; ".join(visibility_blockers) if visibility_blockers else None,
         )
     
     # ================================================================
@@ -285,7 +285,7 @@ class VerificationService:
     async def admin_approve_identity(
         self,
         user_id: uuid.UUID,
-        admin_user_id: uuid.UUID
+        admin_user_id: Optional[uuid.UUID] = None
     ) -> IdentityVerificationOut:
         """Admin approves identity verification."""
         verification = await self.db.get(ProfessionalIdentityVerification, user_id)
@@ -309,8 +309,8 @@ class VerificationService:
     async def admin_reject_identity(
         self,
         user_id: uuid.UUID,
-        admin_user_id: uuid.UUID,
-        rejection_reason: str
+        admin_user_id: Optional[uuid.UUID] = None,
+        rejection_reason: str = ""
     ) -> IdentityVerificationOut:
         """Admin rejects identity verification."""
         verification = await self.db.get(ProfessionalIdentityVerification, user_id)
@@ -331,7 +331,7 @@ class VerificationService:
     async def admin_approve_credential(
         self,
         credential_id: int,
-        admin_user_id: uuid.UUID
+        admin_user_id: Optional[uuid.UUID] = None
     ) -> CredentialVerificationOut:
         """Admin approves credential verification."""
         credential = await self.db.get(CredentialVerification, credential_id)
@@ -356,8 +356,8 @@ class VerificationService:
     async def admin_reject_credential(
         self,
         credential_id: int,
-        admin_user_id: uuid.UUID,
-        rejection_reason: str
+        admin_user_id: Optional[uuid.UUID] = None,
+        rejection_reason: str = ""
     ) -> CredentialVerificationOut:
         """Admin rejects credential verification."""
         credential = await self.db.get(CredentialVerification, credential_id)

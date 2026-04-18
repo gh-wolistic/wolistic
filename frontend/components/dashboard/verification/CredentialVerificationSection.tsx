@@ -108,13 +108,14 @@ export function CredentialVerificationSection({
       // Upload document if selected
       if (selectedFile) {
         setUploadProgress("Requesting upload URL...");
-        const { upload_url, file_path } = await generateIdentityUploadUrl({
-          file_name: selectedFile.name,
-          file_size: selectedFile.size,
+        const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase() || 'pdf';
+        const { bucket, file_path } = await generateIdentityUploadUrl({
+          bucket: 'professional-credentials',
+          file_extension: fileExtension,
         });
 
         setUploadProgress("Uploading document...");
-        await uploadDocumentToSupabase(upload_url, selectedFile);
+        await uploadDocumentToSupabase(bucket, file_path, selectedFile);
         documentUrl = file_path;
       }
 

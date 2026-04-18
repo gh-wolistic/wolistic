@@ -35,6 +35,12 @@ import type {
   OfferCreate,
   OfferAssignment,
   OfferAssignmentListResponse,
+  VerificationQueueResponse,
+  VerificationFilters,
+  IdentityVerification,
+  CredentialVerification,
+  ApproveVerificationRequest,
+  RejectVerificationRequest,
   ApiError,
 } from "@/types/admin";
 
@@ -443,6 +449,33 @@ export const sessionApi = {
 };
 
 // ============================================================================
+// Verification Management
+// ============================================================================
+
+export const verificationApi = {
+  getQueue: (filters?: VerificationFilters) =>
+    client.get<VerificationQueueResponse>("/admin/verification/queue", filters as Record<string, unknown>),
+
+  getDocumentUrl: (documentPath: string, bucketType: "identity" | "credential") =>
+    client.get<{ signed_url: string }>("/admin/verification/document-url", { 
+      document_path: documentPath, 
+      bucket_type: bucketType 
+    }),
+
+  approveIdentity: (userId: string, data?: ApproveVerificationRequest) =>
+    client.post<IdentityVerification>(`/admin/verification/identity/${userId}/approve`, data || {}),
+
+  rejectIdentity: (userId: string, data: RejectVerificationRequest) =>
+    client.post<IdentityVerification>(`/admin/verification/identity/${userId}/reject`, data),
+
+  approveCredential: (credentialId: number, data?: ApproveVerificationRequest) =>
+    client.post<CredentialVerification>(`/admin/verification/credential/${credentialId}/approve`, data || {}),
+
+  rejectCredential: (credentialId: number, data: RejectVerificationRequest) =>
+    client.post<CredentialVerification>(`/admin/verification/credential/${credentialId}/reject`, data),
+};
+
+// ============================================================================
 // Export all APIs
 // ============================================================================
 
@@ -454,6 +487,7 @@ export const adminApi = {
   subscriptions: subscriptionApi,
   audit: auditApi,
   analytics: analyticsApi,
+  verifications: verificationApi,
   session: sessionApi,
 };
 

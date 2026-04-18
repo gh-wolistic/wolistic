@@ -503,3 +503,78 @@ export interface AuditLogFilters extends PaginationParams {
   from_date?: string;
   to_date?: string;
 }
+
+// ============================================================================
+// Verification Management
+// ============================================================================
+
+export type DocumentType = "aadhaar" | "passport" | "drivers_license" | "pan_card";
+export type CredentialType = "education" | "certificate" | "license";
+export type VerificationStatus = "pending" | "approved" | "rejected" | "expired" | "auto_verified";
+
+export interface IdentityVerification {
+  user_id: string;
+  document_type: DocumentType;
+  verification_status: VerificationStatus;
+  verified_at: string | null;
+  rejection_reason: string | null;
+  grace_period_expires_at: string | null;
+  submitted_at: string;
+  document_url?: string;
+}
+
+export interface CredentialVerification {
+  id: number;
+  professional_id: string;
+  credential_type: CredentialType;
+  credential_subtype: string | null;
+  credential_name: string;
+  issuing_organization: string;
+  issued_date: string | null;
+  expiry_date: string | null;
+  license_number: string | null;
+  registry_link: string | null;
+  verification_status: VerificationStatus;
+  verification_method: string | null;
+  verified_at: string | null;
+  rejection_reason: string | null;
+  submitted_at: string;
+  document_url?: string;
+}
+
+export interface VerificationQueueItem {
+  verification_id: number | string;
+  verification_type: "identity" | "credential";
+  professional_id: string;
+  professional_username: string;
+  professional_name: string;
+  document_type?: DocumentType;
+  credential_type?: CredentialType;
+  credential_name?: string;
+  issuing_organization?: string;
+  document_url?: string;
+  verification_status: VerificationStatus;
+  submitted_at: string;
+  days_pending: number;
+}
+
+export interface VerificationQueueResponse {
+  items: VerificationQueueItem[];
+  total_count: number;
+  pending_identity_count: number;
+  pending_credential_count: number;
+  expiring_licenses_count: number;
+}
+
+export interface ApproveVerificationRequest {
+  notes?: string;
+}
+
+export interface RejectVerificationRequest {
+  rejection_reason: string;
+}
+
+export interface VerificationFilters extends PaginationParams {
+  queue_type?: "identity" | "credential" | "expiring_licenses";
+  status_filter?: "pending" | "approved" | "rejected";
+}

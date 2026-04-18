@@ -70,7 +70,10 @@ export default function ProfessionalDetailPage({ params }: { params: Promise<{ i
     try {
       await adminApi.professionals.updateTier(id, tier, durationMonths, offerCode);
       if (professional) {
-        setProfessional({ ...professional, membership_tier: tier });
+        setProfessional({ 
+          ...professional, 
+          profile: { ...professional.profile, membership_tier: tier as any }
+        });
       }
     } catch (err) {
       console.error("Failed to update tier:", err);

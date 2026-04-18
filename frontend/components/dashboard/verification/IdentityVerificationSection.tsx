@@ -71,16 +71,16 @@ export function IdentityVerificationSection({
 
     try {
       // Step 1: Get upload URL from backend
-      const { upload_url, file_path } = await generateIdentityUploadUrl({
-        file_name: selectedFile.name,
-        file_size: selectedFile.size,
-        document_type: documentType,
+      const fileExtension = selectedFile.name.split('.').pop()?.toLowerCase() || 'pdf';
+      const { bucket, file_path } = await generateIdentityUploadUrl({
+        bucket: 'professional-identity-documents',
+        file_extension: fileExtension,
       });
 
       setUploadProgress("Uploading document...");
 
       // Step 2: Upload file directly to Supabase
-      await uploadDocumentToSupabase(upload_url, selectedFile);
+      await uploadDocumentToSupabase(bucket, file_path, selectedFile);
 
       setUploadProgress("Confirming upload...");
 

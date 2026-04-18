@@ -230,15 +230,10 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                             {cert.issuer}
                           </p>
                         </div>
-                        <Badge variant="outline" className="shrink-0">
+                        <Badge variant="secondary" className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                           Verified
                         </Badge>
                       </div>
-                      {cert.issued_date && (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          Issued {new Date(cert.issued_date).toLocaleDateString()}
-                        </p>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -249,7 +244,6 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                       <tr>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Certification</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Issuer</th>
-                        <th className="px-4 py-3 text-left font-medium text-foreground">Issued Date</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Status</th>
                       </tr>
                     </thead>
@@ -261,11 +255,8 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                         >
                           <td className="px-4 py-3 text-foreground">{cert.name}</td>
                           <td className="px-4 py-3 text-muted-foreground">{cert.issuer}</td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {cert.issued_date ? new Date(cert.issued_date).toLocaleDateString() : "—"}
-                          </td>
                           <td className="px-4 py-3">
-                            <Badge variant="outline" className="shrink-0">
+                            <Badge variant="secondary" className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                               Verified
                             </Badge>
                           </td>
@@ -295,21 +286,11 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                           <p className="mt-1 text-xs text-muted-foreground">
                             {license.issuer}
                           </p>
-                          {license.license_number && (
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              License #{license.license_number}
-                            </p>
-                          )}
                         </div>
                         <Badge variant="secondary" className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                           Verified
                         </Badge>
                       </div>
-                      {license.expiry_date && (
-                        <p className="mt-3 text-xs text-muted-foreground">
-                          Valid until {new Date(license.expiry_date).toLocaleDateString()}
-                        </p>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -320,8 +301,6 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                       <tr>
                         <th className="px-4 py-3 text-left font-medium text-foreground">License</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Issuer</th>
-                        <th className="px-4 py-3 text-left font-medium text-foreground">License #</th>
-                        <th className="px-4 py-3 text-left font-medium text-foreground">Valid Until</th>
                         <th className="px-4 py-3 text-left font-medium text-foreground">Status</th>
                       </tr>
                     </thead>
@@ -333,12 +312,6 @@ export function AboutServicesSection({ professional, bookingStartSignal }: About
                         >
                           <td className="px-4 py-3 text-foreground">{license.name}</td>
                           <td className="px-4 py-3 text-muted-foreground">{license.issuer}</td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {license.license_number || "—"}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">
-                            {license.expiry_date ? new Date(license.expiry_date).toLocaleDateString() : "—"}
-                          </td>
                           <td className="px-4 py-3">
                             <Badge variant="secondary" className="shrink-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
                               Verified

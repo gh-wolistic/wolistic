@@ -3,16 +3,16 @@ Admin verification API routes.
 
 Endpoints for admin to review and approve/reject verification submissions.
 """
+import os
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.core.auth import AuthenticatedUser, get_current_user
 from app.core.database import get_db_session
 from app.models.professional import Professional
 from app.models.user import User
@@ -29,26 +29,31 @@ from app.schemas.verification import (
     VerificationQueueResponse,
 )
 from app.services.verification import VerificationService
+from app.services.verification_storage import VerificationStorageService
+from app.core.supabase import get_supabase_client
 
 
-async def require_admin(
-    current_user: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db_session),
+# System admin UUID for API key authenticated requests
+SYSTEM_ADMIN_UUID = uuid.UUID("00000000-0000-0000-0000-000000000001")
+
+
+def require_admin_api_key(
+    x_admin_key: str = Header(None, alias="X-Admin-Key")
 ):
-    """Dependency to ensure current user is an admin."""
-    user = await db.get(User, current_user.user_id)
-    if not user or user.user_type != "admin":
+    """Validate admin API key for verification endpoints."""
+    expected_key = os.getenv("ADMIN_API_KEY", "MochaMaple@26")
+    if not x_admin_key or x_admin_key != expected_key:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required"
+            detail="Invalid or missing admin API key"
         )
-    return current_user
+    return x_admin_key
 
 
 router = APIRouter(
     prefix="/admin/verification",
     tags=["admin-verification"],
-    dependencies=[Depends(require_admin)],
+    dependencies=[Depends(require_admin_api_key)],
 )
 
 
@@ -111,7 +116,7 @@ async def get_verification_queue(
         identity_rows = result.all()
         
         for verification, professional, user in identity_rows:
-            days_pending = (datetime.utcnow() - verification.submitted_at).days
+            days_pending = (datetime.now(timezone.utc) - verification.submitted_at).days
             items.append(
                 ProfessionalVerificationQueueItem(
                     verification_id=verification.user_id,
@@ -120,6 +125,7 @@ async def get_verification_queue(
                     professional_username=professional.username,
                     professional_name=user.full_name or "Unknown",
                     document_type=verification.document_type,
+                    document_url=verification.document_url,
                     verification_status=verification.verification_status,
                     submitted_at=verification.submitted_at,
                     days_pending=days_pending,
@@ -147,7 +153,7 @@ async def get_verification_queue(
         credential_rows = result.all()
         
         for verification, professional, user in credential_rows:
-            days_pending = (datetime.utcnow() - verification.submitted_at).days
+            days_pending = (datetime.now(timezone.utc) - verification.submitted_at).days
             items.append(
                 ProfessionalVerificationQueueItem(
                     verification_id=verification.id,
@@ -158,6 +164,7 @@ async def get_verification_queue(
                     credential_type=verification.credential_type,
                     credential_name=verification.credential_name,
                     issuing_organization=verification.issuing_organization,
+                    document_url=verification.document_url,
                     verification_status=verification.verification_status,
                     submitted_at=verification.submitted_at,
                     days_pending=days_pending,
@@ -166,7 +173,7 @@ async def get_verification_queue(
     
     # Query expiring licenses
     if queue_type == "expiring_licenses":
-        expiry_threshold = datetime.utcnow().date() + timedelta(days=30)
+        expiry_threshold = datetime.now(timezone.utc).date() + timedelta(days=30)
         expiring_stmt = (
             select(
                 CredentialVerification,
@@ -180,7 +187,7 @@ async def get_verification_queue(
                     CredentialVerification.credential_type == "license",
                     CredentialVerification.verification_status == "approved",
                     CredentialVerification.expiry_date <= expiry_threshold,
-                    CredentialVerification.expiry_date >= datetime.utcnow().date()
+                    CredentialVerification.expiry_date >= datetime.now(timezone.utc).date()
                 )
             )
             .order_by(CredentialVerification.expiry_date.asc())
@@ -203,6 +210,7 @@ async def get_verification_queue(
                     credential_type=verification.credential_type,
                     credential_name=verification.credential_name,
                     issuing_organization=verification.issuing_organization,
+                    document_url=verification.document_url,
                     verification_status=verification.verification_status,
                     submitted_at=verification.submitted_at,
                     days_pending=days_pending,
@@ -222,13 +230,13 @@ async def get_verification_queue(
     pending_credential_result = await db.execute(pending_credential_count_stmt)
     pending_credential_count = pending_credential_result.scalar() or 0
     
-    expiry_threshold = datetime.utcnow().date() + timedelta(days=30)
+    expiry_threshold = datetime.now(timezone.utc).date() + timedelta(days=30)
     expiring_licenses_stmt = select(func.count()).select_from(CredentialVerification).where(
         and_(
             CredentialVerification.credential_type == "license",
             CredentialVerification.verification_status == "approved",
             CredentialVerification.expiry_date <= expiry_threshold,
-            CredentialVerification.expiry_date >= datetime.utcnow().date()
+            CredentialVerification.expiry_date >= datetime.now(timezone.utc).date()
         )
     )
     expiring_licenses_result = await db.execute(expiring_licenses_stmt)
@@ -243,6 +251,43 @@ async def get_verification_queue(
     )
 
 
+@router.get(
+    "/document-url",
+    summary="Get signed URL for document preview",
+)
+async def get_document_signed_url(
+    document_path: str = Query(..., description="Document path in storage"),
+    bucket_type: Literal["identity", "credential"] = Query(..., description="Bucket type"),
+):
+    """
+    Generate a temporary signed URL for viewing verification documents.
+    
+    **Admin Only**: Used for document preview in verification queue.
+    
+    Args:
+        document_path: File path in storage (e.g., "user_id/document.pdf")
+        bucket_type: "identity" or "credential"
+    
+    Returns:
+        {"signed_url": "https://..."}
+    """
+    supabase = get_supabase_client()
+    storage_service = VerificationStorageService(supabase)
+    
+    try:
+        signed_url = storage_service.get_signed_download_url(
+            document_url=document_path,
+            bucket_type=bucket_type,
+            expires_in_seconds=3600  # 1 hour
+        )
+        return {"signed_url": signed_url}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate signed URL: {str(e)}"
+        )
+
+
 # ================================================================
 # Identity Verification Actions
 # ================================================================
@@ -255,7 +300,6 @@ async def get_verification_queue(
 async def approve_identity_verification(
     user_id: uuid.UUID,
     data: AdminVerificationApprove,
-    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -272,7 +316,7 @@ async def approve_identity_verification(
     try:
         verification = await service.admin_approve_identity(
             user_id=user_id,
-            admin_user_id=current_user.user_id
+            admin_user_id=None  # API key authenticated
         )
         return verification
     except ValueError as e:
@@ -290,7 +334,6 @@ async def approve_identity_verification(
 async def reject_identity_verification(
     user_id: uuid.UUID,
     data: AdminVerificationReject,
-    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -307,7 +350,7 @@ async def reject_identity_verification(
     try:
         verification = await service.admin_reject_identity(
             user_id=user_id,
-            admin_user_id=current_user.user_id,
+            admin_user_id=None,  # API key authenticated
             rejection_reason=data.rejection_reason
         )
         return verification
@@ -330,7 +373,6 @@ async def reject_identity_verification(
 async def approve_credential_verification(
     credential_id: int,
     data: AdminVerificationApprove,
-    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -347,7 +389,7 @@ async def approve_credential_verification(
     try:
         credential = await service.admin_approve_credential(
             credential_id=credential_id,
-            admin_user_id=current_user.user_id
+            admin_user_id=None  # API key authenticated
         )
         return credential
     except ValueError as e:
@@ -365,7 +407,6 @@ async def approve_credential_verification(
 async def reject_credential_verification(
     credential_id: int,
     data: AdminVerificationReject,
-    current_user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db_session),
 ):
     """
@@ -382,7 +423,7 @@ async def reject_credential_verification(
     try:
         credential = await service.admin_reject_credential(
             credential_id=credential_id,
-            admin_user_id=current_user.user_id,
+            admin_user_id=None,  # API key authenticated
             rejection_reason=data.rejection_reason
         )
         return credential

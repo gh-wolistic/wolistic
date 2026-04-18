@@ -168,8 +168,8 @@ async def get_verification_status(
     - Identity verification status
     - All credentials with status
     - Summary counts
-    - **can_appear_in_search**: Boolean flag
-    - **visibility_blockers**: List of reasons why hidden (if any)
+    - **is_searchable**: Boolean flag indicating if professional appears in search
+    - **search_hide_reason**: Reason why hidden (if any)
     
     **Search Visibility Rules:**
     1. Identity verified OR within 7-day grace period
@@ -181,10 +181,8 @@ async def get_verification_status(
       "identity_verified": true,
       "credentials_count": 3,
       "approved_credentials_count": 2,
-      "can_appear_in_search": false,
-      "visibility_blockers": [
-        "Missing required license: Medical Council of India"
-      ]
+      "is_searchable": false,
+      "search_hide_reason": "Missing required license: Medical Council of India"
     }
     ```
     """

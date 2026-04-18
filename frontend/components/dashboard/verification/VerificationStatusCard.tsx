@@ -1,9 +1,8 @@
 "use client";
 
-import { CheckCircle2, XCircle, Clock, Shield, TrendingUp } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Shield } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import type { VerificationStatusResponse } from "@/lib/verification-api";
 
@@ -14,21 +13,6 @@ interface VerificationStatusCardProps {
 export function VerificationStatusCard({ status }: VerificationStatusCardProps) {
   const { identity_verification, credentials, is_searchable, search_hide_reason } = status;
 
-  // Calculate verification progress
-  const getTierProgress = (): {free: number; pro: number; elite: number} => {
-    const approvedCredentials = credentials.filter((c) => c.verification_status === "approved").length;
-    const hasEducation = credentials.some(
-      (c) => c.credential_type === "education" && c.verification_status === "approved"
-    );
-
-    return {
-      free: identity_verification?.verification_status === "approved" ? 100 : 0,
-      pro: identity_verification?.verification_status === "approved" && approvedCredentials >= 1 ? 100 : 0,
-      elite: identity_verification?.verification_status === "approved" && approvedCredentials >= 3 && hasEducation ? 100 : 0,
-    };
-  };
-
-  const progress = getTierProgress();
   const approvedCount = credentials.filter((c) => c.verification_status === "approved").length;
   const pendingCount = credentials.filter((c) => c.verification_status === "pending").length;
   const rejectedCount = credentials.filter((c) => c.verification_status === "rejected").length;
@@ -86,62 +70,6 @@ export function VerificationStatusCard({ status }: VerificationStatusCardProps) 
           <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-center">
             <div className="text-2xl font-bold text-red-400">{rejectedCount}</div>
             <p className="mt-1 text-xs text-zinc-400">Rejected</p>
-          </div>
-        </div>
-
-        {/* Tier Progress */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
-            <p className="text-sm font-medium text-white">Tier Requirements</p>
-          </div>
-
-          {/* Free Tier */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-zinc-300">Free Tier</p>
-              <span className="text-xs text-zinc-500">{progress.free}%</span>
-            </div>
-            <Progress value={progress.free} className="h-2" />
-            <p className="text-xs text-zinc-500">
-              {progress.free === 100 ? (
-                <span className="text-emerald-400">✓ Identity verified</span>
-              ) : (
-                "Requires: Identity verification"
-              )}
-            </p>
-          </div>
-
-          {/* Pro Tier */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-zinc-300">Pro Tier</p>
-              <span className="text-xs text-zinc-500">{progress.pro}%</span>
-            </div>
-            <Progress value={progress.pro} className="h-2" />
-            <p className="text-xs text-zinc-500">
-              {progress.pro === 100 ? (
-                <span className="text-emerald-400">✓ Ready for Pro upgrade</span>
-              ) : (
-                "Requires: Identity + 1 credential"
-              )}
-            </p>
-          </div>
-
-          {/* Elite Tier */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-zinc-300">Elite Tier</p>
-              <span className="text-xs text-zinc-500">{progress.elite}%</span>
-            </div>
-            <Progress value={progress.elite} className="h-2" />
-            <p className="text-xs text-zinc-500">
-              {progress.elite === 100 ? (
-                <span className="text-emerald-400">✓ Ready for Elite upgrade</span>
-              ) : (
-                "Requires: Identity + 3 credentials + 1 education"
-              )}
-            </p>
           </div>
         </div>
 

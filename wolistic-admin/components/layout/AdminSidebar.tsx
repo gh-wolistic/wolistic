@@ -6,6 +6,7 @@ import {
   Home, 
   Users, 
   Shield, 
+  ShieldCheck,
   Coins, 
   CreditCard, 
   TicketPercent,
@@ -61,6 +62,11 @@ export function AdminSidebar({ pendingCount = 0, onNavigate }: AdminSidebarProps
           href: "/dashboard/professionals",
           icon: UserCog,
           badge: pendingCount > 0 ? pendingCount : undefined,
+        },
+        {
+          label: "Verifications",
+          href: "/dashboard/verifications",
+          icon: ShieldCheck,
         },
         {
           label: "Users",

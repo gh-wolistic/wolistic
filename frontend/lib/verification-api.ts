@@ -14,13 +14,12 @@ export type VerificationStatus = 'pending' | 'approved' | 'rejected' | 'expired'
 export type CredentialType = 'education' | 'certificate' | 'license';
 
 export interface UploadUrlRequest {
-  file_name: string;
-  file_size: number;
-  document_type?: DocumentType;
+  bucket: 'professional-identity-documents' | 'professional-credentials';
+  file_extension: string;
 }
 
 export interface UploadUrlResponse {
-  upload_url: string;
+  bucket: string;
   file_path: string;
   expires_at: string;
 }
@@ -176,18 +175,20 @@ export async function deleteCredential(credentialId: number): Promise<void> {
 // ── Direct Supabase Upload ─────────────────────────────────────────────────
 
 export async function uploadDocumentToSupabase(
-  uploadUrl: string,
+  bucket: string,
+  filePath: string,
   file: File
 ): Promise<void> {
-  const response = await fetch(uploadUrl, {
-    method: 'PUT',
-    body: file,
-    headers: {
-      'Content-Type': file.type,
-    },
-  });
+  const supabase = getSupabaseBrowserClient();
+  
+  const { error } = await supabase.storage
+    .from(bucket)
+    .upload(filePath, file, {
+      contentType: file.type,
+      upsert: false,
+    });
 
-  if (!response.ok) {
-    throw new Error(`Upload failed: ${response.statusText}`);
+  if (error) {
+    throw new Error(`Upload failed: ${error.message}`);
   }
 }

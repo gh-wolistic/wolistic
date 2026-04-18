@@ -84,6 +84,7 @@ class CredentialVerificationOut(BaseModel):
     expiry_date: Optional[date] = None
     license_number: Optional[str] = None
     registry_link: Optional[str] = None
+    document_url: Optional[str] = None
     verification_status: Literal["pending", "approved", "rejected", "expired", "auto_verified"]
     verification_method: Optional[str] = None
     verified_at: Optional[datetime] = None
@@ -110,8 +111,8 @@ class VerificationStatusOut(BaseModel):
     pending_credentials_count: int = 0
     
     # Search visibility status
-    can_appear_in_search: bool = False
-    visibility_blockers: list[str] = []  # Reasons why professional is hidden
+    is_searchable: bool = False
+    search_hide_reason: Optional[str] = None  # Combined reason why professional is hidden
 
 
 # ================================================================
@@ -178,6 +179,7 @@ class ProfessionalVerificationQueueItem(BaseModel):
     credential_type: Optional[str] = None  # For credentials
     credential_name: Optional[str] = None
     issuing_organization: Optional[str] = None
+    document_url: Optional[str] = None  # Storage path for uploaded document
     
     verification_status: str
     submitted_at: datetime
